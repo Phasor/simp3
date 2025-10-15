@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SignupPage() {
@@ -65,7 +66,7 @@ export default function SignupPage() {
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Join CreatorHub</h1>
           <p className="text-lg text-gray-600">Pay to message. Unlock photos/videos inside chat.</p>
           <p className="text-sm text-blue-600 mt-2">
-            Already have an account? <a href="/login" className="underline">Login</a>
+            Already have an account? <Link href="/login" className="underline">Login</Link>
           </p>
         </div>
 
@@ -89,7 +90,7 @@ export default function SignupPage() {
               <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">⭐</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">I'm a Creator</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">I&apos;m a Creator</h2>
               <p className="text-gray-600">Monetize your content and engage with fans</p>
             </div>
 
@@ -130,7 +131,7 @@ export default function SignupPage() {
               <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">💖</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">I'm a Fan</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">I&apos;m a Fan</h2>
               <p className="text-gray-600">Support creators and unlock exclusive content</p>
             </div>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -65,6 +66,15 @@ export default function LoginPage() {
         <button onClick={signInWithGoogle} className="w-full rounded border py-2">
           Continue with Google
         </button>
+        
+        <div className="text-center">
+          <p className="text-sm text-gray-600">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-blue-600 hover:underline">
+              Sign up here
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )
