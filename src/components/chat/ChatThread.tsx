@@ -42,6 +42,8 @@ export function ChatThread({
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const didInitialScrollRef = useRef(false);
+  const isBackfillingRef = useRef(true);
 
   // Determine which profile to show in header
   const otherProfile = currentProfile?.id === creatorId ? fanProfile : creatorProfile;
@@ -54,6 +56,16 @@ export function ChatThread({
   const authReady = !!currentProfile?.id;
   
   // Fallback to deterministic naming for initial connection
+
+  // Scroll to bottom function - container-based to prevent window scrolling
+  const scrollToBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    // ensure we run after layout paints
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, []);
 
   // Realtime integration with improved features
   const { error: realtimeError, reconnect } = useRealtimeChat({
@@ -173,6 +185,13 @@ export function ChatThread({
     loadMessages();
   }, [loadMessages]);
 
+  // Mark when initial loading is complete
+  useEffect(() => {
+    if (!loading) {
+      isBackfillingRef.current = false;
+    }
+  }, [loading]);
+
   // Set conversationId from existing messages after initial load
   useEffect(() => {
     if (!conversationId && messages.length > 0) {
@@ -196,11 +215,14 @@ export function ChatThread({
   }, [conversationId, creatorId, fanId, authReady]);
 
   // Scroll to bottom when messages change
+  // - First load/backfill: jump instantly (no smooth) so there's no window scroll
+  // - New realtime/own message: smooth scroll
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+    if (!messages.length) return;
+
+    didInitialScrollRef.current = true;
+    scrollToBottom();
+  }, [messages.length, scrollToBottom]);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!currentProfile || !accessStatus?.hasAccess) {
@@ -350,8 +372,8 @@ export function ChatThread({
 
   return (
     <div className={`flex flex-col h-full bg-background overflow-hidden ${className}`}>
-      {/* Header - Sticky */}
-      <div className="mobile-sticky-header sticky top-0 z-10 flex items-center gap-3 px-4 py-2 border-b border-border bg-card/95 backdrop-blur-sm">
+      {/* Header - Fixed within container */}
+      <div className="mobile-sticky-header sticky top-0 z-20 flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-border bg-card/95 backdrop-blur-sm">
         {onBack && (
           <button
             onClick={onBack}
