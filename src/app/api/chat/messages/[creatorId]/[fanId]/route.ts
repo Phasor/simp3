@@ -114,6 +114,8 @@ export async function GET(
         nextCursor,
         nextCursorId // optional; client may ignore for MVP
       }
+    }, {
+      headers: { 'Cache-Control': 'no-store' }
     });
 
   } catch (error) {

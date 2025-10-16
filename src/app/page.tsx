@@ -3,18 +3,21 @@ import Link from 'next/link';
 import { MessageCircle, Users, Shield } from 'lucide-react';
 import { createServerClientStrict } from '@/lib/supabase/server';
 
+// Force dynamic rendering for user-specific content
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   const supabase = await createServerClientStrict();
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
   
-  // If no session, redirect to login
-  if (!session) redirect('/login');
+  // If no user, redirect to login
+  if (!user || userError) redirect('/login');
 
   // Check if user has a profile
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('auth_user_id', session.user.id)
+    .eq('auth_user_id', user.id)
     .single();
 
   // If no profile exists, redirect to signup
@@ -96,7 +99,7 @@ export default async function HomePage() {
           <div className="grid md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-600">Email:</span>
-              <span className="ml-2 font-medium">{session.user.email}</span>
+              <span className="ml-2 font-medium">{user.email}</span>
             </div>
             <div>
               <span className="text-gray-600">User Type:</span>

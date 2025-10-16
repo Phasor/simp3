@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createServerClientStrict } from '@/lib/supabase/server'
 
+// Allowlist of safe redirect paths
+const ALLOWED_REDIRECTS = ['/', '/chat', '/dashboard', '/creator/dashboard', '/fan/dashboard', '/settings', '/creator/settings']
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  const rawNext = searchParams.get('next') ?? '/'
+  
+  // Validate and sanitize the next parameter - prevent open redirects
+  const isPathOnly = rawNext.startsWith('/') && !rawNext.startsWith('//')
+  const next = (ALLOWED_REDIRECTS.includes(rawNext) && isPathOnly) ? rawNext : '/'
 
   if (code) {
     const supabase = await createServerClientStrict()

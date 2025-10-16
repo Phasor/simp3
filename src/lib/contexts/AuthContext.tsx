@@ -55,12 +55,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Sign out from Supabase (this handles both client and server-side cleanup)
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Error signing out:', error);
-        throw error;
+      // Use the server-side signout route for proper session cleanup
+      const response = await fetch('/auth/signout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to sign out');
       }
+      
+      // The server route will handle the redirect, but we can also clear local state
+      setUser(null);
+      setSession(null);
+      setProfile(null);
     } catch (error) {
       console.error('Error in signOut:', error);
       throw error;
