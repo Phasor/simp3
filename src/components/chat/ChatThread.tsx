@@ -32,7 +32,7 @@ export function ChatThread({
   className = ''
 }: ChatThreadProps) {
   const { profile: currentProfile } = useAuth();
-  const { accessStatus, loading: accessLoading } = useChatAccess(creatorId, fanId);
+  const { accessStatus, loading: accessLoading } = useChatAccess({ creatorId, fanId });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);

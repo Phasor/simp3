@@ -52,10 +52,21 @@ export async function GET(
     }
 
     // Use service role to bypass RLS for access validation
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing required Supabase environment variables:', {
+        hasUrl: !!supabaseUrl,
+        hasServiceKey: !!supabaseServiceKey
+      });
+      return NextResponse.json(
+        { error: 'Server configuration error - missing Supabase credentials' },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get chat access record
     const { data: accessRecord, error: accessError } = await supabaseAdmin
@@ -116,7 +127,7 @@ export async function GET(
         const timeDiff = accessUntil.getTime() - now.getTime();
         const daysRemaining = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
         const hoursRemaining = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutesRemaining = Math.floor(timeDiff / (1000 * 60));
+        const minutesRemaining = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
         
         status = {
           hasAccess: true,
