@@ -399,8 +399,16 @@ function ConversationListItem({
 
   const conversationTitle = formatConversationTitle(
     currentProfile.id,
-    conversation.creator,
-    conversation.fan
+    {
+      id: conversation.creator.id,
+      display_name: conversation.creator.display_name || undefined,
+      email: conversation.creator.email
+    },
+    {
+      id: conversation.fan.id,
+      display_name: conversation.fan.display_name || undefined,
+      email: conversation.fan.email
+    }
   );
 
   return (

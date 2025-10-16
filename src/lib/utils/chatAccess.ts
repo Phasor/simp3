@@ -137,13 +137,13 @@ function coerceStatusFromApi(raw: unknown): ChatAccessStatus {
     ? rawObj.timeRemaining
     : accessUntil ? Math.max(0, accessUntil.getTime() - Date.now()) : null;
   const daysRemaining = Number.isFinite(rawObj?.daysRemaining)
-    ? rawObj.daysRemaining
+    ? (rawObj.daysRemaining as number)
     : timeRemaining != null ? Math.floor(timeRemaining / 86_400_000) : null;
   const hoursRemaining = Number.isFinite(rawObj?.hoursRemaining)
-    ? rawObj.hoursRemaining
+    ? (rawObj.hoursRemaining as number)
     : timeRemaining != null ? Math.floor((timeRemaining % 86_400_000) / 3_600_000) : null;
   const minutesRemaining = Number.isFinite(rawObj?.minutesRemaining)
-    ? rawObj.minutesRemaining
+    ? (rawObj.minutesRemaining as number)
     : timeRemaining != null ? Math.floor((timeRemaining % 3_600_000) / 60_000) : null;
   return {
     hasAccess,
@@ -153,7 +153,7 @@ function coerceStatusFromApi(raw: unknown): ChatAccessStatus {
     daysRemaining,
     hoursRemaining,
     minutesRemaining,
-    lastQualifyingPurchaseId: raw?.lastQualifyingPurchaseId ?? null,
+    lastQualifyingPurchaseId: (raw as any)?.lastQualifyingPurchaseId ?? null,
   };
 }
 

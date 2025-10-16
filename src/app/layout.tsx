@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import Navigation from "@/components/Navigation";
+import Footer from "@/components/Footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,11 +28,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col overflow-hidden`}
       >
         <AuthProvider>
           <Navigation title="CreatorHub" />
-          {children}
+          <main className="flex-1 overflow-hidden">
+            {children}
+          </main>
+          <Footer />
         </AuthProvider>
       </body>
     </html>

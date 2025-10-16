@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { checkChatAccess, getUserChatAccess, type ChatAccessValidationResult, type ChatAccessStatus } from '@/lib/utils/chatAccess';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import type { ChatAccess } from '@/lib/types/database';
 
 interface UseChatAccessOptions {
   creatorId?: string;

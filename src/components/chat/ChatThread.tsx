@@ -7,7 +7,8 @@ import { ChatAccessStatusBadge } from './ChatAccessStatus';
 import { TypingIndicator, OnlineIndicator, PresenceAvatar } from './TypingIndicator';
 import { useChatAccess } from '@/lib/hooks/useChatAccess';
 import { useRealtimeChat } from '@/lib/hooks/useRealtimeChat';
-import { useTypingIndicator, usePresence } from '@/lib/hooks/useTypingIndicator';
+import { useTypingIndicator } from '@/lib/hooks/useTypingIndicator';
+import { useOfflineSync } from '@/lib/hooks/useOfflineSync';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { sendMessage, fetchMessages, createOptimisticMessage } from '@/lib/utils/messageApi';
 import { generateConversationId } from '@/lib/utils/conversationUtils';
@@ -66,9 +67,10 @@ export function ChatThread({
     onNewMessage: useCallback((newMessage: ChatMessage) => {
       console.log('📨 New message received in chat');
       
-      // Extract conversation_id from the message if we don't have it yet
-      if (!conversationId && 'conversation_id' in newMessage && newMessage.conversation_id) {
-        setConversationId(newMessage.conversation_id);
+      // Generate conversation_id from the message if we don't have it yet
+      if (!conversationId) {
+        const messageConversationId = `${newMessage.creator_id}|${newMessage.fan_id}`;
+        setConversationId(messageConversationId);
       }
       
       setMessages(prev => {
@@ -122,10 +124,17 @@ export function ChatThread({
   // Typing and presence guards
 
   // Typing indicators
-  const { typingUsers, startTyping, stopTyping } = useTypingIndicator(creatorId, fanId);
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator({
+    conversationId: conversationId || `${creatorId}|${fanId}`,
+    currentUserId: currentProfile?.id || '',
+    enabled: !!conversationId
+  });
 
-  // Presence indicators
-  const { isOnline } = usePresence(otherProfile?.id || '');
+  // Offline sync and online status
+  const { isOnline: connectionOnline } = useOfflineSync({
+    conversationId: conversationId || `${creatorId}|${fanId}`,
+    enabled: !!conversationId
+  });
 
   // Connection health monitoring
 
@@ -167,9 +176,10 @@ export function ChatThread({
   // Set conversationId from existing messages after initial load
   useEffect(() => {
     if (!conversationId && messages.length > 0) {
-      const firstWithConv = messages.find(m => 'conversation_id' in m && m.conversation_id);
-      if (firstWithConv && 'conversation_id' in firstWithConv) {
-        setConversationId(firstWithConv.conversation_id);
+      const firstMessage = messages[0];
+      if (firstMessage) {
+        const messageConversationId = `${firstMessage.creator_id}|${firstMessage.fan_id}`;
+        setConversationId(messageConversationId);
       }
     }
   }, [messages, conversationId]);
@@ -222,9 +232,10 @@ export function ChatThread({
       });
 
       if (result.success && result.message) {
-        // Extract conversation_id from the response if we don't have it yet
-        if (!conversationId && 'conversation_id' in result.message && result.message.conversation_id) {
-          setConversationId(result.message.conversation_id);
+        // Generate conversation_id from the response if we don't have it yet
+        if (!conversationId) {
+          const messageConversationId = `${result.message.creator_id}|${result.message.fan_id}`;
+          setConversationId(messageConversationId);
         }
         
         // Replace optimistic message with real message using reference equality
@@ -353,7 +364,7 @@ export function ChatThread({
         <div className="flex items-center gap-3 flex-1">
           {/* Avatar */}
           <PresenceAvatar
-            isOnline={isOnline}
+            isOnline={connectionOnline}
             profilePictureUrl={otherProfile.profile_picture_url || undefined}
             displayName={otherProfile.display_name || otherProfile.email}
             size="md"
@@ -369,7 +380,7 @@ export function ChatThread({
               )}
             </div>
             <OnlineIndicator 
-              isOnline={isOnline}
+              isOnline={connectionOnline}
               className="text-xs"
             />
           </div>

@@ -376,8 +376,9 @@ export function useRealtimePresence({
         const users: Record<string, PresenceUser> = {};
         
         Object.values(presenceState).forEach((presences: unknown[]) => {
-          presences.forEach((presence: PresenceUser) => {
-            users[presence.user_id] = presence;
+          presences.forEach((presence: unknown) => {
+            const presenceUser = presence as PresenceUser;
+            users[presenceUser.user_id] = presenceUser;
           });
         });
         
