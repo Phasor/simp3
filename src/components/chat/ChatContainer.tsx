@@ -63,9 +63,6 @@ function ChatSelectionView({ onBack }: ChatSelectionViewProps) {
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <h1 className="text-lg font-semibold">
-          {profile?.user_type === 'CREATOR' ? 'Your Chats' : 'Available Chats'}
-        </h1>
       </div>
 
       {/* Content */}

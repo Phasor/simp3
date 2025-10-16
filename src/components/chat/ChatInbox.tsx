@@ -242,18 +242,13 @@ export function ChatInbox({
 
   return (
     <div className={`flex flex-col h-full bg-background ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-border bg-card">
-        <h1 className="text-lg font-semibold mb-3">
-          {currentProfile.user_type === 'CREATOR' ? 'Your Chats' : 'Conversations'}
-        </h1>
-
-        {/* Search */}
+      {/* Search box positioned below logo */}
+      <div className="pt-20 px-4 pb-4 border-b border-border bg-card">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder="Search chats or creators..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
+import ConditionalNavigation from "@/components/ConditionalNavigation";
+import ConditionalFooter from "@/components/ConditionalFooter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,11 +31,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col overflow-hidden`}
       >
         <AuthProvider>
-          <Navigation title="CreatorHub" />
+          <ConditionalNavigation title="CreatorHub" />
           <main className="flex-1 overflow-hidden">
             {children}
           </main>
-          <Footer />
+          <ConditionalFooter />
         </AuthProvider>
       </body>
     </html>
