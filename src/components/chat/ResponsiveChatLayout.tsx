@@ -13,7 +13,7 @@ interface ResponsiveChatLayoutProps {
 }
 
 export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutProps) {
-  const { profile: currentProfile } = useAuth();
+  const { profile: currentProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -101,6 +101,15 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const selectedConversationId = selectedCreatorId && selectedFanId 
     ? `${selectedCreatorId}|${selectedFanId}` 
     : undefined;
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className={`flex items-center justify-center h-full ${className}`}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!currentProfile) {
     return (

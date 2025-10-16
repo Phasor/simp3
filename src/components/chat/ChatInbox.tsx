@@ -35,7 +35,7 @@ export function ChatInbox({
   selectedConversationId,
   className = ''
 }: ChatInboxProps) {
-  const { profile: currentProfile } = useAuth();
+  const { profile: currentProfile, loading: authLoading } = useAuth();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +43,8 @@ export function ChatInbox({
 
   // Load conversations
   const loadConversations = useCallback(async () => {
-    if (!currentProfile?.id) return;
+    // Don't load if auth is still loading or no profile
+    if (authLoading || !currentProfile?.id) return;
 
     try {
       setLoading(true);
@@ -190,7 +191,7 @@ export function ChatInbox({
     } finally {
       setLoading(false);
     }
-  }, [currentProfile?.id]);
+  }, [currentProfile?.id, authLoading]);
 
   useEffect(() => {
     loadConversations();
@@ -221,6 +222,15 @@ export function ChatInbox({
   const expiredConversations = filteredConversations.filter(
     (conv) => !conv.accessStatus?.hasAccess
   );
+
+  // Show loading while auth is loading
+  if (authLoading) {
+    return (
+      <div className={`flex items-center justify-center h-full ${className}`}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (!currentProfile) {
     return (
