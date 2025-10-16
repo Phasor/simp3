@@ -76,8 +76,8 @@ export function generateConversationId(creatorId: string, fanId: string): string
    */
   export function formatConversationTitle(
     currentUserId: string, 
-    creatorProfile: { display_name?: string; email: string }, 
-    fanProfile: { display_name?: string; email: string }
+    creatorProfile: { id: string; display_name?: string; email: string }, 
+    fanProfile: { id: string; display_name?: string; email: string }
   ): string {
     const otherProfile = currentUserId === creatorProfile.id ? fanProfile : creatorProfile;
     return otherProfile.display_name || otherProfile.email || 'Unknown User';

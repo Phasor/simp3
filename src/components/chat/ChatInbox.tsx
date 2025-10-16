@@ -398,9 +398,9 @@ function ConversationListItem({
     : conversation.creator;
 
   const conversationTitle = formatConversationTitle(
+    currentProfile.id,
     conversation.creator,
-    conversation.fan,
-    currentProfile.user_type
+    conversation.fan
   );
 
   return (
