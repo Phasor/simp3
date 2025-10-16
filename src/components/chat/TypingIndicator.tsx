@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 
 interface TypingIndicatorProps {
   typingUsers: Array<{ userId: string; displayName?: string }>;
@@ -119,14 +120,26 @@ export function PresenceAvatar({
     lg: 'bottom-1 right-1'
   };
 
+  // Process the profile picture URL using Bunny.net utilities
+  const processedImageUrl = profilePictureUrl ? getBunnyStorageUrl(profilePictureUrl) : null;
+
   return (
     <div className={`relative ${className}`}>
       <div className={`${sizeClasses[size]} rounded-full bg-muted flex items-center justify-center overflow-hidden`}>
-        {profilePictureUrl ? (
+        {processedImageUrl ? (
           <img 
-            src={profilePictureUrl} 
+            src={processedImageUrl} 
             alt={displayName || 'User'} 
             className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `<span class="font-medium text-muted-foreground">${displayName?.charAt(0)?.toUpperCase() || '?'}</span>`;
+              }
+            }}
           />
         ) : (
           <span className="font-medium text-muted-foreground">

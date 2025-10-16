@@ -1,0 +1,90 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { validateBunnyStorageUrl } from '@/lib/utils/bunnynet';
+
+// Bunny.net configuration
+const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY;
+const BUNNY_STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE || "simp2";
+const BUNNY_CDN_HOSTNAME = process.env.BUNNY_CDN_HOSTNAME || "uk.storage.bunnycdn.com";
+
+/**
+ * Proxy API for serving images from Bunny.net Storage
+ * This handles authentication and provides a secure way to serve profile pictures
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  try {
+    const path = params.path.join('/');
+    
+    // Validate the path for security
+    if (!validateBunnyStorageUrl(path)) {
+      console.warn('Invalid Bunny Storage URL attempted:', path);
+      return new NextResponse('Invalid path', { status: 400 });
+    }
+
+    // Construct the Bunny Storage URL using your configured hostname
+    const bunnyUrl = `https://${BUNNY_CDN_HOSTNAME}/${BUNNY_STORAGE_ZONE}/${path}`;
+
+    // Fetch the image from Bunny Storage
+    const response = await fetch(bunnyUrl, {
+      headers: {
+        'AccessKey': BUNNY_STORAGE_API_KEY || '',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('Failed to fetch from Bunny Storage:', response.status, response.statusText);
+      
+      // Return a placeholder or 404 for missing images
+      if (response.status === 404) {
+        return new NextResponse('Image not found', { status: 404 });
+      }
+      
+      return new NextResponse('Failed to fetch image', { status: response.status });
+    }
+
+    // Get the image data
+    const imageBuffer = await response.arrayBuffer();
+    
+    // Determine content type from the original response or file extension
+    const contentType = response.headers.get('content-type') || getContentTypeFromPath(path);
+    
+    // Return the image with appropriate headers
+    return new NextResponse(imageBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+
+  } catch (error) {
+    console.error('Image proxy error:', error);
+    return new NextResponse('Internal server error', { status: 500 });
+  }
+}
+
+/**
+ * Determine content type from file extension
+ */
+function getContentTypeFromPath(path: string): string {
+  const extension = path.toLowerCase().split('.').pop();
+  
+  switch (extension) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'svg':
+      return 'image/svg+xml';
+    default:
+      return 'image/jpeg'; // Default fallback
+  }
+}

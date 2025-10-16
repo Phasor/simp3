@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, MessageCircle, Crown, Heart, Clock, CheckCircle2 } from 'lucide-react';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
-import { OnlineIndicator } from './TypingIndicator';
+import { OnlineIndicator, PresenceAvatar } from './TypingIndicator';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { ChatAccessStatus } from '@/lib/utils/chatAccess';
 import { getUserChatAccess, calculateAccessStatus } from '@/lib/utils/chatAccess';
@@ -419,18 +419,13 @@ function ConversationListItem({
       }`}
     >
       <div className="flex items-center gap-3">
-        {/* Avatar */}
-        <div className="relative flex-shrink-0">
-          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
-            {otherProfile.user_type === 'CREATOR' ? (
-              <Crown className="h-5 w-5 text-muted-foreground" />
-            ) : (
-              <Heart className="h-5 w-5 text-muted-foreground" />
-            )}
-          </div>
-          {/* Online indicator */}
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background bg-gray-400" />
-        </div>
+        {/* Avatar with profile picture */}
+        <PresenceAvatar
+          isOnline={false} // We don't have real-time presence in inbox
+          profilePictureUrl={otherProfile.profile_picture_url || undefined}
+          displayName={otherProfile.display_name || otherProfile.email}
+          size="lg"
+        />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
