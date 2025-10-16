@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, memo } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 
 interface MessageInputProps {
@@ -13,7 +13,7 @@ interface MessageInputProps {
   className?: string;
 }
 
-export function MessageInput({
+export const MessageInput = memo(function MessageInput({
   onSendMessage,
   disabled = false,
   placeholder = 'Type your message...',
@@ -82,19 +82,57 @@ export function MessageInput({
       onStopTyping?.();
     }
 
-    // Auto-resize textarea
+    // Auto-resize textarea with improved sizing for pill shape
     const textarea = e.target;
     textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
   }, [maxLength, message, onStartTyping, onStopTyping]);
+
+  // Auto-resize functionality on mount and message changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      const autoGrow = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+      };
+      autoGrow();
+    }
+  }, [message]);
 
   const canSend = message.trim().length > 0 && !sending && !disabled;
 
   return (
-    <form onSubmit={handleSubmit} className={`border-t border-border bg-background px-4 py-2 ${className}`}>
-      <div className="flex items-end gap-3">
+    <div className={`bg-white/80 dark:bg-gray-950/60 backdrop-blur border-t border-gray-200 dark:border-gray-800 p-3 ${className}`}>
+      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex items-center gap-3">
+        {/* Add button */}
+        <button 
+          type="button"
+          className="shrink-0 p-2 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800" 
+          title="Add"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </button>
+
+        {/* Emoji button */}
+        <button 
+          type="button"
+          className="shrink-0 p-2 text-gray-500 hover:text-gray-900 dark:hover:text-gray-100" 
+          title="Emoji"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <path d="M9 9h.01M15 9h.01"/>
+          </svg>
+        </button>
+
+        {/* Input (pill) */}
         <div className="flex-1 relative">
           <textarea
+            id="chat-input"
             ref={textareaRef}
             value={message}
             onChange={handleTextareaChange}
@@ -102,36 +140,36 @@ export function MessageInput({
             placeholder={disabled ? 'Chat access required to send messages' : placeholder}
             disabled={disabled || sending}
             rows={1}
-            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 min-h-[40px] max-h-[120px]"
+            className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full px-4 py-2 pr-14 resize-none outline-none leading-6 text-[15px] shadow-sm min-h-[40px] max-h-[160px]"
             style={{ height: 'auto' }}
           />
-          
-          {/* Character count */}
-          <div className="absolute bottom-1 right-2 text-xs text-muted-foreground">
-            {message.length}/{maxLength}
-          </div>
+          <span className="absolute right-14 top-1/2 -translate-y-1/2 text-xs text-gray-400 hidden sm:block">⇧ + ↵</span>
         </div>
 
+        {/* Send button */}
         <button
+          id="chat-send"
           type="submit"
           disabled={!canSend}
-          className="flex-shrink-0 h-10 w-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+          className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-600 text-white hover:bg-brand-700 active:translate-y-px transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {sending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           ) : (
-            <Send className="h-4 w-4" />
+            <>
+              <svg className="w-4 h-4 -rotate-45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14"/>
+                <path d="m5 12 7 7"/>
+                <path d="m5 12 7-7"/>
+              </svg>
+              <span>Send</span>
+            </>
           )}
         </button>
-      </div>
-
-      {/* Helper text */}
-      <div className="mt-1 text-xs text-muted-foreground">
-        Press Enter to send, Shift+Enter for new line
-      </div>
-    </form>
+      </form>
+    </div>
   );
-}
+});
 
 interface QuickRepliesProps {
   replies: string[];

@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 export default {
+  darkMode: 'class',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -50,6 +51,11 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
+        brand: {
+          DEFAULT: '#2563EB',
+          600: '#2563EB',
+          700: '#1D4ED8'
+        }
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -60,6 +66,9 @@ export default {
         sans: 'var(--font-sans)',
         mono: 'var(--font-mono)',
       },
+      boxShadow: {
+        soft: '0 4px 24px rgba(0,0,0,0.06)',
+      }
     },
   },
   plugins: [],

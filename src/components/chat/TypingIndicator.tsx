@@ -133,6 +133,7 @@ export function PresenceAvatar({
             className="w-full h-full object-cover"
             onError={(e) => {
               // Fallback to initials if image fails to load
+              console.log('🖼️ Profile picture failed to load:', processedImageUrl);
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
               const parent = target.parentElement;

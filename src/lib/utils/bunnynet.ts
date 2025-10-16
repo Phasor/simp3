@@ -290,11 +290,14 @@ export function validateBunnyStorageUrl(url: string): boolean {
     return false;
   }
 
-  // Ensure valid file extension
+  // Ensure valid file extension (or allow profile pictures without extensions)
   const validExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.mp4', '.mov', '.avi'];
   const hasValidExtension = validExtensions.some(ext => 
     url.toLowerCase().endsWith(ext)
   );
 
-  return hasValidExtension;
+  // Allow profile pictures without extensions (they may be generated/processed images)
+  const isProfilePicture = url.startsWith('/profile-pictures/') || url.startsWith('profile-pictures/');
+  
+  return hasValidExtension || isProfilePicture;
 }

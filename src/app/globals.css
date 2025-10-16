@@ -84,4 +84,37 @@
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
+
+  /* Thin scrollbars and timestamp reveal */
+  * { 
+    scrollbar-width: thin; 
+    scrollbar-color: #CBD5E1 transparent; 
+  }
+  
+  *::-webkit-scrollbar { 
+    height: 8px; 
+    width: 8px; 
+  }
+  
+  *::-webkit-scrollbar-thumb { 
+    background: #CBD5E1; 
+    border-radius: 999px; 
+  }
+  
+  *::-webkit-scrollbar-track { 
+    background: transparent; 
+  }
+  
+  .msg:hover .time { 
+    opacity: 1; 
+  }
+
+  /* Compact mode (optional) */
+  body.compact .msg { 
+    padding: .5rem .75rem !important; 
+  }
+  
+  body.compact .group-stack > * + * { 
+    margin-top: .25rem !important; 
+  }
 }

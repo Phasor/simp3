@@ -1,4 +1,5 @@
 import { formatDistanceToNow } from 'date-fns';
+import { memo } from 'react';
 import type { ChatMessage, Profile } from '@/lib/types/database';
 
 interface ChatMessageProps {
@@ -9,7 +10,7 @@ interface ChatMessageProps {
   className?: string;
 }
 
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   message,
   sender,
   isCurrentUser,
@@ -17,29 +18,27 @@ export function ChatMessage({
   className = ''
 }: ChatMessageProps) {
   return (
-    <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} ${className}`}>
-      <div className={`flex flex-col max-w-[70%] ${isCurrentUser ? 'items-end' : 'items-start'}`}>
-        <div
-          className={`px-3 py-1.5 rounded-lg break-words ${
-            isCurrentUser
-              ? 'bg-primary text-primary-foreground rounded-br-sm'
-              : 'bg-muted text-muted-foreground rounded-bl-sm'
-          }`}
-        >
-          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-        </div>
-
+    <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-4 ${className}`}>
+      <div className={`msg relative max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 leading-6 break-words whitespace-pre-wrap shadow-soft ${
+        isCurrentUser
+          ? 'bg-brand-600 text-white'
+          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100'
+      }`}>
+        {message.content}
+        
         {showTimestamp && (
-          <div className={`mt-0.5 text-xs text-muted-foreground ${isCurrentUser ? 'text-right' : 'text-left'}`}>
-            <span>
-              {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-            </span>
-          </div>
+          <span className={`time absolute -bottom-5 text-[10px] opacity-0 transition ${
+            isCurrentUser 
+              ? 'right-2 text-white/70' 
+              : 'left-2 text-gray-400'
+          }`}>
+            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+          </span>
         )}
       </div>
     </div>
   );
-}
+});
 
 interface MessageGroupProps {
   messages: ChatMessage[];
@@ -48,7 +47,7 @@ interface MessageGroupProps {
   className?: string;
 }
 
-export function MessageGroup({
+export const MessageGroup = memo(function MessageGroup({
   messages,
   sender,
   isCurrentUser,
@@ -56,20 +55,44 @@ export function MessageGroup({
 }: MessageGroupProps) {
   if (messages.length === 0) return null;
 
-  return (
-    <div className={`space-y-1 ${className}`}>
-      {messages.map((message, index) => (
-        <ChatMessage
-          key={message.id}
-          message={message}
-          sender={sender}
-          isCurrentUser={isCurrentUser}
-          showTimestamp={index === messages.length - 1} // Only show timestamp on last message in group
-        />
-      ))}
-    </div>
-  );
-}
+  if (isCurrentUser) {
+    // Current user messages - right aligned, grouped
+    return (
+      <div className={`flex justify-end mb-5 ${className}`}>
+        <div className="w-full flex flex-col items-end space-y-1.5 min-w-0">
+          {messages.map((message, index) => (
+            <div key={message.id} className="msg max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 bg-brand-600 text-white leading-6 break-words whitespace-pre-wrap shadow-soft">
+              {message.content}
+              {index === messages.length - 1 && (
+                <span className="time absolute -bottom-5 right-2 text-[10px] text-white/70 opacity-0 transition">
+                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  } else {
+    // Other user messages - left aligned, grouped (no avatar)
+    return (
+      <div className={`flex justify-start mb-5 ${className}`}>
+        <div className="w-full flex flex-col items-start space-y-1.5 min-w-0">
+          {messages.map((message, index) => (
+            <div key={message.id} className="msg max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 leading-6 break-words whitespace-pre-wrap shadow-soft">
+              {message.content}
+              {index === messages.length - 1 && (
+                <span className="time absolute -bottom-5 left-2 text-[10px] text-gray-400 opacity-0 transition">
+                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+});
 
 interface MessageListProps {
   messages: ChatMessage[];

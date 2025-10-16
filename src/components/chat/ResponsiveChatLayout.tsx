@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
@@ -35,16 +35,6 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Read URL parameters on mount
-  useEffect(() => {
-    const creatorId = searchParams.get('creator');
-    const fanId = searchParams.get('fan');
-    
-    if (creatorId && fanId) {
-      handleSelectConversation(creatorId, fanId);
-    }
-  }, [searchParams]);
-
   // Load profiles when conversation is selected
   const loadProfiles = async (creatorId: string, fanId: string) => {
     try {
@@ -62,7 +52,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     }
   };
 
-  const handleSelectConversation = async (creatorId: string, fanId: string, creator?: Profile, fan?: Profile) => {
+  const handleSelectConversation = useCallback(async (creatorId: string, fanId: string, creator?: Profile, fan?: Profile) => {
     setSelectedCreatorId(creatorId);
     setSelectedFanId(fanId);
 
@@ -75,6 +65,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
       await loadProfiles(creatorId, fanId);
     }
 
+
     // Update URL
     const params = new URLSearchParams();
     params.set('creator', creatorId);
@@ -85,7 +76,17 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     if (isMobile) {
       setShowInbox(false);
     }
-  };
+  }, [isMobile, router, loadProfiles]);
+
+  // Read URL parameters on mount
+  useEffect(() => {
+    const creatorId = searchParams.get('creator');
+    const fanId = searchParams.get('fan');
+    
+    if (creatorId && fanId) {
+      handleSelectConversation(creatorId, fanId);
+    }
+  }, [searchParams, handleSelectConversation]);
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);
@@ -93,6 +94,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     setCreatorProfile(null);
     setFanProfile(null);
     setShowInbox(true);
+    
     
     // Clear URL parameters
     router.push('/chat');

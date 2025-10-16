@@ -23,8 +23,11 @@ export async function GET(
       return new NextResponse('Invalid path', { status: 400 });
     }
 
+    console.log('🖼️ Fetching image from Bunny Storage:', path);
+
     // Construct the Bunny Storage URL using your configured hostname
     const bunnyUrl = `https://${BUNNY_CDN_HOSTNAME}/${BUNNY_STORAGE_ZONE}/${path}`;
+    console.log('🔗 Constructed Bunny URL:', bunnyUrl);
 
     // Fetch the image from Bunny Storage
     const response = await fetch(bunnyUrl, {
