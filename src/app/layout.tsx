@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { Toaster } from "react-hot-toast";
 import ConditionalNavigation from "@/components/ConditionalNavigation";
@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
 export const metadata: Metadata = {
   title: "CreatorHub",
   description: "Connect with creators through exclusive chat experiences",
@@ -29,11 +34,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
         <AuthProvider>
           <ConditionalNavigation title="CreatorHub" />
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1">
             {children}
           </main>
           <ConditionalFooter />

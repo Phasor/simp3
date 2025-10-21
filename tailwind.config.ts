@@ -24,6 +24,8 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          500: '#6366f1',
+          600: '#4f46e5',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -63,7 +65,7 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: 'var(--font-sans)',
+        sans: ['var(--font-inter)', 'Inter', 'ui-sans-serif', 'system-ui'],
         mono: 'var(--font-mono)',
       },
       boxShadow: {
