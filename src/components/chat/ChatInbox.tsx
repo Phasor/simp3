@@ -44,7 +44,13 @@ export function ChatInbox({
   // Load conversations
   const loadConversations = useCallback(async () => {
     // Don't load if auth is still loading or no profile
-    if (authLoading || !currentProfile?.id) return;
+    if (authLoading || !currentProfile?.id) {
+      // If auth is not loading but we don't have a profile, we should stop loading
+      if (!authLoading && !currentProfile?.id) {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       setLoading(true);
@@ -85,8 +91,8 @@ export function ChatInbox({
       }
 
       if (!conversationsData || conversationsData.length === 0) {
-        console.log('No conversations found, showing empty state');
         setConversations([]);
+        setLoading(false);
         return;
       }
 
@@ -197,6 +203,16 @@ export function ChatInbox({
     loadConversations();
   }, [loadConversations]);
 
+  // Handle loading state when auth completes
+  useEffect(() => {
+    if (!authLoading) {
+      // If auth is done loading but we don't have a profile, stop loading
+      if (!currentProfile?.id) {
+        setLoading(false);
+      }
+    }
+  }, [authLoading, currentProfile?.id]);
+
   // Filter conversations based on search
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery.trim()) return true;
@@ -280,7 +296,7 @@ export function ChatInbox({
             <div className="text-center max-w-sm">
               <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-semibold mb-2">
-                {searchQuery ? 'No matching conversations' : 'No conversations yet'}
+                {searchQuery ? 'No matching conversations' : 'No chats yet'}
               </h3>
               <p className="text-muted-foreground text-sm mb-4">
                 {searchQuery
