@@ -376,7 +376,6 @@ export function getBunnyStorageUrl(path: string): string {
     return '/placeholder-image.jpg';
   }
   
-  console.log(`🔗 Converting Bunny path: ${path} -> /api/image/${cleanPath}`);
   return `/api/image/${cleanPath}`;
 }
 

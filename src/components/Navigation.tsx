@@ -93,7 +93,7 @@ export default function Navigation({ }: NavigationProps) {
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
           {user && profile?.user_type === 'CREATOR' && (
-            <Link href="/creator/dashboard" className="hover:underline">Dashboard</Link>
+            <Link href={`/creator/${profile.id}`} className="hover:underline">Profile</Link>
           )}
           {user && profile?.user_type === 'FAN' && (
             <Link href="/fan/dashboard" className="hover:underline">Dashboard</Link>
@@ -146,11 +146,11 @@ export default function Navigation({ }: NavigationProps) {
           <nav className="px-6 py-4 space-y-4">
             {user && profile?.user_type === 'CREATOR' && (
               <Link 
-                href="/creator/dashboard" 
+                href={`/creator/${profile.id}`} 
                 className="block text-sm hover:text-primary transition-colors"
                 onClick={closeMobileMenu}
               >
-                Dashboard
+                Profile
               </Link>
             )}
             {user && profile?.user_type === 'FAN' && (

@@ -393,12 +393,6 @@ export function ChatThread({
                 className="h-8 w-8 rounded-full object-cover"
                 onError={(e) => {
                   // Fallback to initials if image fails to load
-                  console.log('🖼️ Profile picture failed to load:', {
-                    originalUrl: otherProfile.profile_picture_url,
-                    processedUrl: getBunnyStorageUrl(otherProfile.profile_picture_url),
-                    displayName: otherProfile.display_name,
-                    email: otherProfile.email
-                  });
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
                   const parent = target.parentElement;

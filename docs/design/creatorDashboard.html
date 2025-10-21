@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simp3 · Creator Dashboard (MVP)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ["Inter", "ui-sans-serif", "system-ui"],
+          },
+          colors: {
+            primary: {
+              500: '#6366f1',
+              600: '#4f46e5',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+  <main class="max-w-7xl mx-auto px-4 py-6">
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <article class="rounded-2xl bg-white border border-slate-200 p-4 shadow">
+        <p class="text-xs uppercase text-slate-500">Total Earnings</p>
+        <div class="mt-2 text-2xl font-extrabold">$12,840</div>
+        <p class="text-xs text-slate-500 mt-1">Net of platform fees</p>
+      </article>
+      <article class="rounded-2xl bg-white border border-slate-200 p-4 shadow">
+        <p class="text-xs uppercase text-slate-500">Earnings (This Month)</p>
+        <div class="mt-2 text-2xl font-extrabold">$1,980</div>
+        <p class="text-xs text-slate-500 mt-1">From 42 unlocks</p>
+      </article>
+      <article class="rounded-2xl bg-white border border-slate-200 p-4 shadow">
+        <p class="text-xs uppercase text-slate-500">Chat Unlocks</p>
+        <div class="mt-2 text-2xl font-extrabold">42</div>
+        <p class="text-xs text-slate-500 mt-1">Avg $47 / unlock</p>
+      </article>
+      <article class="rounded-2xl bg-white border border-slate-200 p-4 shadow">
+        <p class="text-xs uppercase text-slate-500">Active Fans</p>
+        <div class="mt-2 text-2xl font-extrabold">31</div>
+        <p class="text-xs text-slate-500 mt-1">8 returning · 23 new</p>
+      </article>
+    </section>
+
+    <section class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-sm font-semibold">Earnings Over Time</h2>
+            <div class="flex gap-2 text-xs">
+              <button data-range="90d" class="rangeBtn border border-slate-200 rounded-lg px-2 py-1">90d</button>
+              <button data-range="12m" class="rangeBtn border border-slate-200 rounded-lg px-2 py-1">12m</button>
+            </div>
+          </div>
+          <div class="p-5">
+            <svg id="earningsChart" viewBox="0 0 640 240" class="w-full h-56"></svg>
+          </div>
+        </div>
+
+        <div class="rounded-2xl bg-white border border-slate-200 shadow">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 class="text-sm font-semibold">Top Fans (This Month)</h2>
+            <a href="#" class="text-xs text-primary-600 hover:underline">View all</a>
+          </div>
+          <ul class="px-3 py-2 divide-y divide-slate-100">
+            <li class="flex items-center justify-between px-2 py-2">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 grid place-items-center text-sm">👑</div>
+                <div>
+                  <p class="text-sm font-medium">@fan_whale</p>
+                  <p class="text-xs text-slate-500">3 unlocks · Last active 2d ago</p>
+                </div>
+              </div>
+              <p class="text-sm font-semibold">$320</p>
+            </li>
+            <li class="flex items-center justify-between px-2 py-2">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-slate-200 grid place-items-center text-sm">2</div>
+                <div>
+                  <p class="text-sm font-medium">@fan_alpha</p>
+                  <p class="text-xs text-slate-500">2 unlocks · Last active 5d ago</p>
+                </div>
+              </div>
+              <p class="text-sm font-semibold">$280</p>
+            </li>
+            <li class="flex items-center justify-between px-2 py-2">
+              <div class="flex items-center gap-3">
+                <div class="h-8 w-8 rounded-full bg-slate-200 grid place-items-center text-sm">3</div>
+                <div>
+                  <p class="text-sm font-medium">@fan_banana</p>
+                  <p class="text-xs text-slate-500">1 unlock · Last active 1d ago</p>
+                </div>
+              </div>
+              <p class="text-sm font-semibold">$150</p>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="rounded-2xl bg-white border border-slate-200 shadow">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <h2 class="text-sm font-semibold">Quick Actions</h2>
+          </div>
+          <div class="px-5 pb-5 grid grid-cols-1 gap-3">
+            <button id="tweetBtn" class="rounded-xl border border-slate-200 bg-white text-slate-800 text-sm px-3 py-2 hover:bg-slate-50">Tweet my link</button>
+            <button id="copyPermalinkBtn" class="rounded-xl bg-primary-600 text-white text-sm px-3 py-2 hover:bg-primary-500">Copy permalink</button>
+            <button id="downloadBtn" class="rounded-xl border border-slate-200 bg-white text-slate-800 text-sm px-3 py-2 hover:bg-slate-50">Download earnings (.csv)</button>
+            <div class="grid grid-cols-2 gap-3">
+              <a href="#chat" class="rounded-xl border border-slate-200 bg-white text-center text-slate-800 text-sm px-3 py-2 hover:bg-slate-50">Open chat</a>
+              <a href="#profile" class="rounded-xl border border-slate-200 bg-white text-center text-slate-800 text-sm px-3 py-2 hover:bg-slate-50">View profile</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const creatorPermalink = 'https://simp3.app/@yourhandle';
+
+    document.getElementById('copyPermalinkBtn').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(creatorPermalink);
+      alert('Copied to clipboard');
+    });
+
+    document.getElementById('tweetBtn').addEventListener('click', () => {
+      const text = encodeURIComponent('I just launched paid chat on #simp3 — come say hi!');
+      const url = encodeURIComponent(creatorPermalink);
+      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      const rows = [
+        ['date','fan','amount_usd','type'],
+        ['2025-09-01','@alex','50','unlock'],
+        ['2025-09-14','@fan_whale','120','unlock'],
+        ['2025-10-02','@fan_alpha','60','unlock'],
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'simp3_earnings.csv';
+      a.click();
+    });
+
+    const chartData = [800,950,1200,1100,1300,900,1500,1700,1600,1400,1550,1980];
+    const svg = document.getElementById('earningsChart');
+    const W=640,H=240,p=32,bw=40;
+    const max=Math.max(...chartData);
+    chartData.forEach((v,i)=>{
+      const rect=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      const h=(v/max)*(H-p*2);
+      rect.setAttribute('x',p+i*(bw+10));
+      rect.setAttribute('y',H-p-h);
+      rect.setAttribute('width',bw);
+      rect.setAttribute('height',h);
+      rect.setAttribute('rx',4);
+      rect.setAttribute('fill','#6366f1');
+      svg.appendChild(rect);
+    });
+  </script>
+</body>
+</html>

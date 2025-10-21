@@ -82,19 +82,9 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
     }
   };
 
-  // On chat page: show only simple logo in top-left
+  // On chat page: don't show any navigation
   if (isOnChatPage) {
-    return (
-      <div className="fixed top-4 left-4 z-50">
-        <Link 
-          href="/"
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1"
-        >
-          <div className="w-8 h-8 rounded-lg bg-black"></div>
-          <span className="font-semibold text-base">{title}</span>
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   // On all other pages: show full navbar
@@ -112,7 +102,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
           {user && profile?.user_type === 'CREATOR' && (
-            <Link href="/creator/dashboard" className="hover:underline">Dashboard</Link>
+            <Link href={`/creator/${profile.id}`} className="hover:underline">Profile</Link>
           )}
           {user && profile?.user_type === 'FAN' && (
             <Link href="/fan/dashboard" className="hover:underline">Dashboard</Link>
@@ -165,11 +155,11 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
           <nav className="px-6 py-4 space-y-4">
             {user && profile?.user_type === 'CREATOR' && (
               <Link 
-                href="/creator/dashboard" 
+                href={`/creator/${profile.id}`} 
                 className="block text-sm hover:text-primary transition-colors"
                 onClick={closeMobileMenu}
               >
-                Dashboard
+                Profile
               </Link>
             )}
             {user && profile?.user_type === 'FAN' && (

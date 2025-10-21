@@ -169,12 +169,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
       <>
         <div className={`h-full ${className} relative`}>
           {/* Mobile Header with Hamburger Menu */}
-          <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-black"></div>
-              <span className="font-semibold text-base">CreatorHub</span>
-            </div>
-            
+          <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-end">
             <button
               onClick={toggleMobileMenu}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -192,7 +187,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           {isMobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-40">
               <nav className="px-6 py-4 space-y-4">
-                <a href="/dashboard" className="flex items-center gap-3 text-sm">
+                <a href="/" className="flex items-center gap-3 text-sm">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </a>
@@ -263,7 +258,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           {/* Bottom Mini-Nav */}
           <div className="border-t p-2">
             <div className="grid grid-cols-2 gap-2">
-              <a href="/dashboard" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+              <a href="/" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="text-sm">Dashboard</span>
               </a>
