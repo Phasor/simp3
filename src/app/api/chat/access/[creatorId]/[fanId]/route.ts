@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,8 @@ export async function GET(
       );
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    // Create admin client with service role key
+    const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey);
 
     // Get chat access record
     const { data: accessRecord, error: accessError } = await supabaseAdmin
@@ -73,7 +75,15 @@ export async function GET(
       .select('*')
       .eq('creator_id', creatorId)
       .eq('fan_id', fanId)
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid errors when no record exists
+
+    if (accessError) {
+      console.error('Error fetching chat access record:', accessError);
+      return NextResponse.json(
+        { error: 'Failed to fetch chat access' },
+        { status: 500 }
+      );
+    }
 
     // Get chat rules (with fallback to defaults)
     let rules = null;
@@ -81,9 +91,9 @@ export async function GET(
       .from('chat_rules')
       .select('*')
       .eq('creator_id', creatorId)
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid errors when no rules exist
 
-    if (rulesError && rulesError.code !== 'PGRST116') {
+    if (rulesError) {
       console.log('Using default chat rules due to error:', rulesError.message);
     }
 

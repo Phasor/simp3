@@ -41,14 +41,29 @@ export function ChatInbox({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading && !authLoading) {
+        console.warn('⚠️ Loading timeout reached, forcing loading to false');
+        setLoading(false);
+        setError('Loading timeout - please refresh the page');
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading, authLoading]);
+
   // Load conversations
   const loadConversations = useCallback(async () => {
-    // Don't load if auth is still loading or no profile
-    if (authLoading || !currentProfile?.id) {
-      // If auth is not loading but we don't have a profile, we should stop loading
-      if (!authLoading && !currentProfile?.id) {
-        setLoading(false);
-      }
+    // Don't load if auth is still loading
+    if (authLoading) {
+      return;
+    }
+    
+    // If auth is done but no profile, stop loading
+    if (!currentProfile?.id) {
+      setLoading(false);
       return;
     }
 
@@ -209,9 +224,12 @@ export function ChatInbox({
       // If auth is done loading but we don't have a profile, stop loading
       if (!currentProfile?.id) {
         setLoading(false);
+      } else {
+        // If we have a profile and auth is done, trigger conversation loading
+        loadConversations();
       }
     }
-  }, [authLoading, currentProfile?.id]);
+  }, [authLoading, currentProfile?.id, loadConversations]);
 
   // Filter conversations based on search
   const filteredConversations = conversations.filter((conv) => {

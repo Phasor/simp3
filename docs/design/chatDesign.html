@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simp3 – Collapsible Left Nav Preview</title>
+
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#000000' }
+          },
+          boxShadow: {
+            soft: '0 10px 25px -10px rgba(0,0,0,0.15)'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Simple scrollbar styling */
+    .nice-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
+    .nice-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 8px; }
+    .nice-scrollbar::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+    .accordion-content { grid-template-rows: 0fr; transition: grid-template-rows .25s ease; }
+    .accordion-content[data-open="true"] { grid-template-rows: 1fr; }
+  </style>
+</head>
+
+<body class="bg-white text-gray-900">
+  <div class="h-screen w-screen flex">
+    <!-- SIDEBAR -->
+    <aside class="w-72 min-w-64 border-r bg-white flex flex-col">
+      <!-- Search -->
+      <div class="p-3">
+        <input type="search" placeholder="Search chats or creators…"
+               class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10" />
+      </div>
+
+      <!-- Collapsible Sections -->
+      <div class="flex-1 overflow-auto px-2 nice-scrollbar">
+        <!-- Active Chats -->
+        <section class="border-b">
+          <button class="w-full flex items-center justify-between px-2 py-3 group" data-accordion-trigger="active">
+            <div class="flex items-center gap-2">
+              <span class="font-medium">Active Chats</span>
+              <span class="text-xs rounded-full bg-gray-100 px-2 py-0.5">3</span>
+            </div>
+            <i data-lucide="chevron-down" class="h-4 w-4 transition-transform group-[.open]:rotate-180"></i>
+          </button>
+          <div class="grid accordion-content" data-accordion-content="active" data-open="true">
+            <div class="overflow-hidden pb-2">
+              <ul class="space-y-1">
+                <!-- Item -->
+                <li>
+                  <a href="#"
+                     class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 bg-gray-100"
+                     aria-current="page">
+                    <div class="relative h-8 w-8 rounded-full bg-gray-200"></div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm font-medium">Simp1</span>
+                        <span class="text-[10px] rounded-md bg-blue-100 text-blue-700 px-1.5 py-0.5 shrink-0">16 days left</span>
+                      </div>
+                      <p class="truncate text-xs text-gray-500">You: ofc you should</p>
+                    </div>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50">
+                    <div class="relative h-8 w-8 rounded-full bg-gray-200"></div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm font-medium">Alice Creator</span>
+                        <span class="text-[10px] rounded-md bg-blue-100 text-blue-700 px-1.5 py-0.5 shrink-0">4 days left</span>
+                      </div>
+                      <p class="truncate text-xs text-gray-500">You: hey! shall I send?</p>
+                    </div>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50">
+                    <div class="relative h-8 w-8 rounded-full bg-gray-200"></div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm font-medium">VIP Fan</span>
+                        <span class="text-[10px] rounded-md bg-rose-100 text-rose-700 px-1.5 py-0.5 shrink-0">2 days left</span>
+                      </div>
+                      <p class="truncate text-xs text-gray-500">Them: cool</p>
+                    </div>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- Expired Access -->
+        <section class="border-b">
+          <button class="w-full flex items-center justify-between px-2 py-3 group" data-accordion-trigger="expired">
+            <div class="flex items-center gap-2">
+              <span class="font-medium">Expired Access</span>
+              <span class="text-xs rounded-full border px-2 py-0.5">1</span>
+            </div>
+            <i data-lucide="chevron-down" class="h-4 w-4 transition-transform group-[.open]:rotate-180"></i>
+          </button>
+          <div class="grid accordion-content" data-accordion-content="expired" data-open="false">
+            <div class="overflow-hidden pb-2">
+              <ul class="space-y-1">
+                <li>
+                  <a href="#" class="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50">
+                    <div class="h-8 w-8 rounded-full bg-gray-200"></div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="truncate text-sm font-medium">cheapcryptoloans</span>
+                        <span class="text-[10px] rounded-md bg-rose-500 text-white px-1.5 py-0.5 shrink-0">No Access</span>
+                      </div>
+                      <p class="truncate text-xs text-gray-500">You: Test message…</p>
+                    </div>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Bottom Mini-Nav -->
+      <div class="border-t p-2">
+        <div class="grid grid-cols-2 gap-2">
+          <a href="/dashboard" class="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+            <i data-lucide="layout-dashboard" class="h-4 w-4"></i><span class="text-sm">Dashboard</span>
+          </a>
+          <a href="/profile" class="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+            <i data-lucide="user" class="h-4 w-4"></i><span class="text-sm">Profile</span>
+          </a>
+          <a href="/settings" class="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+            <i data-lucide="settings" class="h-4 w-4"></i><span class="text-sm">Settings</span>
+          </a>
+          <a href="/logout" class="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50 text-rose-600">
+            <i data-lucide="log-out" class="h-4 w-4"></i><span class="text-sm">Logout</span>
+          </a>
+        </div>
+        <a href="/new" class="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 text-sm text-white hover:opacity-90">
+          <i data-lucide="plus" class="h-4 w-4"></i> New Chat
+        </a>
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT MOCK -->
+    <main class="flex-1 flex flex-col">
+      <header class="h-14 border-b flex items-center justify-between px-6">
+        <div class="flex items-center gap-3">
+          <div class="h-8 w-8 rounded-full bg-gray-200"></div>
+          <div>
+            <div class="font-medium leading-4">Simp1</div>
+            <div class="text-xs text-gray-500 leading-4">Online</div>
+          </div>
+        </div>
+        <div class="text-xs text-gray-500">16 days left</div>
+      </header>
+
+      <section class="flex-1 overflow-auto p-8 nice-scrollbar bg-gray-50">
+        <!-- Chat bubbles (static demo) -->
+        <div class="max-w-3xl mx-auto space-y-4">
+          <div class="flex"><div class="rounded-2xl px-4 py-2 bg-white shadow-soft">hello creator</div></div>
+          <div class="flex justify-end"><div class="rounded-2xl px-4 py-2 bg-blue-600 text-white shadow-soft">hello fan</div></div>
+          <div class="flex"><div class="rounded-2xl px-4 py-2 bg-white shadow-soft">shall i send?</div></div>
+          <div class="flex justify-end"><div class="rounded-2xl px-4 py-2 bg-blue-600 text-white shadow-soft">ofc you should</div></div>
+          <div class="flex"><div class="rounded-2xl px-4 py-2 bg-white shadow-soft">hi goddess</div></div>
+          <div class="flex justify-end"><div class="rounded-2xl px-4 py-2 bg-blue-600 text-white shadow-soft">hello simp</div></div>
+        </div>
+      </section>
+
+      <footer class="border-t px-6 py-3">
+        <div class="max-w-3xl mx-auto flex items-center gap-2">
+          <button class="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50">
+            <i data-lucide="plus" class="h-4 w-4"></i>
+          </button>
+          <input type="text" placeholder="Type your message…" class="flex-1 rounded-xl border px-4 py-2 outline-none focus:ring-2 focus:ring-black/10" />
+          <button class="rounded-xl bg-black text-white px-4 py-2 text-sm hover:opacity-90">Send</button>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    // Icons
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      initAccordions();
+    });
+
+    // Accordion state with localStorage persistence
+    function initAccordions() {
+      const storeKey = 'chatSidebarOpen';
+      const defaultOpen = ['active']; // default
+      let open = defaultOpen;
+      try {
+        const saved = JSON.parse(localStorage.getItem(storeKey) || 'null');
+        if (Array.isArray(saved)) open = saved;
+      } catch {}
+
+      document.querySelectorAll('[data-accordion-content]').forEach(el => {
+        const key = el.getAttribute('data-accordion-content');
+        const isOpen = open.includes(key);
+        el.dataset.open = String(isOpen);
+        const trigger = document.querySelector(`[data-accordion-trigger="${key}"]`);
+        if (trigger) {
+          if (isOpen) trigger.classList.add('open');
+          trigger.addEventListener('click', () => {
+            const currentlyOpen = el.dataset.open === 'true';
+            el.dataset.open = String(!currentlyOpen);
+            trigger.classList.toggle('open', !currentlyOpen);
+            // persist
+            const set = new Set(open);
+            if (!currentlyOpen) set.add(key); else set.delete(key);
+            open = Array.from(set);
+            try { localStorage.setItem(storeKey, JSON.stringify(open)); } catch {}
+          });
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -34,7 +34,7 @@ export async function sendMessage(
   
   try {
     const timeoutSignal =
-      typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(7000) : undefined;
+      typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15000) : undefined;
     const signal = opts?.signal ?? timeoutSignal;
     
     const response = await fetch('/api/chat/send', {
@@ -100,7 +100,7 @@ export async function fetchMessages(
     const url = `/api/chat/messages/${creatorId}/${fanId}${params.toString() ? `?${params.toString()}` : ''}`;
     
     const response = await fetch(url, {
-      signal: options.signal ?? (typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(7000) : undefined),
+      signal: options.signal ?? (typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(15000) : undefined),
       cache: 'no-store',
     });
     

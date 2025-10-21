@@ -27,9 +27,9 @@ export async function checkChatAccess(
   retryCount: number = 0,
   signal?: AbortSignal
 ): Promise<ChatAccessValidationResult> {
-  // Merge caller signal with a 7s timeout so requests don't hang
+  // Merge caller signal with a 15s timeout so requests don't hang
   const timeoutCtrl = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
-    ? AbortSignal.timeout(7000)
+    ? AbortSignal.timeout(15000)
     : undefined;
   const controller = new AbortController();
   const composite = signal
