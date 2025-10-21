@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
-import { CreatorWelcome } from './CreatorWelcome';
+import { CreatorWelcomeModal } from './CreatorWelcomeModal';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types/database';
@@ -160,7 +160,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
 
         {/* Welcome modal for new creators */}
         {showWelcome && (
-          <CreatorWelcome onClose={() => setShowWelcome(false)} />
+          <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />
         )}
       </>
     );
@@ -191,7 +191,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
 
       {/* Welcome modal for new creators */}
       {showWelcome && (
-        <CreatorWelcome onClose={() => setShowWelcome(false)} />
+        <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />
       )}
     </>
   );

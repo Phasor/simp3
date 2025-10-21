@@ -12,10 +12,11 @@ const BUNNY_CDN_HOSTNAME = process.env.BUNNY_CDN_HOSTNAME || "uk.storage.bunnycd
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const path = params.path.join('/');
+    const resolvedParams = await params;
+    const path = resolvedParams.path.join('/');
     
     // Validate the path for security
     if (!validateBunnyStorageUrl(path)) {
