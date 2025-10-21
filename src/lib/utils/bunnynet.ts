@@ -1,14 +1,14 @@
 import crypto from "crypto";
 
 // Bunny.net configuration
-const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY || process.env.BUNNY_API_KEY!;
-const BUNNY_STREAM_API_KEY = process.env.BUNNY_API_KEY!;
-const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || process.env.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID!;
+const BUNNY_STORAGE_API_KEY = process.env.BUNNY_STORAGE_API_KEY || process.env.BUNNY_API_KEY;
+const BUNNY_STREAM_API_KEY = process.env.BUNNY_API_KEY;
+const BUNNY_STREAM_LIBRARY_ID = process.env.BUNNY_STREAM_LIBRARY_ID || process.env.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID;
 const BUNNY_STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE || "simp2";
 const BUNNY_STORAGE_REGION = process.env.BUNNY_STORAGE_REGION || "uk";
 // Use your configured CDN hostname, fallback to default pattern
 const BUNNY_CDN_HOSTNAME = process.env.BUNNY_CDN_HOSTNAME || `${BUNNY_STORAGE_ZONE}.b-cdn.net`;
-const BUNNY_CDN_TOKEN_SECRET = process.env.BUNNY_CDN_TOKEN_SECRET!;
+const BUNNY_CDN_TOKEN_SECRET = process.env.BUNNY_CDN_TOKEN_SECRET;
 
 /**
  * Generate a signed URL for protected content access with PPV security
@@ -103,9 +103,25 @@ export async function uploadToBunnyStorage(
   folder: string = "ppv-images"
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
+    // Validate required environment variables
+    if (!BUNNY_STORAGE_API_KEY) {
+      console.error('❌ BUNNY_STORAGE_API_KEY is not configured');
+      return {
+        success: false,
+        error: 'Bunny.net storage API key is not configured',
+      };
+    }
+
     const uploadPath = `${folder}/${fileName}`;
     // Use storage API endpoint for uploads (not CDN)
     const uploadUrl = `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com/${BUNNY_STORAGE_ZONE}/${uploadPath}`;
+    
+    console.log('🔗 Upload URL:', uploadUrl);
+    console.log('📁 Upload path:', uploadPath);
+    console.log('🔑 API Key present:', !!BUNNY_STORAGE_API_KEY);
+    console.log('🔧 Storage Zone:', BUNNY_STORAGE_ZONE);
+    console.log('🌍 Storage Region:', BUNNY_STORAGE_REGION);
+    console.log('📦 File size:', file.length, 'bytes');
     
     // Add timeout to prevent hanging uploads
     const controller = new AbortController();
@@ -123,11 +139,25 @@ export async function uploadToBunnyStorage(
 
     clearTimeout(timeoutId);
 
+    console.log('📡 Upload response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const responseText = await response.text().catch(() => 'No response body');
+      console.error('❌ Upload failed response:', responseText);
+      
+      // Provide more specific error messages
+      if (response.status === 401) {
+        throw new Error('Authentication failed - please check your Bunny.net API key');
+      } else if (response.status === 403) {
+        throw new Error('Access denied - please check your Bunny.net permissions');
+      } else if (response.status === 404) {
+        throw new Error('Storage zone not found - please check your configuration');
+      }
+      
       throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
+    console.log('✅ Upload successful to:', uploadPath);
     return {
       success: true,
       url: `/${uploadPath}`, // Store relative path for proxy access

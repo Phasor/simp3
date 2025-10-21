@@ -49,6 +49,16 @@ export async function POST(request: NextRequest) {
     }
     console.log('✅ User authenticated:', user.id);
 
+    // Check Bunny.net configuration early
+    const bunnyApiKey = process.env.BUNNY_STORAGE_API_KEY || process.env.BUNNY_API_KEY;
+    if (!bunnyApiKey) {
+      console.error('❌ Bunny.net API key not configured');
+      return NextResponse.json({ 
+        error: 'Storage service not configured. Please contact support.' 
+      }, { status: 500 });
+    }
+    console.log('✅ Bunny.net API key configured');
+
     // 2) Parse form data
     console.log('📋 Parsing form data...');
     const formData = await request.formData();
