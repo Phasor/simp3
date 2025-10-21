@@ -83,18 +83,35 @@ export const MessageInput = memo(function MessageInput({
     }
 
     // Auto-resize textarea with improved sizing for pill shape
+    // On mobile, keep single line height
     const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+    const isMobile = window.innerWidth < 768;
+    
+    if (isMobile) {
+      // Keep single line height on mobile
+      textarea.style.height = '40px';
+    } else {
+      // Allow multi-line on desktop
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+    }
   }, [maxLength, message, onStartTyping, onStopTyping]);
 
   // Auto-resize functionality on mount and message changes
   useEffect(() => {
     if (textareaRef.current) {
       const textarea = textareaRef.current;
+      const isMobile = window.innerWidth < 768;
+      
       const autoGrow = () => {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+        if (isMobile) {
+          // Keep single line height on mobile
+          textarea.style.height = '40px';
+        } else {
+          // Allow multi-line on desktop
+          textarea.style.height = 'auto';
+          textarea.style.height = Math.min(textarea.scrollHeight, 160) + 'px';
+        }
       };
       autoGrow();
     }
@@ -103,8 +120,9 @@ export const MessageInput = memo(function MessageInput({
   const canSend = message.trim().length > 0 && !sending && !disabled;
 
   return (
-    <div className={`bg-white/80 dark:bg-gray-950/60 backdrop-blur border-t border-gray-200 dark:border-gray-800 p-3 ${className}`}>
-      <form onSubmit={handleSubmit} className="max-w-3xl mx-auto flex items-center gap-3">
+    <div className={`bg-white/80 dark:bg-gray-950/60 backdrop-blur border-t border-gray-200 dark:border-gray-800 ${className}`}>
+      <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-3">
+        <form onSubmit={handleSubmit} className="flex items-center gap-3">
         {/* Add button */}
         <button 
           type="button"
@@ -140,8 +158,8 @@ export const MessageInput = memo(function MessageInput({
             placeholder={disabled ? 'Chat access required to send messages' : placeholder}
             disabled={disabled || sending}
             rows={1}
-            className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full px-4 py-2 pr-14 resize-none outline-none leading-6 text-[15px] shadow-sm min-h-[40px] max-h-[160px]"
-            style={{ height: 'auto' }}
+            className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-full px-4 py-2 pr-14 resize-none outline-none leading-6 text-[15px] shadow-sm min-h-[40px] max-h-[40px] md:max-h-[160px] overflow-y-hidden md:overflow-y-auto"
+            style={{ height: '40px' }}
           />
           <span className="absolute right-14 top-1/2 -translate-y-1/2 text-xs text-gray-400 hidden sm:block">⇧ + ↵</span>
         </div>
@@ -166,7 +184,8 @@ export const MessageInput = memo(function MessageInput({
             </>
           )}
         </button>
-      </form>
+        </form>
+      </div>
     </div>
   );
 });

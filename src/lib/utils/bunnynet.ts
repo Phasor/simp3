@@ -46,6 +46,55 @@ export function generateSignedUrl(
 }
 
 /**
+ * Upload profile picture to Bunny Storage
+ */
+export async function uploadProfilePicture(
+  file: Buffer,
+  userId: string,
+  originalFileName: string
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  // Reuse the existing uploadToBunnyStorage function for consistency
+  const timestamp = Date.now();
+  const extension = originalFileName.split('.').pop()?.toLowerCase() || 'jpg';
+  const fileName = `${userId}-${timestamp}.${extension}`;
+  
+  return uploadToBunnyStorage(file, fileName, 'profile-pictures');
+}
+
+/**
+ * Get profile picture URL for display (uses proxy for security)
+ */
+export function getProfilePictureUrl(
+  path: string | null | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+  } = {}
+): string {
+  if (!path) {
+    // Return a default avatar or placeholder
+    return '/api/image/profile-pictures/default-avatar.jpg';
+  }
+
+  // Use the existing getBunnyStorageUrl for proxy access
+  const baseUrl = getBunnyStorageUrl(path);
+  
+  // Add optimization parameters if provided
+  if (Object.keys(options).length > 0) {
+    const params = new URLSearchParams();
+    if (options.width) params.set('width', options.width.toString());
+    if (options.height) params.set('height', options.height.toString());
+    if (options.quality) params.set('quality', options.quality.toString());
+    
+    const queryString = params.toString();
+    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+  }
+  
+  return baseUrl;
+}
+
+/**
  * Upload file to Bunny Storage (for PPV images)
  */
 export async function uploadToBunnyStorage(
@@ -55,8 +104,12 @@ export async function uploadToBunnyStorage(
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const uploadPath = `${folder}/${fileName}`;
-    // Use your configured CDN hostname for uploads
-    const uploadUrl = `https://${BUNNY_CDN_HOSTNAME}/${BUNNY_STORAGE_ZONE}/${uploadPath}`;
+    // Use storage API endpoint for uploads (not CDN)
+    const uploadUrl = `https://${BUNNY_STORAGE_REGION}.storage.bunnycdn.com/${BUNNY_STORAGE_ZONE}/${uploadPath}`;
+    
+    // Add timeout to prevent hanging uploads
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     const response = await fetch(uploadUrl, {
       method: 'PUT',
@@ -65,18 +118,31 @@ export async function uploadToBunnyStorage(
         'Content-Type': 'application/octet-stream',
       },
       body: file as BodyInit,
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      const responseText = await response.text().catch(() => 'No response body');
+      throw new Error(`Upload failed: ${response.status} ${response.statusText} - ${responseText}`);
     }
 
     return {
       success: true,
-      url: `/${uploadPath}`, // Store relative path for signing later
+      url: `/${uploadPath}`, // Store relative path for proxy access
     };
   } catch (error) {
     console.error('Bunny Storage upload error:', error);
+    
+    // Handle timeout specifically
+    if (error instanceof Error && error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Upload timeout - please try again with a smaller file',
+      };
+    }
+    
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Upload failed',

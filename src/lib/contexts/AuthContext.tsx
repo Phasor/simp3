@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/database'
@@ -25,9 +25,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   
-  const supabase = createClient()
+  // Memoize the Supabase client to prevent multiple instances
+  const supabase = useMemo(() => createClient(), [])
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useMemo(() => async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -36,7 +37,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.error('Error fetching profile:', error)
+        // Don't log "not found" errors as they're expected during signup
+        if (error.code !== 'PGRST116') {
+          console.error('Error fetching profile:', error)
+        }
         return null
       }
 
@@ -45,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching profile:', error)
       return null
     }
-  }
+  }, [supabase])
 
   const refreshProfile = async () => {
     if (!user) return
@@ -106,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  }, [supabase.auth, fetchProfile])
 
   const value = {
     user,

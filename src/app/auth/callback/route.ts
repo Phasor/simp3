@@ -1,39 +1,116 @@
-import { NextResponse } from 'next/server'
-import { createServerClientStrict } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-// Allowlist of safe redirect paths
-const ALLOWED_REDIRECTS = ['/', '/chat', '/dashboard', '/creator/dashboard', '/fan/dashboard', '/settings', '/creator/settings']
+const ALLOWED_REDIRECTS = new Set([
+  '/', '/signup', '/chat', '/dashboard', '/creator/dashboard', '/fan/dashboard', '/settings', '/creator/settings'
+]);
 
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  const rawNext = searchParams.get('next') ?? '/'
-  
-  // Validate and sanitize the next parameter - prevent open redirects
-  const isPathOnly = rawNext.startsWith('/') && !rawNext.startsWith('//')
-  const next = (ALLOWED_REDIRECTS.includes(rawNext) && isPathOnly) ? rawNext : '/'
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const code = url.searchParams.get('code');
+  const rawNext = url.searchParams.get('next') ?? '/';
+  const ut = url.searchParams.get('ut'); // CREATOR | FAN
+  const error_code = url.searchParams.get('error');
+  const error_description = url.searchParams.get('error_description');
 
-  if (code) {
-    const supabase = await createServerClientStrict()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (error) {
-      return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message)}`)
+  console.log('🔄 Auth callback received:', { 
+    code: !!code, 
+    rawNext, 
+    ut, 
+    error_code, 
+    error_description,
+    fullUrl: req.url 
+  });
+
+  // Handle auth errors from Supabase
+  if (error_code) {
+    console.error('❌ Auth error from Supabase:', { error_code, error_description });
+    const errorMessage = error_description || error_code || 'Authentication failed';
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, url.origin));
+  }
+
+  const next = (rawNext.startsWith('/') && ALLOWED_REDIRECTS.has(rawNext))
+    ? rawNext
+    : '/';
+
+  if (!code) {
+    console.log('❌ No code provided, redirecting to:', next);
+    return NextResponse.redirect(new URL(next, url.origin));
+  }
+
+  try {
+    const supabase = await createClient();
+
+    // 1) Exchange code → sets the auth cookie on this response
+    console.log('🔑 Exchanging code for session...');
+    const { data: sessionData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    
+    if (exchangeError) {
+      console.error('❌ Auth exchange error:', exchangeError);
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, url.origin));
     }
 
-    // After successful authentication, check if user has a profile
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: profile } = await supabase
+    console.log('✅ Session exchange successful:', { 
+      hasSession: !!sessionData.session,
+      hasUser: !!sessionData.user,
+      userId: sessionData.user?.id 
+    });
+
+    // 2) Check if a profile exists
+    const user = sessionData.user;
+    if (!user) {
+      console.error('❌ No user in session after exchange');
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent('No user found after authentication')}`, url.origin));
+    }
+
+    console.log('👤 User authenticated:', { userId: user.id, email: user.email });
+
+    // Check for existing profile with error handling
+    try {
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('auth_user_id', user.id)
-        .single()
-      
-      // If no profile exists, redirect to signup instead of home
-      if (!profile) {
-        return NextResponse.redirect(`${origin}/signup`)
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('❌ Profile check error:', profileError);
+        // Continue anyway, treat as no profile
       }
+
+      console.log('📊 Profile check result:', { 
+        profile: !!profile, 
+        profileId: profile?.id,
+        profileError: profileError?.code 
+      });
+
+      if (!profile) {
+        // Go straight to the completion step, include ut so the client has it
+        console.log('🔄 No profile found, redirecting to signup completion step');
+        const dest = new URL('/signup', url.origin);
+        dest.searchParams.set('step', 'complete');
+        if (ut) dest.searchParams.set('ut', ut);
+        // 303 avoids re-POST and forces a new navigation with fresh cookies
+        return NextResponse.redirect(dest, { status: 303 });
+      } else {
+        console.log('✅ Profile exists, proceeding with normal redirect');
+      }
+    } catch (profileCheckError) {
+      console.error('❌ Profile check exception:', profileCheckError);
+      // Treat as no profile and continue to signup
+      console.log('🔄 Profile check failed, redirecting to signup completion step');
+      const dest = new URL('/signup', url.origin);
+      dest.searchParams.set('step', 'complete');
+      if (ut) dest.searchParams.set('ut', ut);
+      return NextResponse.redirect(dest, { status: 303 });
     }
+
+    console.log('🏁 Final redirect to:', `${url.origin}${next}`);
+    return NextResponse.redirect(new URL(next, url.origin), { status: 303 });
+
+  } catch (error) {
+    console.error('💥 Auth callback exception:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(errorMessage)}`, url.origin));
   }
-  return NextResponse.redirect(`${origin}${next}`)
 }

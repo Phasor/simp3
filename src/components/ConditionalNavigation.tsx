@@ -88,7 +88,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
       <div className="fixed top-4 left-4 z-50">
         <Link 
           href="/"
-          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1"
         >
           <div className="w-8 h-8 rounded-lg bg-black"></div>
           <span className="font-semibold text-base">{title}</span>

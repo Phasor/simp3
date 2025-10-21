@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClientStrict } from '@/lib/supabase/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +18,7 @@ export async function GET(
     }
 
     // Get current user
-    const supabase = await createServerClientStrict();
+    const supabase = await createClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {

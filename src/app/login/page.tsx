@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
@@ -22,8 +23,14 @@ export default function LoginPage() {
       options: { emailRedirectTo: redirectTo },
     })
     setSending(false)
-    if (error) { alert(error.message); return }
-    alert('Magic link sent! Check your email.')
+    if (error) { 
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Magic link sent! Check your email.', {
+      icon: '✨',
+      duration: 5000,
+    });
   }
 
   async function signInWithGoogle() {
@@ -32,7 +39,7 @@ export default function LoginPage() {
       provider: 'google',
       options: { redirectTo },
     })
-    if (error) alert(error.message)
+    if (error) toast.error(error.message)
   }
 
   return (

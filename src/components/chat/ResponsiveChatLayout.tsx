@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
+import { CreatorWelcome } from './CreatorWelcome';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types/database';
@@ -23,6 +24,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const [fanProfile, setFanProfile] = useState<Profile | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [showInbox, setShowInbox] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   // Check if we're on mobile
   useEffect(() => {
@@ -82,11 +84,17 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   useEffect(() => {
     const creatorId = searchParams.get('creator');
     const fanId = searchParams.get('fan');
+    const welcome = searchParams.get('welcome');
     
     if (creatorId && fanId) {
       handleSelectConversation(creatorId, fanId);
     }
-  }, [searchParams, handleSelectConversation]);
+    
+    // Show welcome modal for new creators
+    if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
+      setShowWelcome(true);
+    }
+  }, [searchParams, handleSelectConversation, currentProfile]);
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);
@@ -132,45 +140,59 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   if (isMobile) {
     // Mobile: Show either inbox or conversation, not both
     return (
-      <div className={`h-full ${className}`}>
-        {showInbox ? (
-          <ChatInbox
-            selectedConversationId={selectedConversationId}
-            onSelectConversation={handleSelectConversation}
-          />
-        ) : (
-          <ChatContainer
-            creatorId={selectedCreatorId || undefined}
-            fanId={selectedFanId || undefined}
-            creatorProfile={creatorProfile || undefined}
-            fanProfile={fanProfile || undefined}
-            onBack={handleBackToInbox}
-          />
+      <>
+        <div className={`h-full ${className}`}>
+          {showInbox ? (
+            <ChatInbox
+              selectedConversationId={selectedConversationId}
+              onSelectConversation={handleSelectConversation}
+            />
+          ) : (
+            <ChatContainer
+              creatorId={selectedCreatorId || undefined}
+              fanId={selectedFanId || undefined}
+              creatorProfile={creatorProfile || undefined}
+              fanProfile={fanProfile || undefined}
+              onBack={handleBackToInbox}
+            />
+          )}
+        </div>
+
+        {/* Welcome modal for new creators */}
+        {showWelcome && (
+          <CreatorWelcome onClose={() => setShowWelcome(false)} />
         )}
-      </div>
+      </>
     );
   }
 
   // Desktop: Show both inbox and conversation side by side
   return (
-    <div className={`flex h-full ${className}`}>
-      {/* Inbox sidebar */}
-      <div className="w-80 border-r border-border flex-shrink-0">
-        <ChatInbox
-          selectedConversationId={selectedConversationId}
-          onSelectConversation={handleSelectConversation}
-        />
+    <>
+      <div className={`flex h-full ${className}`}>
+        {/* Inbox sidebar */}
+        <div className="w-80 border-r border-border flex-shrink-0">
+          <ChatInbox
+            selectedConversationId={selectedConversationId}
+            onSelectConversation={handleSelectConversation}
+          />
+        </div>
+
+        {/* Chat area */}
+        <div className="flex-1">
+          <ChatContainer
+            creatorId={selectedCreatorId || undefined}
+            fanId={selectedFanId || undefined}
+            creatorProfile={creatorProfile || undefined}
+            fanProfile={fanProfile || undefined}
+          />
+        </div>
       </div>
 
-      {/* Chat area */}
-      <div className="flex-1">
-        <ChatContainer
-          creatorId={selectedCreatorId || undefined}
-          fanId={selectedFanId || undefined}
-          creatorProfile={creatorProfile || undefined}
-          fanProfile={fanProfile || undefined}
-        />
-      </div>
-    </div>
+      {/* Welcome modal for new creators */}
+      {showWelcome && (
+        <CreatorWelcome onClose={() => setShowWelcome(false)} />
+      )}
+    </>
   );
 }

@@ -1,13 +1,13 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { MessageCircle, Users, Shield } from 'lucide-react';
-import { createServerClientStrict } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 
 // Force dynamic rendering for user-specific content
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const supabase = await createServerClientStrict();
+  const supabase = await createClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   
   // If no user, redirect to login
