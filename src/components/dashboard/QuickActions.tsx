@@ -105,6 +105,7 @@ export default function QuickActions({ creatorHandle }: QuickActionsProps) {
             View profile
           </a>
         </div>
+        
       </div>
     </div>
   );

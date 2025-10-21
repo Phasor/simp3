@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simp3 · Creator Profile Settings (MVP)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ["Inter","ui-sans-serif","system-ui"] }, colors: { primary: { 500:'#6366f1',600:'#4f46e5'} } } } }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans">
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    <header class="mb-6">
+      <h1 class="text-xl font-semibold">Profile Settings</h1>
+      <p class="text-sm text-slate-500">Manage your identity and chat access. All fields are pre‑filled with your current values.</p>
+    </header>
+
+    <form id="profileForm" class="space-y-6">
+      <!-- Identity -->
+      <section class="rounded-2xl bg-white border border-slate-200 shadow">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h2 class="text-sm font-semibold">Identity</h2>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Nickname</label>
+            <input id="nickname" type="text" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value="Princess Demi" />
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Email</label>
+            <input id="email" type="email" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value="demo@simp3.app" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs text-slate-500 mb-1">Profile Picture</label>
+            <div class="flex items-center gap-3">
+              <img id="avatarThumb" class="h-14 w-14 rounded-full object-cover bg-slate-200" src="https://placehold.co/112x112" alt="avatar"/>
+              <div>
+                <input id="avatar" type="file" accept="image/*" class="block text-sm" />
+                <p class="text-xs text-slate-500 mt-1">JPG or PNG, up to 5MB.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Access & Pricing -->
+      <section class="rounded-2xl bg-white border border-slate-200 shadow">
+        <div class="px-5 py-4 border-b border-slate-100">
+          <h2 class="text-sm font-semibold">Chat Access & Pricing</h2>
+        </div>
+        <div class="p-5 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Price (USD)</label>
+            <div class="flex rounded-lg border border-slate-300 overflow-hidden">
+              <span class="px-2 bg-slate-50 text-slate-500 text-sm grid place-items-center">$</span>
+              <input id="price" type="number" min="1" step="1" class="w-full px-3 py-2 text-sm outline-none" value="100" />
+            </div>
+            <p class="text-[11px] text-slate-500 mt-1">Minimum price may apply.</p>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Access Term</label>
+            <select id="term" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+              <option value="7d">7 days</option>
+              <option value="14d">14 days</option>
+              <option value="30d" selected>30 days</option>
+              <option value="60d">60 days</option>
+              <option value="90d">90 days</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-500 mb-1">Profile Permalink</label>
+            <div class="flex rounded-lg border border-slate-300 overflow-hidden">
+              <input id="permalink" type="text" class="w-full px-3 py-2 text-sm" value="https://simp3.app/@princessdemi" readonly />
+              <button type="button" id="copyLink" class="px-3 bg-primary-600 text-white text-sm">Copy</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Save Controls -->
+      <div class="flex items-center gap-3">
+        <button type="submit" class="rounded-xl bg-primary-600 text-white text-sm px-4 py-2">Save changes</button>
+        <button type="button" id="resetBtn" class="rounded-xl border border-slate-300 text-slate-700 text-sm px-4 py-2 bg-white">Discard</button>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // Avatar preview only (no live page preview now)
+    $('avatar').addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      $('avatarThumb').src = url;
+    });
+
+    // Copy permalink
+    $('copyLink').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText($('permalink').value); alert('Copied!'); } catch {}
+    });
+
+    // Reset
+    $('resetBtn').addEventListener('click', () => window.location.reload());
+
+    // Submit (MVP demo)
+    $('profileForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const out = {
+        nickname: $('nickname').value,
+        email: $('email').value,
+        price_usd: Number($('price').value),
+        term: $('term').value,
+      };
+      console.log('Submit payload', out);
+      alert('Saved (demo) — wire to Supabase next.');
+    });
+  </script>
+</body>
+</html>

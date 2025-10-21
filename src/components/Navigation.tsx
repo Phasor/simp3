@@ -104,14 +104,6 @@ export default function Navigation({ }: NavigationProps) {
               Chat
             </Link>
           )}
-          {user && (
-            <Link 
-              href={profile?.user_type === 'CREATOR' ? '/creator/settings' : '/settings'} 
-              className="hover:underline"
-            >
-              Settings
-            </Link>
-          )}
           {!authLoading && !user && (
             <Link href="/signup" className="hover:underline">Sign Up Free</Link>
           )}
@@ -170,15 +162,6 @@ export default function Navigation({ }: NavigationProps) {
               >
                 <MessageCircle size={16} />
                 Chat
-              </Link>
-            )}
-            {user && (
-              <Link 
-                href={profile?.user_type === 'CREATOR' ? '/creator/settings' : '/settings'}
-                className="block text-sm hover:text-primary transition-colors"
-                onClick={closeMobileMenu}
-              >
-                Settings
               </Link>
             )}
             {!authLoading && !user && (
