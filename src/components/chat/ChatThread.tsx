@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { sendMessage, fetchMessages, createOptimisticMessage } from '@/lib/utils/messageApi';
 import { generateConversationId } from '@/lib/utils/conversationUtils';
 import { ArrowLeft, AlertTriangle, WifiOff } from 'lucide-react';
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 import type { ChatMessage, Profile } from '@/lib/types/database';
 
 interface ChatThreadProps {
@@ -371,43 +372,60 @@ export function ChatThread({
   }
 
   return (
-    <div className={`flex flex-col h-full bg-background overflow-hidden ${className}`}>
-      {/* Header - Fixed within container */}
-      <div className="mobile-sticky-header sticky top-0 z-20 flex-shrink-0 flex items-center gap-3 px-4 py-2 border-b border-border bg-card/95 backdrop-blur-sm">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="p-1 hover:bg-accent rounded-md transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-        )}
-
-        <div className="flex items-center gap-3 flex-1">
-          {/* Avatar */}
-          <PresenceAvatar
-            isOnline={connectionOnline}
-            profilePictureUrl={otherProfile.profile_picture_url || undefined}
-            displayName={otherProfile.display_name || otherProfile.email}
-            size="md"
-          />
-
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="font-semibold text-sm">
-                {otherProfile.display_name || otherProfile.email}
-              </h2>
-              {accessStatus && (
-                <ChatAccessStatusBadge status={accessStatus} />
-              )}
+    <div className={`flex flex-col h-full bg-white overflow-hidden ${className}`}>
+      {/* Header */}
+      <header className="h-14 border-b flex items-center justify-between px-6">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-1 hover:bg-gray-100 rounded-md transition-colors md:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+          
+          <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
+            {otherProfile.profile_picture_url && (
+              <img
+                src={getBunnyStorageUrl(otherProfile.profile_picture_url)}
+                alt={otherProfile.display_name || otherProfile.email}
+                className="h-8 w-8 rounded-full object-cover"
+                onError={(e) => {
+                  // Fallback to initials if image fails to load
+                  console.log('🖼️ Profile picture failed to load:', {
+                    originalUrl: otherProfile.profile_picture_url,
+                    processedUrl: getBunnyStorageUrl(otherProfile.profile_picture_url),
+                    displayName: otherProfile.display_name,
+                    email: otherProfile.email
+                  });
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `<span class="font-medium text-gray-500 text-sm">${(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}</span>`;
+                  }
+                }}
+              />
+            )}
+          </div>
+          
+          <div>
+            <div className="font-medium leading-4">
+              {otherProfile.display_name || otherProfile.email}
             </div>
-            <OnlineIndicator 
-              isOnline={connectionOnline}
-              className="text-xs"
-            />
+            <div className="text-xs text-gray-500 leading-4">
+              {connectionOnline ? 'Online' : 'Offline'}
+            </div>
           </div>
         </div>
-      </div>
+        
+        <div className="text-xs text-gray-500">
+          {accessStatus && (
+            <ChatAccessStatusBadge status={accessStatus} />
+          )}
+        </div>
+      </header>
 
       {/* Access Warning */}
       {showAccessWarning && (
@@ -449,12 +467,12 @@ export function ChatThread({
       )}
 
       {/* Messages */}
-      <div 
+      <section 
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900"
+        className="flex-1 overflow-auto p-8 bg-gray-50"
         style={{ scrollBehavior: 'smooth' }}
       >
-        <div className="mx-auto w-full max-w-3xl px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="max-w-3xl mx-auto space-y-4">
           <MessageList
             messages={messages}
             profiles={profiles}
@@ -464,25 +482,29 @@ export function ChatThread({
           />
           <div ref={messagesEndRef} />
         </div>
-      </div>
+      </section>
 
       {/* Typing Indicators */}
       <TypingIndicator 
         typingUsers={typingUsers.filter(user => user.userId !== currentProfile?.id)}
       />
 
-      {/* Message Input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        disabled={!canSendMessages || sendingMessage}
-        placeholder={
-          !canSendMessages 
-            ? 'Chat access required to send messages'
-            : 'Type your message...'
-        }
-        onStartTyping={startTyping}
-        onStopTyping={stopTyping}
-      />
+      {/* Message Input Footer */}
+      <footer className="border-t px-6 py-3">
+        <div className="max-w-3xl mx-auto">
+          <MessageInput
+            onSendMessage={handleSendMessage}
+            disabled={!canSendMessages || sendingMessage}
+            placeholder={
+              !canSendMessages 
+                ? 'Chat access required to send messages'
+                : 'Type your message...'
+            }
+            onStartTyping={startTyping}
+            onStopTyping={stopTyping}
+          />
+        </div>
+      </footer>
     </div>
   );
 }

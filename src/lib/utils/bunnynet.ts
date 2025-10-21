@@ -332,24 +332,51 @@ export function getOptimizedImageUrl(
  * Generate Bunny Storage URL via authenticated proxy API for PPV content
  */
 export function getBunnyStorageUrl(path: string): string {
+  if (!path || typeof path !== 'string') {
+    console.warn('Invalid path provided to getBunnyStorageUrl:', path);
+    return '/placeholder-image.jpg';
+  }
+
   if (path.startsWith('http://') || path.startsWith('https://')) {
     const trustedDomains = [
       'vz-7465723a-98d.b-cdn.net',
       `${BUNNY_CDN_HOSTNAME}`,
     ];
     
-    const url = new URL(path);
-    const isAllowedDomain = trustedDomains.some(domain => url.hostname === domain);
-    
-    if (!isAllowedDomain) {
-      console.warn(`Blocked external URL in getBunnyStorageUrl: ${path}`);
+    try {
+      const url = new URL(path);
+      const isAllowedDomain = trustedDomains.some(domain => url.hostname === domain);
+      
+      if (!isAllowedDomain) {
+        console.warn(`Blocked external URL in getBunnyStorageUrl: ${path}`);
+        return '/placeholder-image.jpg';
+      }
+      
+      return path;
+    } catch (error) {
+      console.warn(`Invalid URL in getBunnyStorageUrl: ${path}`, error);
       return '/placeholder-image.jpg';
     }
-    
-    return path;
   }
   
-  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  // Handle relative paths
+  let cleanPath = path.trim();
+  
+  // Remove leading slash if present
+  if (cleanPath.startsWith('/')) {
+    cleanPath = cleanPath.substring(1);
+  }
+  
+  // Ensure the path has a valid prefix for security
+  const validPrefixes = ['profile-pictures/', 'ppv-images/', 'ppv-videos/', 'uploads/'];
+  const hasValidPrefix = validPrefixes.some(prefix => cleanPath.startsWith(prefix));
+  
+  if (!hasValidPrefix) {
+    console.warn(`Invalid path prefix in getBunnyStorageUrl: ${path}`);
+    return '/placeholder-image.jpg';
+  }
+  
+  console.log(`🔗 Converting Bunny path: ${path} -> /api/image/${cleanPath}`);
   return `/api/image/${cleanPath}`;
 }
 

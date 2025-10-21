@@ -117,4 +117,14 @@
   body.compact .group-stack > * + * { 
     margin-top: .25rem !important; 
   }
+
+  /* Nice scrollbar styling for chat sidebar */
+  .nice-scrollbar::-webkit-scrollbar { 
+    width: 8px; 
+  }
+  
+  .nice-scrollbar::-webkit-scrollbar-thumb { 
+    background: #e5e7eb; 
+    border-radius: 4px; 
+  }
 }

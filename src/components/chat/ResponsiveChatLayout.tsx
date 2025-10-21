@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Menu, X, LayoutDashboard, User, Settings, LogOut, Plus } from 'lucide-react';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
 import { CreatorWelcomeModal } from './CreatorWelcomeModal';
@@ -14,7 +15,7 @@ interface ResponsiveChatLayoutProps {
 }
 
 export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutProps) {
-  const { profile: currentProfile, loading: authLoading } = useAuth();
+  const { profile: currentProfile, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -25,6 +26,8 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const [isMobile, setIsMobile] = useState(false);
   const [showInbox, setShowInbox] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Check if we're on mobile
   useEffect(() => {
@@ -35,6 +38,30 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle logout
+  const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true);
+    setIsMobileMenuOpen(false);
+    
+    try {
+      await signOut();
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  }, [signOut]);
+
+  // Mobile menu handlers
+  const toggleMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(prev => !prev);
+  }, []);
+
+  const closeMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(false);
   }, []);
 
   // Load profiles when conversation is selected
@@ -67,7 +94,6 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
       await loadProfiles(creatorId, fanId);
     }
 
-
     // Update URL
     const params = new URLSearchParams();
     params.set('creator', creatorId);
@@ -78,7 +104,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     if (isMobile) {
       setShowInbox(false);
     }
-  }, [isMobile, router, loadProfiles]);
+  }, [isMobile, router]); // Remove loadProfiles dependency
 
   // Read URL parameters on mount
   useEffect(() => {
@@ -94,7 +120,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
       setShowWelcome(true);
     }
-  }, [searchParams, handleSelectConversation, currentProfile]);
+  }, [searchParams, currentProfile?.user_type]); // Remove handleSelectConversation dependency
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);
@@ -141,21 +167,75 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     // Mobile: Show either inbox or conversation, not both
     return (
       <>
-        <div className={`h-full ${className}`}>
-          {showInbox ? (
-            <ChatInbox
-              selectedConversationId={selectedConversationId}
-              onSelectConversation={handleSelectConversation}
-            />
-          ) : (
-            <ChatContainer
-              creatorId={selectedCreatorId || undefined}
-              fanId={selectedFanId || undefined}
-              creatorProfile={creatorProfile || undefined}
-              fanProfile={fanProfile || undefined}
-              onBack={handleBackToInbox}
-            />
+        <div className={`h-full ${className} relative`}>
+          {/* Mobile Header with Hamburger Menu */}
+          <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-black"></div>
+              <span className="font-semibold text-base">CreatorHub</span>
+            </div>
+            
+            <button
+              onClick={toggleMobileMenu}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+
+          {/* Mobile Navigation Menu */}
+          {isMobileMenuOpen && (
+            <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-40">
+              <nav className="px-6 py-4 space-y-4">
+                <a href="/dashboard" className="flex items-center gap-3 text-sm">
+                  <LayoutDashboard className="h-4 w-4" />
+                  Dashboard
+                </a>
+                
+                <a href="/profile" className="flex items-center gap-3 text-sm">
+                  <User className="h-4 w-4" />
+                  Profile
+                </a>
+                
+                <a href="/settings" className="flex items-center gap-3 text-sm">
+                  <Settings className="h-4 w-4" />
+                  Settings
+                </a>
+                
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className="flex items-center gap-3 text-sm text-rose-600"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </button>
+              </nav>
+            </div>
           )}
+
+          {/* Main Content */}
+          <div className="h-full">
+            {showInbox ? (
+              <ChatInbox
+                selectedConversationId={selectedConversationId}
+                onSelectConversation={handleSelectConversation}
+              />
+            ) : (
+              <ChatContainer
+                creatorId={selectedCreatorId || undefined}
+                fanId={selectedFanId || undefined}
+                creatorProfile={creatorProfile || undefined}
+                fanProfile={fanProfile || undefined}
+                onBack={handleBackToInbox}
+              />
+            )}
+          </div>
         </div>
 
         {/* Welcome modal for new creators */}
@@ -166,27 +246,67 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     );
   }
 
-  // Desktop: Show both inbox and conversation side by side
+  // Desktop: Show both inbox and conversation side by side with new design
   return (
     <>
-      <div className={`flex h-full ${className}`}>
-        {/* Inbox sidebar */}
-        <div className="w-80 border-r border-border flex-shrink-0">
-          <ChatInbox
-            selectedConversationId={selectedConversationId}
-            onSelectConversation={handleSelectConversation}
-          />
-        </div>
+      <div className={`h-screen w-screen flex ${className}`}>
+        {/* SIDEBAR */}
+        <aside className="w-72 min-w-64 border-r bg-white flex flex-col">
+          {/* Inbox with search and conversations */}
+          <div className="flex-1 overflow-hidden">
+            <ChatInbox
+              selectedConversationId={selectedConversationId}
+              onSelectConversation={handleSelectConversation}
+            />
+          </div>
 
-        {/* Chat area */}
-        <div className="flex-1">
+          {/* Bottom Mini-Nav */}
+          <div className="border-t p-2">
+            <div className="grid grid-cols-2 gap-2">
+              <a href="/dashboard" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+                <LayoutDashboard className="h-4 w-4" />
+                <span className="text-sm">Dashboard</span>
+              </a>
+              
+              <a href="/profile" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+                <User className="h-4 w-4" />
+                <span className="text-sm">Profile</span>
+              </a>
+              
+              <a href="/settings" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+                <Settings className="h-4 w-4" />
+                <span className="text-sm">Settings</span>
+              </a>
+              
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50 text-rose-600"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+              </button>
+            </div>
+            
+            <a
+              href="/chat/new"
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 text-sm text-white hover:opacity-90"
+            >
+              <Plus className="h-4 w-4" />
+              New Chat
+            </a>
+          </div>
+        </aside>
+
+        {/* MAIN CHAT */}
+        <main className="flex-1 flex flex-col">
           <ChatContainer
             creatorId={selectedCreatorId || undefined}
             fanId={selectedFanId || undefined}
             creatorProfile={creatorProfile || undefined}
             fanProfile={fanProfile || undefined}
           />
-        </div>
+        </main>
       </div>
 
       {/* Welcome modal for new creators */}

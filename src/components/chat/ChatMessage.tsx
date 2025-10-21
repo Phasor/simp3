@@ -18,22 +18,22 @@ export const ChatMessage = memo(function ChatMessage({
   className = ''
 }: ChatMessageProps) {
   return (
-    <div className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-4 ${className}`}>
-      <div className={`msg relative max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 leading-6 break-words whitespace-pre-wrap shadow-soft ${
+    <div className={`flex ${isCurrentUser ? 'justify-end' : ''} ${className}`}>
+      <div className={`rounded-2xl px-4 py-2 max-w-[70%] break-words ${
         isCurrentUser
-          ? 'bg-brand-600 text-white'
-          : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100'
+          ? 'bg-blue-600 text-white shadow-[0_10px_25px_-10px_rgba(0,0,0,0.15)]'
+          : 'bg-white shadow-[0_10px_25px_-10px_rgba(0,0,0,0.15)]'
       }`}>
         {message.content}
         
         {showTimestamp && (
-          <span className={`time absolute -bottom-5 text-[10px] opacity-0 transition ${
+          <div className={`text-xs mt-1 opacity-70 ${
             isCurrentUser 
-              ? 'right-2 text-white/70' 
-              : 'left-2 text-gray-400'
+              ? 'text-white/70' 
+              : 'text-gray-500'
           }`}>
             {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-          </span>
+          </div>
         )}
       </div>
     </div>

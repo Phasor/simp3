@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, MessageCircle, Crown, Heart, Clock, CheckCircle2 } from 'lucide-react';
+import { Search, MessageCircle, Crown, Heart, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
 import { OnlineIndicator, PresenceAvatar } from './TypingIndicator';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -40,6 +41,8 @@ export function ChatInbox({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeOpen, setActiveOpen] = useState(true);
+  const [expiredOpen, setExpiredOpen] = useState(false);
 
   // Safety timeout to prevent infinite loading
   useEffect(() => {
@@ -55,14 +58,17 @@ export function ChatInbox({
   }, [loading, authLoading]);
 
   // Load conversations
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (profile?: typeof currentProfile, isAuthLoading?: boolean) => {
+    const currentAuthLoading = isAuthLoading ?? authLoading;
+    const currentUserProfile = profile ?? currentProfile;
+    
     // Don't load if auth is still loading
-    if (authLoading) {
+    if (currentAuthLoading) {
       return;
     }
     
     // If auth is done but no profile, stop loading
-    if (!currentProfile?.id) {
+    if (!currentUserProfile?.id) {
       setLoading(false);
       return;
     }
@@ -97,7 +103,7 @@ export function ChatInbox({
             profile_picture_url
           )
         `)
-        .or(`creator_id.eq.${currentProfile.id},fan_id.eq.${currentProfile.id}`)
+        .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
         .order('last_message_at', { ascending: false });
 
       if (conversationsError) {
@@ -114,7 +120,7 @@ export function ChatInbox({
       // Get chat access status for each conversation
       const chatAccessPromises = conversationsData.map(async (conv) => {
         try {
-          const accessResult = await getUserChatAccess(currentProfile.id, currentProfile.user_type);
+          const accessResult = await getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type);
           const accessRecords = accessResult.data || [];
           const relevantAccess = accessRecords.find(
             (access) => access.creator_id === conv.creator_id && access.fan_id === conv.fan_id
@@ -212,24 +218,16 @@ export function ChatInbox({
     } finally {
       setLoading(false);
     }
-  }, [currentProfile?.id, authLoading]);
+  }, []); // Remove dependencies to prevent infinite loops
 
+  // Load conversations only when auth state changes
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
-
-  // Handle loading state when auth completes
-  useEffect(() => {
-    if (!authLoading) {
-      // If auth is done loading but we don't have a profile, stop loading
-      if (!currentProfile?.id) {
-        setLoading(false);
-      } else {
-        // If we have a profile and auth is done, trigger conversation loading
-        loadConversations();
-      }
+    if (!authLoading && currentProfile?.id) {
+      loadConversations(currentProfile, authLoading);
+    } else if (!authLoading && !currentProfile?.id) {
+      setLoading(false);
     }
-  }, [authLoading, currentProfile?.id, loadConversations]);
+  }, [authLoading, currentProfile?.id, loadConversations]); // Include loadConversations since it's stable now
 
   // Filter conversations based on search
   const filteredConversations = conversations.filter((conv) => {
@@ -275,35 +273,32 @@ export function ChatInbox({
   }
 
   return (
-    <div className={`flex flex-col h-full bg-background ${className}`}>
-      {/* Search box positioned below logo */}
-      <div className="pt-20 px-4 pb-4 border-b border-border bg-card">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search chats or creators..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-input rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
-          />
-        </div>
+    <div className={`flex flex-col h-full bg-white ${className}`}>
+      {/* Search */}
+      <div className="p-3">
+        <input
+          type="search"
+          placeholder="Search chats or creators…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+        />
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Collapsible Sections */}
+      <div className="flex-1 overflow-auto px-2 nice-scrollbar">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <p className="text-destructive text-sm mb-2">Failed to load conversations</p>
-              <p className="text-muted-foreground text-xs mb-4">{error}</p>
+              <p className="text-red-600 text-sm mb-2">Failed to load conversations</p>
+              <p className="text-gray-500 text-xs mb-4">{error}</p>
               <button
                 onClick={loadConversations}
-                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
               >
                 Try Again
               </button>
@@ -312,11 +307,11 @@ export function ChatInbox({
         ) : filteredConversations.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center max-w-sm">
-              <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="font-semibold mb-2">
                 {searchQuery ? 'No matching conversations' : 'No chats yet'}
               </h3>
-              <p className="text-muted-foreground text-sm mb-4">
+              <p className="text-gray-500 text-sm mb-4">
                 {searchQuery
                   ? 'Try adjusting your search terms'
                   : currentProfile.user_type === 'CREATOR'
@@ -326,12 +321,12 @@ export function ChatInbox({
               </p>
               {!searchQuery && currentProfile.user_type === 'FAN' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-gray-500">
                     To get chat access, you need to make qualifying purchases from creators.
                   </p>
                   <button
                     onClick={() => window.location.href = '/'}
-                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                    className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                   >
                     Browse Creators
                   </button>
@@ -340,69 +335,85 @@ export function ChatInbox({
             </div>
           </div>
         ) : (
-          <div className="space-y-6 p-4">
-            {/* Active conversations */}
+          <>
+            {/* Active Chats */}
             {activeConversations.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <h2 className="font-medium text-sm text-foreground">Active Chats</h2>
-                  <span className="text-xs text-muted-foreground">
-                    ({activeConversations.length})
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {activeConversations.map((conversation) => (
-                    <ConversationListItem
-                      key={conversation.id}
-                      conversation={conversation}
-                      currentProfile={currentProfile}
-                      isSelected={selectedConversationId === conversation.id}
-                      onClick={() =>
-                        onSelectConversation?.(
-                          conversation.creatorId,
-                          conversation.fanId,
-                          conversation.creator,
-                          conversation.fan
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
+              <section className="border-b">
+                <button 
+                  className="w-full flex items-center justify-between px-2 py-3"
+                  onClick={() => setActiveOpen(!activeOpen)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Active Chats</span>
+                    <span className="text-xs rounded-full bg-gray-100 px-2 py-0.5">{activeConversations.length}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${activeOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {activeOpen && (
+                  <div className="pb-2">
+                    <ul className="space-y-1">
+                      {activeConversations.map((conversation) => (
+                        <li key={conversation.id}>
+                          <ConversationListItem
+                            conversation={conversation}
+                            currentProfile={currentProfile}
+                            isSelected={selectedConversationId === conversation.id}
+                            onClick={() =>
+                              onSelectConversation?.(
+                                conversation.creatorId,
+                                conversation.fanId,
+                                conversation.creator,
+                                conversation.fan
+                              )
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
             )}
 
-            {/* Expired conversations */}
+            {/* Expired Access */}
             {expiredConversations.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock className="h-4 w-4 text-amber-600" />
-                  <h2 className="font-medium text-sm text-foreground">Expired Access</h2>
-                  <span className="text-xs text-muted-foreground">
-                    ({expiredConversations.length})
-                  </span>
-                </div>
-                <div className="space-y-1">
-                  {expiredConversations.map((conversation) => (
-                    <ConversationListItem
-                      key={conversation.id}
-                      conversation={conversation}
-                      currentProfile={currentProfile}
-                      isSelected={selectedConversationId === conversation.id}
-                      onClick={() =>
-                        onSelectConversation?.(
-                          conversation.creatorId,
-                          conversation.fanId,
-                          conversation.creator,
-                          conversation.fan
-                        )
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
+              <section className="border-b">
+                <button 
+                  className="w-full flex items-center justify-between px-2 py-3"
+                  onClick={() => setExpiredOpen(!expiredOpen)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">Expired Access</span>
+                    <span className="text-xs rounded-full border px-2 py-0.5">{expiredConversations.length}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${expiredOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {expiredOpen && (
+                  <div className="pb-2">
+                    <ul className="space-y-1">
+                      {expiredConversations.map((conversation) => (
+                        <li key={conversation.id}>
+                          <ConversationListItem
+                            conversation={conversation}
+                            currentProfile={currentProfile}
+                            isSelected={selectedConversationId === conversation.id}
+                            onClick={() =>
+                              onSelectConversation?.(
+                                conversation.creatorId,
+                                conversation.fanId,
+                                conversation.creator,
+                                conversation.fan
+                              )
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
             )}
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -443,56 +454,54 @@ function ConversationListItem({
   return (
     <button
       onClick={onClick}
-      className={`w-full p-3 rounded-lg text-left transition-colors hover:bg-accent ${
-        isSelected ? 'bg-accent' : ''
+      className={`flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 w-full text-left transition-colors ${
+        isSelected ? 'bg-gray-100' : ''
       }`}
     >
-      <div className="flex items-center gap-3">
-        {/* Avatar with profile picture */}
-        <PresenceAvatar
-          isOnline={false} // We don't have real-time presence in inbox
-          profilePictureUrl={otherProfile.profile_picture_url || undefined}
-          displayName={otherProfile.display_name || otherProfile.email}
-          size="lg"
-        />
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-medium text-sm truncate">{conversationTitle}</h3>
-            {conversation.lastMessage && (
-              <span className="text-xs text-muted-foreground flex-shrink-0">
-                {formatDistanceToNow(new Date(conversation.lastMessage.created_at), {
-                  addSuffix: false
-                })}
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              {conversation.lastMessage ? (
-                <p className="text-xs text-muted-foreground truncate">
-                  {conversation.lastMessage.sender_id === currentProfile.id ? 'You: ' : ''}
-                  {conversation.lastMessage.content}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground italic">No messages yet</p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 ml-2">
-              {conversation.unreadCount > 0 && (
-                <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 min-w-[1.25rem] text-center">
-                  {conversation.unreadCount > 99 ? '99+' : conversation.unreadCount}
-                </span>
-              )}
-              
-              {conversation.accessStatus && (
-                <ChatAccessStatusBadge status={conversation.accessStatus} />
-              )}
-            </div>
-          </div>
+      <div className="relative h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
+        {otherProfile.profile_picture_url ? (
+          <img
+            src={getBunnyStorageUrl(otherProfile.profile_picture_url)}
+            alt={otherProfile.display_name || otherProfile.email}
+            className="h-8 w-8 rounded-full object-cover"
+            onError={(e) => {
+              // Fallback to initials if image fails to load
+              console.log('🖼️ Profile picture failed to load:', {
+                originalUrl: otherProfile.profile_picture_url,
+                processedUrl: getBunnyStorageUrl(otherProfile.profile_picture_url),
+                displayName: otherProfile.display_name,
+                email: otherProfile.email
+              });
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const parent = target.parentElement;
+              if (parent) {
+                parent.innerHTML = `<span class="font-medium text-gray-500 text-sm flex items-center justify-center h-full">${(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}</span>`;
+              }
+            }}
+          />
+        ) : (
+          <span className="font-medium text-gray-500 text-sm flex items-center justify-center h-full">
+            {(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}
+          </span>
+        )}
+      </div>
+      
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm font-medium">{conversationTitle}</span>
+          {conversation.accessStatus && (
+            <ChatAccessStatusBadge status={conversation.accessStatus} />
+          )}
         </div>
+        {conversation.lastMessage ? (
+          <p className="truncate text-xs text-gray-500">
+            {conversation.lastMessage.sender_id === currentProfile.id ? 'You: ' : ''}
+            {conversation.lastMessage.content}
+          </p>
+        ) : (
+          <p className="truncate text-xs text-gray-500">No messages yet</p>
+        )}
       </div>
     </button>
   );
