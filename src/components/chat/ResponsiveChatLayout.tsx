@@ -271,7 +271,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
                 disabled={isLoggingOut}
                 className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50 text-rose-600"
               >
-                <span className="typ-body-sm text-rose-600">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+                <span className="typ-body-sm text-rose-600">Logout</span>
               </button>
             </div>
             

@@ -22,7 +22,65 @@ export async function GET() {
       return NextResponse.json({ error: 'Creator profile not found' }, { status: 404 });
     }
 
-    // Get all chat access records for this creator to find qualifying purchases
+    // First get all task IDs for this creator
+    const { data: creatorTasks, error: tasksError } = await supabase
+      .from('tasks')
+      .select('id')
+      .eq('creator_id', profile.id);
+
+    if (tasksError) {
+      console.error('Error fetching creator tasks:', tasksError);
+      return NextResponse.json({ error: 'Failed to fetch creator tasks' }, { status: 500 });
+    }
+
+    const taskIds = creatorTasks?.map(task => task.id) || [];
+
+    let purchases = [];
+    let purchaseError = null;
+
+    // Only fetch purchases if there are tasks
+    if (taskIds.length > 0) {
+      const result = await supabase
+        .from('purchases')
+        .select(`
+          *,
+          profile:profiles!purchases_profile_id_fkey(id, display_name, email)
+        `)
+        .in('task_id', taskIds)
+        .order('created_at', { ascending: false });
+      
+      purchases = result.data;
+      purchaseError = result.error;
+    }
+
+    if (purchaseError) {
+      console.error('Error fetching purchases:', purchaseError);
+      return NextResponse.json({ error: 'Failed to fetch purchases' }, { status: 500 });
+    }
+
+    const purchaseData = purchases || [];
+    
+    // Calculate earnings
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    let totalEarnings = 0;
+    let monthlyEarnings = 0;
+    let chatUnlocks = 0;
+
+    purchaseData.forEach(purchase => {
+      const amount = purchase.amount_cents / 100; // Convert to dollars
+      totalEarnings += amount;
+      chatUnlocks++;
+
+      const purchaseDate = new Date(purchase.created_at);
+      if (purchaseDate.getMonth() === currentMonth && purchaseDate.getFullYear() === currentYear) {
+        monthlyEarnings += amount;
+      }
+    });
+
+    // Get all chat access records for this creator for fan-related stats
     const { data: chatAccessRecords, error: accessError } = await supabase
       .from('chat_access')
       .select(`
@@ -34,49 +92,6 @@ export async function GET() {
     if (accessError) {
       console.error('Error fetching chat access:', accessError);
       return NextResponse.json({ error: 'Failed to fetch access records' }, { status: 500 });
-    }
-
-    // Get all purchases that granted access to this creator
-    const purchaseIds = chatAccessRecords
-      ?.map(record => record.last_qualifying_purchase_id)
-      .filter(Boolean) || [];
-
-    let totalEarnings = 0;
-    let monthlyEarnings = 0;
-    let chatUnlocks = 0;
-    let purchaseData: any[] = [];
-
-    if (purchaseIds.length > 0) {
-      const { data: purchases, error: purchaseError } = await supabase
-        .from('purchases')
-        .select(`
-          *,
-          profile:profiles!purchases_profile_id_fkey(id, display_name, email)
-        `)
-        .in('id', purchaseIds)
-        .order('created_at', { ascending: false });
-
-      if (purchaseError) {
-        console.error('Error fetching purchases:', purchaseError);
-      } else {
-        purchaseData = purchases || [];
-        
-        // Calculate earnings
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-
-        purchaseData.forEach(purchase => {
-          const amount = purchase.amount_cents / 100; // Convert to dollars
-          totalEarnings += amount;
-          chatUnlocks++;
-
-          const purchaseDate = new Date(purchase.created_at);
-          if (purchaseDate.getMonth() === currentMonth && purchaseDate.getFullYear() === currentYear) {
-            monthlyEarnings += amount;
-          }
-        });
-      }
     }
 
     // Get active fans (fans with current access)
@@ -151,7 +166,7 @@ export async function GET() {
       chartData.push(monthlyTotal);
     }
 
-    return NextResponse.json({
+    const response = {
       totalEarnings: Math.round(totalEarnings * 100) / 100,
       monthlyEarnings: Math.round(monthlyEarnings * 100) / 100,
       chatUnlocks,
@@ -161,7 +176,10 @@ export async function GET() {
       newFans,
       topFans,
       chartData
-    });
+    };
+
+
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Dashboard stats error:', error);

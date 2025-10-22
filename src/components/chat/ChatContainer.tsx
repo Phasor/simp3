@@ -103,10 +103,7 @@ function ChatSelectionView({ onBack }: ChatSelectionViewProps) {
 
             <button
               onClick={() => {
-                const dashboardUrl = profile?.user_type === 'CREATOR' 
-                  ? '/creator/dashboard' 
-                  : '/dashboard';
-                window.location.href = dashboardUrl;
+                window.location.href = '/';
               }}
               className="px-4 py-2 bg-black text-white rounded-md hover:opacity-90 transition-opacity"
             >

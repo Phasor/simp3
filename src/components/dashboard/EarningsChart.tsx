@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface EarningsChartProps {
   data: number[];
@@ -9,35 +9,33 @@ interface EarningsChartProps {
 }
 
 export default function EarningsChart({ data, timeRange, onRangeChange }: EarningsChartProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  // Transform data for Recharts
+  const chartData = data.map((value, index) => {
+    const now = new Date();
+    const monthsBack = data.length - 1 - index;
+    const date = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+    
+    return {
+      month: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+      earnings: value,
+      formattedEarnings: `$${value.toLocaleString()}`
+    };
+  });
 
-  useEffect(() => {
-    if (!svgRef.current || !data.length) return;
-
-    const svg = svgRef.current;
-    // Clear previous content
-    svg.innerHTML = '';
-
-    const W = 640;
-    const H = 240;
-    const p = 32;
-    const bw = 40;
-    const max = Math.max(...data);
-
-    data.forEach((value, index) => {
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      const height = (value / max) * (H - p * 2);
-      
-      rect.setAttribute('x', String(p + index * (bw + 10)));
-      rect.setAttribute('y', String(H - p - height));
-      rect.setAttribute('width', String(bw));
-      rect.setAttribute('height', String(height));
-      rect.setAttribute('rx', '4');
-      rect.setAttribute('fill', '#6366f1');
-      
-      svg.appendChild(rect);
-    });
-  }, [data]);
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const earnings = payload[0].value;
+      return (
+        <div className="bg-slate-900 text-white p-3 rounded-lg shadow-lg border border-slate-700">
+          <p className="text-xs text-slate-300 mb-1">{label}</p>
+          <p className="text-lg font-bold">
+            ${earnings.toLocaleString()}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="rounded-2xl bg-white border border-slate-200 shadow">
@@ -48,7 +46,7 @@ export default function EarningsChart({ data, timeRange, onRangeChange }: Earnin
             onClick={() => onRangeChange('90d')}
             className={`border rounded-lg px-2 py-1 ${
               timeRange === '90d' 
-                ? 'border-primary-500 bg-primary-50 text-primary-600' 
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-600' 
                 : 'border-slate-200'
             }`}
           >
@@ -58,7 +56,7 @@ export default function EarningsChart({ data, timeRange, onRangeChange }: Earnin
             onClick={() => onRangeChange('12m')}
             className={`border rounded-lg px-2 py-1 ${
               timeRange === '12m' 
-                ? 'border-primary-500 bg-primary-50 text-primary-600' 
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-600' 
                 : 'border-slate-200'
             }`}
           >
@@ -67,11 +65,30 @@ export default function EarningsChart({ data, timeRange, onRangeChange }: Earnin
         </div>
       </div>
       <div className="p-5">
-        <svg 
-          ref={svgRef}
-          viewBox="0 0 640 240" 
-          className="w-full h-56"
-        />
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis 
+              dataKey="month" 
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: '#64748b' }}
+            />
+            <YAxis 
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 12, fill: '#64748b' }}
+              tickFormatter={(value) => `$${value}`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Bar 
+              dataKey="earnings" 
+              fill="#6366f1" 
+              radius={[4, 4, 0, 0]}
+              maxBarSize={40}
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

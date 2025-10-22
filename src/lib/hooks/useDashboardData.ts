@@ -43,6 +43,7 @@ export function useDashboardData() {
         throw new Error(result.error);
       }
       
+      
       setData(result);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);

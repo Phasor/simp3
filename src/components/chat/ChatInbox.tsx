@@ -353,14 +353,14 @@ export function ChatInbox({
             {activeConversations.length > 0 && (
               <section className="border-b">
                 <button 
-                  className="w-full flex items-center justify-between px-2 py-3"
+                  className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
                   onClick={() => setActiveOpen(!activeOpen)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="typ-ui">Active Chats</span>
-                    <span className="typ-caption rounded-full bg-gray-100 px-2 py-0.5">{activeConversations.length}</span>
+                    <span className="typ-ui font-semibold text-gray-900">Active Chats</span>
+                    <span className="typ-caption rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">{activeConversations.length}</span>
                   </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${activeOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${activeOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {activeOpen && (
                   <div className="pb-2">
@@ -392,14 +392,14 @@ export function ChatInbox({
             {expiredConversations.length > 0 && (
               <section className="border-b">
                 <button 
-                  className="w-full flex items-center justify-between px-2 py-3"
+                  className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
                   onClick={() => setExpiredOpen(!expiredOpen)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="typ-ui">Expired Access</span>
-                    <span className="typ-caption rounded-full border px-2 py-0.5">{expiredConversations.length}</span>
+                    <span className="typ-ui font-semibold text-gray-900">Expired Access</span>
+                    <span className="typ-caption rounded-full border px-2 py-0.5 text-gray-700">{expiredConversations.length}</span>
                   </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform ${expiredOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${expiredOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {expiredOpen && (
                   <div className="pb-2">
