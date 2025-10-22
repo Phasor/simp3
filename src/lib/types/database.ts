@@ -12,6 +12,7 @@ export interface Database {
           onboarding_completed: boolean
           display_name: string | null
           profile_picture_url: string | null
+          banner_image_url: string | null
           ccbill_merchant_id: string | null
           monetization_enabled: boolean | null
         }
@@ -24,6 +25,7 @@ export interface Database {
           onboarding_completed?: boolean
           display_name?: string | null
           profile_picture_url?: string | null
+          banner_image_url?: string | null
           ccbill_merchant_id?: string | null
           monetization_enabled?: boolean | null
         }
@@ -36,6 +38,7 @@ export interface Database {
           onboarding_completed?: boolean
           display_name?: string | null
           profile_picture_url?: string | null
+          banner_image_url?: string | null
           ccbill_merchant_id?: string | null
           monetization_enabled?: boolean | null
         }

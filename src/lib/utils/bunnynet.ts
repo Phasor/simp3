@@ -95,6 +95,39 @@ export function getProfilePictureUrl(
 }
 
 /**
+ * Get banner image URL for display (uses proxy for security)
+ */
+export function getBannerImageUrl(
+  path: string | null | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+  } = {}
+): string {
+  if (!path) {
+    // Return a default banner placeholder
+    return 'https://placehold.co/800x450?text=Exclusive+Content+Preview';
+  }
+
+  // Use the existing getBunnyStorageUrl for proxy access
+  const baseUrl = getBunnyStorageUrl(path);
+  
+  // Add optimization parameters if provided
+  if (Object.keys(options).length > 0) {
+    const params = new URLSearchParams();
+    if (options.width) params.set('width', options.width.toString());
+    if (options.height) params.set('height', options.height.toString());
+    if (options.quality) params.set('quality', options.quality.toString());
+    
+    const queryString = params.toString();
+    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+  }
+  
+  return baseUrl;
+}
+
+/**
  * Upload file to Bunny Storage (for PPV images)
  */
 export async function uploadToBunnyStorage(
@@ -368,7 +401,7 @@ export function getBunnyStorageUrl(path: string): string {
   }
   
   // Ensure the path has a valid prefix for security
-  const validPrefixes = ['profile-pictures/', 'ppv-images/', 'ppv-videos/', 'uploads/'];
+  const validPrefixes = ['profile-pictures/', 'banner-images/', 'ppv-images/', 'ppv-videos/', 'uploads/'];
   const hasValidPrefix = validPrefixes.some(prefix => cleanPath.startsWith(prefix));
   
   if (!hasValidPrefix) {
@@ -403,6 +436,8 @@ export function validateBunnyStorageUrl(url: string): boolean {
     'ppv-videos/',
     '/profile-pictures/',
     'profile-pictures/',
+    '/banner-images/',
+    'banner-images/',
     '/uploads/',
     'uploads/'
   ];

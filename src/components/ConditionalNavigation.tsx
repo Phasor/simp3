@@ -101,37 +101,28 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
-          {user && profile?.user_type === 'CREATOR' && (
-            <Link href={`/creator/${profile.id}`} className="hover:underline">Profile</Link>
-          )}
-          {user && profile?.user_type === 'FAN' && (
-            <Link href="/fan/dashboard" className="hover:underline">Dashboard</Link>
-          )}
           {user && (
-            <Link href="/chat" className="hover:underline flex items-center gap-2">
-              <MessageCircle size={16} />
-              Chat
-            </Link>
-          )}
-          {user && (
-            <Link 
-              href={profile?.user_type === 'CREATOR' ? '/creator/settings' : '/settings'} 
-              className="hover:underline"
-            >
-              Settings
-            </Link>
+            <>
+              <Link href="/" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+                Dashboard
+              </Link>
+              <Link href="/chat" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+                Chat
+              </Link>
+              <Link href={profile?.user_type === 'CREATOR' ? `/creator/${profile.id}` : '/profile'} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+                Profile
+              </Link>
+              <button 
+                className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </button>
+            </>
           )}
           {!authLoading && !user && (
             <Link href="/signup" className="hover:underline">Sign Up Free</Link>
-          )}
-          {user && (
-            <button 
-              className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-            >
-              {isLoggingOut ? 'Logging out...' : 'Logout'}
-            </button>
           )}
         </nav>
 
@@ -153,42 +144,40 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b shadow-lg z-50">
           <nav className="px-6 py-4 space-y-4">
-            {user && profile?.user_type === 'CREATOR' && (
-              <Link 
-                href={`/creator/${profile.id}`} 
-                className="block text-sm hover:text-primary transition-colors"
-                onClick={closeMobileMenu}
-              >
-                Profile
-              </Link>
-            )}
-            {user && profile?.user_type === 'FAN' && (
-              <Link 
-                href="/fan/dashboard" 
-                className="block text-sm hover:text-primary transition-colors"
-                onClick={closeMobileMenu}
-              >
-                Dashboard
-              </Link>
-            )}
             {user && (
-              <Link 
-                href="/chat"
-                className="flex items-center gap-2 text-sm hover:text-primary transition-colors"
-                onClick={closeMobileMenu}
-              >
-                <MessageCircle size={16} />
-                Chat
-              </Link>
-            )}
-            {user && (
-              <Link 
-                href={profile?.user_type === 'CREATOR' ? '/creator/settings' : '/settings'}
-                className="block text-sm hover:text-primary transition-colors"
-                onClick={closeMobileMenu}
-              >
-                Settings
-              </Link>
+              <>
+                <Link 
+                  href="/" 
+                  className="block text-sm hover:text-primary transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  Dashboard
+                </Link>
+                <Link 
+                  href="/chat"
+                  className="block text-sm hover:text-primary transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  Chat
+                </Link>
+                <Link 
+                  href={profile?.user_type === 'CREATOR' ? `/creator/${profile.id}` : '/profile'} 
+                  className="block text-sm hover:text-primary transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  Profile
+                </Link>
+                <button 
+                  className="block w-full text-left text-sm bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={() => {
+                    handleLogout();
+                    closeMobileMenu();
+                  }}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </button>
+              </>
             )}
             {!authLoading && !user && (
               <Link 
@@ -198,18 +187,6 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
               >
                 Sign Up Free
               </Link>
-            )}
-            {user && (
-              <button 
-                className="block w-full text-left text-sm bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                onClick={() => {
-                  handleLogout();
-                  closeMobileMenu();
-                }}
-                disabled={isLoggingOut}
-              >
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
-              </button>
             )}
           </nav>
         </div>

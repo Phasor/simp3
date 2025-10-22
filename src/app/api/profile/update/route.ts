@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { displayName, email, profilePictureUrl } = body
+    const { displayName, email, profilePictureUrl, bannerImageUrl } = body
 
     // Create server-side Supabase client
     const supabase = await createClient()
@@ -47,6 +47,10 @@ export async function PUT(request: NextRequest) {
     
     if (profilePictureUrl !== undefined) {
       updateData.profile_picture_url = profilePictureUrl
+    }
+    
+    if (bannerImageUrl !== undefined) {
+      updateData.banner_image_url = bannerImageUrl
     }
 
     // Update the profile - RLS policies ensure users can only update their own profile
