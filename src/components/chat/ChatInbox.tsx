@@ -62,13 +62,21 @@ export function ChatInbox({
     const currentAuthLoading = isAuthLoading ?? authLoading;
     const currentUserProfile = profile ?? currentProfile;
     
+    console.log('🔄 loadConversations called:', { 
+      profileId: currentUserProfile?.id, 
+      authLoading: currentAuthLoading,
+      hasProfile: !!currentUserProfile 
+    });
+    
     // Don't load if auth is still loading
     if (currentAuthLoading) {
+      console.log('⏳ Auth still loading, skipping...');
       return;
     }
     
     // If auth is done but no profile, stop loading
     if (!currentUserProfile?.id) {
+      console.log('❌ No profile found, stopping loading');
       setLoading(false);
       return;
     }
@@ -223,8 +231,10 @@ export function ChatInbox({
   // Load conversations only when auth state changes
   useEffect(() => {
     if (!authLoading && currentProfile?.id) {
+      console.log('🔄 Loading conversations from useEffect:', { profileId: currentProfile.id, authLoading });
       loadConversations(currentProfile, authLoading);
     } else if (!authLoading && !currentProfile?.id) {
+      console.log('⚠️ No profile found, stopping loading');
       setLoading(false);
     }
   }, [authLoading, currentProfile?.id, loadConversations]); // Include loadConversations since it's stable now
@@ -297,7 +307,10 @@ export function ChatInbox({
               <p className="text-red-600 text-sm mb-2">Failed to load conversations</p>
               <p className="text-gray-500 text-xs mb-4">{error}</p>
               <button
-                onClick={loadConversations}
+                onClick={() => {
+                  console.log('🔄 Try Again clicked:', { profileId: currentProfile?.id, authLoading });
+                  loadConversations(currentProfile, authLoading);
+                }}
                 className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
               >
                 Try Again

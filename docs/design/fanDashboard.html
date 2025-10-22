@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>simp3 · Fan Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'] },
+          colors: { primary: { 600: '#5B3EFF', 700: '#4a32cc' } }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 font-sans">
+  <header class="border-b bg-white py-4 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 flex justify-between items-center">
+      <h1 class="text-lg font-semibold">simp3</h1>
+      <nav class="space-x-4">
+        <a href="#" class="text-sm font-medium text-slate-700 hover:text-primary-600">Dashboard</a>
+        <a href="#" class="text-sm font-medium text-slate-700 hover:text-primary-600">Chat</a>
+        <a href="#" class="text-sm font-medium text-slate-700 hover:text-primary-600">Profile</a>
+        <a href="#" class="text-sm font-medium text-slate-700 hover:text-primary-600">Logout</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+
+    <h2 class="text-2xl sm:text-3xl font-bold mb-8 text-center">Welcome back, <span class="text-primary-600">Simp1</span>!</h2>
+
+    <!-- Active Creators Section -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold mb-3">Your Active Creators</h3>
+      <div class="flex gap-4 overflow-x-auto pb-3">
+        <div class="min-w-[200px] bg-white rounded-xl shadow p-4 text-center">
+          <img src="https://i.pravatar.cc/100?img=8" class="mx-auto w-16 h-16 rounded-full object-cover mb-2">
+          <p class="font-semibold">Princess Demi</p>
+          <p class="text-xs text-slate-500 mb-2">12 days remaining</p>
+          <a href="#" class="text-sm font-medium text-primary-600 hover:underline">Open Chat →</a>
+        </div>
+        <div class="min-w-[200px] bg-white rounded-xl shadow p-4 text-center">
+          <img src="https://i.pravatar.cc/100?img=5" class="mx-auto w-16 h-16 rounded-full object-cover mb-2">
+          <p class="font-semibold">Bella Rose</p>
+          <p class="text-xs text-slate-500 mb-2">3 days remaining</p>
+          <a href="#" class="text-sm font-medium text-primary-600 hover:underline">Open Chat →</a>
+        </div>
+        <div class="min-w-[200px] bg-white rounded-xl shadow p-4 text-center">
+          <img src="https://i.pravatar.cc/100?img=6" class="mx-auto w-16 h-16 rounded-full object-cover mb-2">
+          <p class="font-semibold">Mila Hart</p>
+          <p class="text-xs text-slate-500 mb-2">5 days remaining</p>
+          <a href="#" class="text-sm font-medium text-primary-600 hover:underline">Open Chat →</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trending Creators Section -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold mb-3">Trending Creators</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl overflow-hidden shadow group">
+          <img src="https://placehold.co/400x250/jpg?text=Goddess+Demi" class="w-full h-40 object-cover group-hover:opacity-90 transition">
+          <div class="p-4">
+            <p class="font-semibold text-sm">Goddess Demi</p>
+            <p class="text-xs text-slate-500 mb-2">🔥 1.2k chats today</p>
+            <a href="#" class="text-sm text-primary-600 font-medium hover:underline">View Profile →</a>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl overflow-hidden shadow group">
+          <img src="https://placehold.co/400x250/jpg?text=Lexi+Blue" class="w-full h-40 object-cover group-hover:opacity-90 transition">
+          <div class="p-4">
+            <p class="font-semibold text-sm">Lexi Blue</p>
+            <p class="text-xs text-slate-500 mb-2">⭐ New</p>
+            <a href="#" class="text-sm text-primary-600 font-medium hover:underline">View Profile →</a>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl overflow-hidden shadow group">
+          <img src="https://placehold.co/400x250/jpg?text=Ava+Pearl" class="w-full h-40 object-cover group-hover:opacity-90 transition">
+          <div class="p-4">
+            <p class="font-semibold text-sm">Ava Pearl</p>
+            <p class="text-xs text-slate-500 mb-2">🔥 850 chats today</p>
+            <a href="#" class="text-sm text-primary-600 font-medium hover:underline">View Profile →</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

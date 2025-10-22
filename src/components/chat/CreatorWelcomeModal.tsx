@@ -22,7 +22,7 @@ export function CreatorWelcomeModal({ onClose }: CreatorWelcomeModalProps) {
   }
 
   // Generate the promotional link - fans can visit this to see the creator's profile
-  const creatorLink = `${window.location.origin}/creator/${profile.id}`;
+  const creatorLink = `${window.location.origin}/creator/${profile.id}/landing`;
   const displayName = profile.display_name || 'Creator';
   const username = profile.display_name?.toLowerCase().replace(/\s+/g, '') || 'creator';
   const avatar = profile.profile_picture_url 

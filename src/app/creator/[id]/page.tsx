@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { CreatorProfileView } from '@/components/creator/CreatorProfileView';
 
@@ -10,6 +10,21 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // CRITICAL SECURITY CHECK: Verify the current user is the creator
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (!user || userError) {
+    // Redirect unauthenticated users to login
+    redirect('/login');
+  }
+
+  // Get current user's profile
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .single();
+
   // Fetch creator profile
   const { data: creator, error } = await supabase
     .from('profiles')
@@ -20,6 +35,12 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
 
   if (error || !creator) {
     notFound();
+  }
+
+  // SECURITY: Only allow creators to access their own profile settings
+  if (!currentProfile || currentProfile.id !== creator.id || currentProfile.user_type !== 'CREATOR') {
+    // Redirect unauthorized users to the public landing page
+    redirect(`/creator/${id}/landing`);
   }
 
   // Fetch chat rules for this creator

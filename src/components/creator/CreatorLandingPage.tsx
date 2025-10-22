@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Star } from 'lucide-react';
 import type { Profile } from '@/lib/types/database';
 import { getProfilePictureUrl, getBannerImageUrl } from '@/lib/utils/bunnynet';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { useChatAccess } from '@/lib/hooks/useChatAccess';
 
 interface ChatRules {
   id: string;
@@ -23,10 +25,19 @@ interface CreatorLandingPageProps {
 
 export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPageProps) {
   const router = useRouter();
+  const { user, profile, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const minSpendAmount = chatRules ? chatRules.min_spend_cents / 100 : 100;
   const accessDays = chatRules ? chatRules.access_days : 30;
+
+  // Check chat access if user is logged in as a fan
+  const shouldCheckAccess = user && profile && profile.user_type === 'FAN';
+  const { accessStatus, loading: accessLoading } = useChatAccess({
+    creatorId: shouldCheckAccess ? creator.id : undefined,
+    fanId: shouldCheckAccess ? profile.id : undefined,
+    autoRefresh: false // We only need to check once
+  });
 
   // JSON-LD structured data for better SEO
   const structuredData = {
@@ -53,7 +64,35 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
   const handleChatClick = () => {
     setLoading(true);
-    // Redirect to signup with creator reference and chat intent
+    
+    // If user is not logged in, redirect to signup
+    if (!user || !profile) {
+      router.push(`/signup?ref=${creator.id}&intent=chat`);
+      return;
+    }
+
+    // If user is a creator, they shouldn't be trying to chat with other creators
+    if (profile.user_type === 'CREATOR') {
+      setLoading(false);
+      // Could show a toast or modal here explaining creators can't chat with other creators
+      return;
+    }
+
+    // If user is a fan, check their access status
+    if (profile.user_type === 'FAN') {
+      // If they have access, take them to chat
+      if (accessStatus?.hasAccess) {
+        router.push(`/chat?creator=${creator.id}&fan=${profile.id}`);
+        return;
+      }
+      
+      // If they don't have access, show payment modal/page
+      // For now, redirect to a payment page (you can implement a modal later)
+      router.push(`/payment?creator=${creator.id}&amount=${minSpendAmount}&days=${accessDays}`);
+      return;
+    }
+
+    // Fallback: redirect to signup
     router.push(`/signup?ref=${creator.id}&intent=chat`);
   };
 
@@ -88,14 +127,22 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
           {/* CTA Button above the fold */}
           <button
             onClick={handleChatClick}
-            disabled={loading}
+            disabled={loading || authLoading || accessLoading}
             className="mt-4 flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 font-medium"
           >
-            {loading ? (
+            {(loading || authLoading || accessLoading) ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
             ) : (
               <>
-                💬 Chat with me
+                {!user || !profile ? (
+                  '💬 Chat with me'
+                ) : profile.user_type === 'CREATOR' ? (
+                  '👋 Hello fellow creator!'
+                ) : accessStatus?.hasAccess ? (
+                  '💬 Continue chatting'
+                ) : (
+                  '💬 Chat with me'
+                )}
               </>
             )}
           </button>
@@ -143,16 +190,26 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
           <button 
             onClick={handleChatClick}
-            disabled={loading}
+            disabled={loading || authLoading || accessLoading}
             className="mt-8 w-full sm:w-auto bg-indigo-600 text-white font-semibold text-lg px-10 py-3 rounded-full shadow hover:bg-indigo-500 active:scale-95 transition-transform disabled:opacity-50"
           >
-            {loading ? (
+            {(loading || authLoading || accessLoading) ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                 Loading...
               </div>
             ) : (
-              '💬 Chat with me'
+              <>
+                {!user || !profile ? (
+                  '💬 Chat with me'
+                ) : profile.user_type === 'CREATOR' ? (
+                  '👋 Hello fellow creator!'
+                ) : accessStatus?.hasAccess ? (
+                  '💬 Continue chatting'
+                ) : (
+                  '💬 Chat with me'
+                )}
+              </>
             )}
           </button>
 

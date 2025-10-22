@@ -22,7 +22,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "CreatorHub",
+  title: "simp3",
   description: "Connect with creators through exclusive chat experiences",
 };
 
@@ -37,7 +37,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
         <AuthProvider>
-          <ConditionalNavigation title="CreatorHub" />
+          <ConditionalNavigation title="simp3" />
           <main className="flex-1">
             {children}
           </main>

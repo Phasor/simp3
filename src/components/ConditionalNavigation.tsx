@@ -73,13 +73,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
   };
 
   const handleLogoClick = () => {
-    if (profile?.user_type === 'CREATOR') {
-      router.push('/creator/dashboard');
-    } else if (profile?.user_type === 'FAN') {
-      router.push('/fan/dashboard');
-    } else {
-      router.push('/');
-    }
+    router.push('/');
   };
 
   // On chat page: don't show any navigation

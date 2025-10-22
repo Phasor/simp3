@@ -99,7 +99,7 @@ export default function QuickActions({ creatorHandle }: QuickActionsProps) {
             Open chat
           </a>
           <a 
-            href={`/creator/${creatorHandle}`}
+            href={`/creator/${creatorHandle}/landing`}
             className="rounded-xl border border-slate-200 bg-white text-center text-slate-800 text-sm px-3 py-2 hover:bg-slate-50 transition-colors"
           >
             View profile

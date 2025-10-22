@@ -74,7 +74,7 @@ export function getProfilePictureUrl(
 ): string {
   if (!path) {
     // Return a default avatar or placeholder
-    return '/api/image/profile-pictures/default-avatar.jpg';
+    return '/default-avatar.svg';
   }
 
   // Use the existing getBunnyStorageUrl for proxy access

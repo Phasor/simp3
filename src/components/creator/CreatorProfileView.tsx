@@ -27,6 +27,20 @@ interface CreatorProfileViewProps {
 export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewProps) {
   const { user, profile: currentProfile } = useAuth();
   const router = useRouter();
+  
+  // CRITICAL SECURITY CHECK: Only allow creators to access their own profile settings
+  if (!currentProfile || currentProfile.id !== creator.id || currentProfile.user_type !== 'CREATOR') {
+    // Redirect unauthorized users to the public landing page instead
+    router.push(`/creator/${creator.id}/landing`);
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-600">Redirecting to public profile...</p>
+        </div>
+      </div>
+    );
+  }
+  
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);

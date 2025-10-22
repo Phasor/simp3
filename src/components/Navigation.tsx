@@ -70,13 +70,7 @@ export default function Navigation({ }: NavigationProps) {
   };
 
   const handleLogoClick = () => {
-    if (profile?.user_type === 'CREATOR') {
-      router.push('/creator/dashboard');
-    } else if (profile?.user_type === 'FAN') {
-      router.push('/fan/dashboard');
-    } else {
-      router.push('/');
-    }
+    router.push('/');
   };
 
   return (
@@ -87,14 +81,14 @@ export default function Navigation({ }: NavigationProps) {
           onClick={handleLogoClick}
         >
           <div className="w-6 h-6 md:w-8 md:h-8 rounded-lg bg-black"></div>
-          <span className="font-semibold text-sm md:text-base">CreatorHub</span>
+          <span className="font-semibold text-sm md:text-base">simp3</span>
         </div>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
           {user && (
             <>
-              <Link href={profile?.user_type === 'CREATOR' ? '/creator/dashboard' : '/fan/dashboard'} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+              <Link href="/" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Dashboard
               </Link>
               <Link href="/chat" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
@@ -138,7 +132,7 @@ export default function Navigation({ }: NavigationProps) {
             {user && (
               <>
                 <Link 
-                  href={profile?.user_type === 'CREATOR' ? '/creator/dashboard' : '/fan/dashboard'} 
+                  href="/" 
                   className="block text-sm hover:text-primary transition-colors"
                   onClick={closeMobileMenu}
                 >

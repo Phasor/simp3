@@ -114,13 +114,18 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     
     if (creatorId && fanId) {
       handleSelectConversation(creatorId, fanId);
+    } else if (creatorId && currentProfile?.user_type === 'FAN') {
+      // If only creator is specified and current user is a fan, 
+      // try to find existing conversation or create the URL with fan ID
+      const fanId = currentProfile.id;
+      handleSelectConversation(creatorId, fanId);
     }
     
     // Show welcome modal for new creators
     if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
       setShowWelcome(true);
     }
-  }, [searchParams, currentProfile?.user_type]); // Remove handleSelectConversation dependency
+  }, [searchParams, currentProfile?.user_type, currentProfile?.id]); // Remove handleSelectConversation dependency
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);

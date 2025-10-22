@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { MessageCircle, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import CreatorDashboard from '@/components/dashboard/CreatorDashboard';
+import { calculateAccessStatus } from '@/lib/utils/chatAccess';
+import { getProfilePictureUrl, getBannerImageUrl } from '@/lib/utils/bunnynet';
+import { ImageWithFallback } from '@/components/ui/ImageWithFallback';
 
 // Force dynamic rendering for user-specific content
 export const dynamic = 'force-dynamic';
@@ -36,76 +38,154 @@ export default async function HomePage() {
     );
   }
 
-  // For fans, show the original layout
+  // For fans, fetch their active creators and trending creators
+  const { data: chatAccessRecords } = await supabase
+    .from('chat_access')
+    .select(`
+      *,
+      creator:profiles!chat_access_creator_id_fkey(id, display_name, profile_picture_url, banner_image_url)
+    `)
+    .eq('fan_id', profile.id)
+    .order('updated_at', { ascending: false });
+
+  // Calculate active creators (those with current access)
+  const activeCreators = chatAccessRecords?.filter(record => {
+    const status = calculateAccessStatus(record);
+    return status.hasAccess;
+  }).map(record => ({
+    ...record.creator,
+    accessExpiresAt: record.access_until,
+    daysRemaining: Math.ceil((new Date(record.access_until).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+  })) || [];
+
+  // Get trending creators (sorted by earnings in last month)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  // First get all creators with their chat access records and purchases from last month
+  const { data: creatorsWithEarnings } = await supabase
+    .from('profiles')
+    .select(`
+      id, 
+      display_name, 
+      profile_picture_url, 
+      banner_image_url,
+      chat_access_creator:chat_access!chat_access_creator_id_fkey(
+        last_qualifying_purchase_id,
+        purchases:purchases!chat_access_last_qualifying_purchase_id_fkey(
+          amount_cents,
+          created_at
+        )
+      )
+    `)
+    .eq('user_type', 'CREATOR')
+    .limit(20); // Get more to sort and then limit
+
+  // Calculate monthly earnings and sort
+  const trendingCreators = creatorsWithEarnings
+    ?.map(creator => {
+      const monthlyEarnings = creator.chat_access_creator
+        ?.reduce((total, access) => {
+          if (access.purchases && new Date(access.purchases.created_at) >= thirtyDaysAgo) {
+            return total + (access.purchases.amount_cents || 0);
+          }
+          return total;
+        }, 0) || 0;
+      
+      return {
+        ...creator,
+        monthlyEarnings
+      };
+    })
+    .sort((a, b) => b.monthlyEarnings - a.monthlyEarnings)
+    .slice(0, 8) || []; // Show 8 creators (2 rows of 4)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Welcome back, {profile.display_name || 'there'}!
-          </h1>
-          <p className="text-lg text-gray-600 mb-8">
-            Discover and connect with your favorite creators
-          </p>
-        </div>
+    <div className="bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 font-sans min-h-screen">
+      <main className="max-w-6xl mx-auto px-4 py-10">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+          Welcome back, <span className="text-primary-600">{profile.display_name || 'Fan'}!</span>
+        </h2>
 
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          {/* Chat Card */}
-          <Link href="/chat" className="group">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg mb-4 group-hover:bg-blue-200 transition-colors">
-                <MessageCircle className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Chat</h3>
-              <p className="text-gray-600 text-sm">
-                Message creators you have access to
-              </p>
+        {/* Active Creators Section */}
+        <section className="mb-12">
+          <h3 className="text-lg font-semibold mb-3">Your Active Creators</h3>
+          {activeCreators.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+              {activeCreators.map((creator) => (
+                <Link 
+                  key={creator.id} 
+                  href={`/chat?creator=${creator.id}`}
+                  className="bg-white rounded-2xl overflow-hidden shadow group hover:shadow-lg transition-all duration-200 cursor-pointer"
+                >
+                  <ImageWithFallback
+                    src={creator.banner_image_url ? getBannerImageUrl(creator.banner_image_url, { width: 400, height: 250 }) : `https://placehold.co/400x250/jpg?text=${encodeURIComponent(creator.display_name || 'Creator')}`}
+                    fallbackSrc={`https://placehold.co/400x250/jpg?text=${encodeURIComponent(creator.display_name || 'Creator')}`}
+                    alt={creator.display_name || 'Creator'}
+                    className="w-full h-40 object-cover group-hover:opacity-90 transition"
+                    width={400}
+                    height={250}
+                  />
+                  <div className="p-4">
+                    <p className="font-semibold text-sm">{creator.display_name || 'Creator'}</p>
+                    <p className="text-xs text-slate-500 mb-2">
+                      {creator.daysRemaining > 0 ? `${creator.daysRemaining} days remaining` : 'Expired'}
+                    </p>
+                    <span className="text-sm text-primary-600 font-medium">
+                      Open Chat →
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </Link>
+          ) : (
+            <div className="bg-white rounded-xl shadow p-8 text-center">
+              <p className="text-slate-500 mb-4">You don't have access to any creators yet.</p>
+              <Link 
+                href="/creators" 
+                className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                Discover Creators
+              </Link>
+            </div>
+          )}
+        </section>
 
-          {/* Dashboard Card */}
-          <Link href="/fan/dashboard" className="group">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-lg mb-4 group-hover:bg-green-200 transition-colors">
-                <Users className="h-6 w-6 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Dashboard</h3>
-              <p className="text-gray-600 text-sm">
-                View your purchases and creator interactions
-              </p>
-            </div>
-          </Link>
-        </div>
-
-        {/* User Info */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Account Information</h2>
-          <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">Email:</span>
-              <span className="ml-2 font-medium">{user.email}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">User Type:</span>
-              <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {profile.user_type}
-              </span>
-            </div>
-            {profile.display_name && (
-              <div>
-                <span className="text-gray-600">Display Name:</span>
-                <span className="ml-2 font-medium">{profile.display_name}</span>
-              </div>
-            )}
-            <div>
-              <span className="text-gray-600">Member Since:</span>
-              <span className="ml-2 font-medium">
-                {new Date(profile.created_at).toLocaleDateString()}
-              </span>
-            </div>
+        {/* Trending Creators Section */}
+        <section className="mb-12">
+          <h3 className="text-lg font-semibold mb-3">Trending Creators</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
+            {trendingCreators?.map((creator, index) => (
+              <Link 
+                key={creator.id} 
+                href={`/creator/${creator.id}/landing`}
+                className="bg-white rounded-2xl overflow-hidden shadow group hover:shadow-lg transition-all duration-200 cursor-pointer"
+              >
+                <ImageWithFallback
+                  src={creator.banner_image_url ? getBannerImageUrl(creator.banner_image_url, { width: 400, height: 250 }) : `https://placehold.co/400x250/jpg?text=${encodeURIComponent(creator.display_name || 'Creator')}`}
+                  fallbackSrc={`https://placehold.co/400x250/jpg?text=${encodeURIComponent(creator.display_name || 'Creator')}`}
+                  alt={creator.display_name || 'Creator'}
+                  className="w-full h-40 object-cover group-hover:opacity-90 transition"
+                  width={400}
+                  height={250}
+                />
+                <div className="p-4">
+                  <p className="font-semibold text-sm">{creator.display_name || 'Creator'}</p>
+                  <p className="text-xs text-slate-500 mb-2">
+                    {creator.monthlyEarnings > 0 
+                      ? `💰 $${(creator.monthlyEarnings / 100).toFixed(0)} this month`
+                      : index === 0 ? '🔥 Top Earner' : '⭐ Rising Star'
+                    }
+                  </p>
+                  <span className="text-sm text-primary-600 font-medium">
+                    View Profile →
+                  </span>
+                </div>
+              </Link>
+            ))}
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 }
