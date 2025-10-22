@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CreditCard, Shield, Clock } from 'lucide-react';
+import { ArrowLeft, CreditCard, Shield, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -16,6 +16,9 @@ export default function PaymentPage() {
   
   const [creatorInfo, setCreatorInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     // Redirect if not logged in
@@ -45,10 +48,49 @@ export default function PaymentPage() {
     }
   }, [user, profile, creatorId, router]);
 
-  const handlePayment = () => {
-    // TODO: Implement actual payment processing
-    // For now, just show an alert
-    alert('Payment processing not implemented yet. This would integrate with Stripe or similar payment processor.');
+  const handlePayment = async () => {
+    if (!creatorId || !amount || !days) {
+      setError('Missing payment information');
+      return;
+    }
+
+    setProcessing(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/payment/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          creatorId,
+          amount: parseFloat(amount),
+          days: parseInt(days)
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Payment failed');
+      }
+
+      if (data.success) {
+        setSuccess(true);
+        // Redirect to chat after a brief success message
+        setTimeout(() => {
+          router.push(`/chat?creator=${creatorId}&fan=${profile?.id}`);
+        }, 2000);
+      } else {
+        throw new Error(data.error || 'Payment failed');
+      }
+    } catch (err) {
+      console.error('Payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment failed');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) {
@@ -127,12 +169,34 @@ export default function PaymentPage() {
             </div>
           </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">{error}</span>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {success && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">Payment successful! Redirecting to chat...</span>
+            </div>
+          )}
+
           {/* Payment Button */}
           <button
             onClick={handlePayment}
-            className="w-full bg-indigo-600 text-white font-semibold py-3 px-6 rounded-full hover:bg-indigo-700 transition-colors"
+            disabled={processing || success}
+            className={`w-full font-semibold py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2 ${
+              processing || success
+                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            }`}
           >
-            Complete Payment
+            {processing && <Loader2 className="w-4 h-4 animate-spin" />}
+            {processing ? 'Processing Payment...' : success ? 'Payment Complete!' : 'Complete Payment'}
           </button>
         </div>
 
