@@ -85,7 +85,7 @@ export default function ProfilePage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <p className="mt-4 typ-body text-gray-600">Loading...</p>
         </div>
       </div>
     )
@@ -101,8 +101,8 @@ export default function ProfilePage() {
         <div className="bg-white shadow-sm rounded-lg">
           {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Fan Profile</h1>
-            <p className="mt-1 text-sm text-gray-600">
+            <h1 className="typ-h2 text-gray-900">Fan Profile</h1>
+            <p className="mt-1 typ-body-sm text-gray-600">
               Manage your profile information and settings
             </p>
           </div>
@@ -124,8 +124,8 @@ export default function ProfilePage() {
                 )}
               </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-900">Profile Picture</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="typ-h3 text-gray-900">Profile Picture</h3>
+                <p className="typ-body-sm text-gray-600">
                   Your profile picture is automatically assigned based on your platform activity and spending level.
                 </p>
               </div>
@@ -136,7 +136,7 @@ export default function ProfilePage() {
           <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
             {/* Display Name */}
             <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="displayName" className="typ-label block text-gray-700">
                 Display Name
               </label>
               <div className="mt-1">
@@ -150,14 +150,14 @@ export default function ProfilePage() {
                   placeholder="Enter your display name"
                 />
               </div>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 typ-body-sm text-gray-500">
                 This is how your name will appear to creators and other users.
               </p>
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="typ-label block text-gray-700">
                 Email Address
               </label>
               <div className="mt-1">
@@ -172,21 +172,21 @@ export default function ProfilePage() {
                   placeholder="Enter your email address"
                 />
               </div>
-              <p className="mt-2 text-sm text-gray-500">
+              <p className="mt-2 typ-body-sm text-gray-500">
                 Used for account notifications and password recovery.
               </p>
             </div>
 
             {/* Payment Details Placeholder */}
             <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Payment Details</h3>
-              <p className="text-sm text-gray-600 mb-3">
+              <h3 className="typ-h3 text-gray-900 mb-2">Payment Details</h3>
+              <p className="typ-body-sm text-gray-600 mb-3">
                 Payment methods and billing information will be managed here in the future.
               </p>
               <button
                 type="button"
                 disabled
-                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed"
+                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed typ-ui"
               >
                 Coming Soon
               </button>
@@ -199,7 +199,7 @@ export default function ProfilePage() {
                   ? 'bg-green-50 border border-green-200' 
                   : 'bg-red-50 border border-red-200'
               }`}>
-                <p className={`text-sm ${
+                <p className={`typ-body-sm ${
                   message.type === 'success' ? 'text-green-800' : 'text-red-800'
                 }`}>
                   {message.text}
@@ -212,7 +212,7 @@ export default function ProfilePage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed typ-ui"
               >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
@@ -223,12 +223,12 @@ export default function ProfilePage() {
         {/* Account Actions */}
         <div className="mt-8 bg-white shadow-sm rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Account Actions</h2>
+            <h2 className="typ-h3 text-gray-900">Account Actions</h2>
           </div>
           <div className="px-6 py-4">
             <button
               onClick={() => router.push('/')}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="text-blue-600 hover:text-blue-700 typ-body-sm"
             >
               ← Back to Dashboard
             </button>

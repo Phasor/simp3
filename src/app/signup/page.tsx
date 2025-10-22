@@ -620,11 +620,11 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-4xl w-full">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Join CreatorHub</h1>
-          <p className="text-lg text-gray-600">Pay to message. Unlock photos/videos inside chat.</p>
-          <p className="text-sm text-blue-600 mt-2">
-            Already have an account? <Link href="/login" className="underline">Login</Link>
-          </p>
+            <h1 className="typ-h1 text-gray-900 mb-4">Join CreatorHub</h1>
+            <p className="typ-body-lg text-gray-600">Pay to message. Unlock photos/videos inside chat.</p>
+            <p className="typ-body-sm text-blue-600 mt-2">
+              Already have an account? <Link href="/login" className="underline typ-body-sm">Login</Link>
+            </p>
         </div>
 
         {error && (
@@ -643,8 +643,8 @@ export default function SignupPage() {
               <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">⭐</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">I&apos;m a Creator</h2>
-              <p className="text-gray-600">Monetize your content and engage with fans</p>
+              <h2 className="typ-h2 text-gray-900 mb-2">I&apos;m a Creator</h2>
+              <p className="typ-body text-gray-600">Monetize your content and engage with fans</p>
             </div>
 
             <div className="space-y-3">
@@ -680,8 +680,8 @@ export default function SignupPage() {
               <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-2xl">💖</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">I&apos;m a Fan</h2>
-              <p className="text-gray-600">Support creators and unlock exclusive content</p>
+              <h2 className="typ-h2 text-gray-900 mb-2">I&apos;m a Fan</h2>
+              <p className="typ-body text-gray-600">Support creators and unlock exclusive content</p>
             </div>
 
             <div className="space-y-3">

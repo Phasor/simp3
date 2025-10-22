@@ -112,7 +112,7 @@ export default function PaymentPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-xl font-semibold">Get Chat Access</h1>
+          <h1 className="typ-h2">Get Chat Access</h1>
         </div>
 
         {/* Creator Info */}
@@ -126,7 +126,7 @@ export default function PaymentPage() {
               />
               <div>
                 <h2 className="text-lg font-semibold">{creatorInfo.display_name}</h2>
-                <p className="text-gray-500 text-sm">Creator on simp3</p>
+                <p className="text-gray-500 typ-body-sm">Creator on simp3</p>
               </div>
             </div>
           </div>
@@ -155,15 +155,15 @@ export default function PaymentPage() {
 
           {/* Features */}
           <div className="space-y-2 mb-6">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 typ-body-sm text-gray-600">
               <CreditCard className="w-4 h-4" />
               <span>Direct messaging access</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 typ-body-sm text-gray-600">
               <Shield className="w-4 h-4" />
               <span>Secure and private</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 typ-body-sm text-gray-600">
               <Clock className="w-4 h-4" />
               <span>Instant activation</span>
             </div>
@@ -173,7 +173,7 @@ export default function PaymentPage() {
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">{error}</span>
+              <span className="typ-body-sm">{error}</span>
             </div>
           )}
 
@@ -181,7 +181,7 @@ export default function PaymentPage() {
           {success && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
               <CheckCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="text-sm">Payment successful! Redirecting to chat...</span>
+              <span className="typ-body-sm">Payment successful! Redirecting to chat...</span>
             </div>
           )}
 
@@ -201,7 +201,7 @@ export default function PaymentPage() {
         </div>
 
         {/* Terms */}
-        <p className="text-xs text-gray-500 text-center">
+        <p className="typ-caption text-gray-500 text-center">
           By completing this purchase, you agree to our Terms of Service and Privacy Policy. 
           Access will be automatically activated upon successful payment.
         </p>

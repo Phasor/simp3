@@ -13,10 +13,10 @@ export function ChatAccessStatusBadge({
   className = '' 
 }: ChatAccessStatusProps) {
   const getStatusColor = () => {
-    if (!status.hasAccess) return 'bg-red-100 text-red-800 border-red-200';
-    if (status.daysRemaining && status.daysRemaining > 7) return 'bg-green-100 text-green-800 border-green-200';
-    if (status.daysRemaining && status.daysRemaining > 1) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-orange-100 text-orange-800 border-orange-200';
+    if (!status.hasAccess) return 'bg-red-100 text-black border-red-200';
+    if (status.daysRemaining && status.daysRemaining > 7) return 'bg-green-100 text-black border-green-200';
+    if (status.daysRemaining && status.daysRemaining > 1) return 'bg-yellow-100 text-black border-yellow-200';
+    return 'bg-orange-100 text-black border-orange-200';
   };
 
   const getStatusIcon = () => {
@@ -32,11 +32,11 @@ export function ChatAccessStatusBadge({
   };
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor()} ${className}`}>
+    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border ${getStatusColor()} ${className}`}>
       {getStatusIcon()}
-      <span>{getStatusText()}</span>
+      <span className="text-xs font-medium text-black">{getStatusText()}</span>
       {showDetails && status.accessUntil && (
-        <span className="text-xs opacity-75">
+        <span className="typ-caption opacity-75 text-black">
           (until {new Date(status.accessUntil).toLocaleDateString()})
         </span>
       )}

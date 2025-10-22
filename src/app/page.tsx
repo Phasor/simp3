@@ -103,13 +103,13 @@ export default async function HomePage() {
   return (
     <div className="bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 font-sans min-h-screen">
       <main className="max-w-6xl mx-auto px-4 py-10">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">
+        <h2 className="typ-h1 mb-8 text-center text-slate-900">
           Welcome back, <span className="text-primary-600">{profile.display_name || 'Fan'}!</span>
         </h2>
 
         {/* Active Creators Section */}
         <section className="mb-12">
-          <h3 className="text-lg font-semibold mb-3">Your Active Creators</h3>
+          <h3 className="typ-h3 mb-3 text-slate-900">Your Active Creators</h3>
           {activeCreators.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
               {activeCreators.map((creator) => (
@@ -127,11 +127,11 @@ export default async function HomePage() {
                     height={250}
                   />
                   <div className="p-4">
-                    <p className="font-semibold text-sm">{creator.display_name || 'Creator'}</p>
-                    <p className="text-xs text-slate-500 mb-2">
+                    <p className="typ-ui text-slate-900">{creator.display_name || 'Creator'}</p>
+                    <p className="typ-caption mb-2">
                       {creator.daysRemaining > 0 ? `${creator.daysRemaining} days remaining` : 'Expired'}
                     </p>
-                    <span className="text-sm text-primary-600 font-medium">
+                    <span className="typ-label text-primary-600">
                       Open Chat →
                     </span>
                   </div>
@@ -140,10 +140,10 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow p-8 text-center">
-              <p className="text-slate-500 mb-4">You don't have access to any creators yet.</p>
+              <p className="typ-body text-slate-500 mb-4">You don't have access to any creators yet.</p>
               <Link 
                 href="/creators" 
-                className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors typ-ui"
               >
                 Discover Creators
               </Link>
@@ -153,7 +153,7 @@ export default async function HomePage() {
 
         {/* Trending Creators Section */}
         <section className="mb-12">
-          <h3 className="text-lg font-semibold mb-3">Trending Creators</h3>
+          <h3 className="typ-h3 mb-3 text-slate-900">Trending Creators</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
             {trendingCreators?.map((creator, index) => (
               <Link 
@@ -170,14 +170,14 @@ export default async function HomePage() {
                   height={250}
                 />
                 <div className="p-4">
-                  <p className="font-semibold text-sm">{creator.display_name || 'Creator'}</p>
-                  <p className="text-xs text-slate-500 mb-2">
+                  <p className="typ-ui text-slate-900">{creator.display_name || 'Creator'}</p>
+                  <p className="typ-caption mb-2">
                     {creator.monthlyEarnings > 0 
                       ? `💰 $${(creator.monthlyEarnings / 100).toFixed(0)} this month`
                       : index === 0 ? '🔥 Top Earner' : '⭐ Rising Star'
                     }
                   </p>
-                  <span className="text-sm text-primary-600 font-medium">
+                  <span className="typ-label text-primary-600">
                     View Profile →
                   </span>
                 </div>

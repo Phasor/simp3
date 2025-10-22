@@ -291,7 +291,7 @@ export function ChatInbox({
           placeholder="Search chats or creators…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10"
+          className="w-full rounded-lg border px-3 py-2 typ-body-sm outline-none focus:ring-2 focus:ring-black/10"
         />
       </div>
 
@@ -304,14 +304,14 @@ export function ChatInbox({
         ) : error ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
-              <p className="text-red-600 text-sm mb-2">Failed to load conversations</p>
-              <p className="text-gray-500 text-xs mb-4">{error}</p>
+              <p className="text-red-600 typ-body-sm mb-2">Failed to load conversations</p>
+              <p className="text-gray-500 typ-caption mb-4">{error}</p>
               <button
                 onClick={() => {
                   console.log('🔄 Try Again clicked:', { profileId: currentProfile?.id, authLoading });
                   loadConversations(currentProfile, authLoading);
                 }}
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
               >
                 Try Again
               </button>
@@ -324,7 +324,7 @@ export function ChatInbox({
               <h3 className="font-semibold mb-2">
                 {searchQuery ? 'No matching conversations' : 'No chats yet'}
               </h3>
-              <p className="text-gray-500 text-sm mb-4">
+              <p className="text-gray-500 typ-body-sm mb-4">
                 {searchQuery
                   ? 'Try adjusting your search terms'
                   : currentProfile.user_type === 'CREATOR'
@@ -334,12 +334,12 @@ export function ChatInbox({
               </p>
               {!searchQuery && currentProfile.user_type === 'FAN' && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500">
+                  <p className="typ-caption text-gray-500">
                     To get chat access, you need to make qualifying purchases from creators.
                   </p>
                   <button
                     onClick={() => window.location.href = '/'}
-                    className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                    className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                   >
                     Browse Creators
                   </button>
@@ -357,8 +357,8 @@ export function ChatInbox({
                   onClick={() => setActiveOpen(!activeOpen)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">Active Chats</span>
-                    <span className="text-xs rounded-full bg-gray-100 px-2 py-0.5">{activeConversations.length}</span>
+                    <span className="typ-ui">Active Chats</span>
+                    <span className="typ-caption rounded-full bg-gray-100 px-2 py-0.5">{activeConversations.length}</span>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform ${activeOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -370,7 +370,7 @@ export function ChatInbox({
                           <ConversationListItem
                             conversation={conversation}
                             currentProfile={currentProfile}
-                            isSelected={selectedConversationId === conversation.id}
+                            isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
                             onClick={() =>
                               onSelectConversation?.(
                                 conversation.creatorId,
@@ -396,8 +396,8 @@ export function ChatInbox({
                   onClick={() => setExpiredOpen(!expiredOpen)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">Expired Access</span>
-                    <span className="text-xs rounded-full border px-2 py-0.5">{expiredConversations.length}</span>
+                    <span className="typ-ui">Expired Access</span>
+                    <span className="typ-caption rounded-full border px-2 py-0.5">{expiredConversations.length}</span>
                   </div>
                   <ChevronDown className={`h-4 w-4 transition-transform ${expiredOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -409,7 +409,7 @@ export function ChatInbox({
                           <ConversationListItem
                             conversation={conversation}
                             currentProfile={currentProfile}
-                            isSelected={selectedConversationId === conversation.id}
+                            isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
                             onClick={() =>
                               onSelectConversation?.(
                                 conversation.creatorId,
@@ -467,8 +467,10 @@ function ConversationListItem({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50 w-full text-left transition-colors ${
-        isSelected ? 'bg-gray-100' : ''
+      className={`flex items-center gap-3 rounded-xl px-2 py-2 w-full text-left transition-colors ${
+        isSelected 
+          ? 'bg-blue-50 border-2 border-blue-200 shadow-sm' 
+          : 'hover:bg-gray-50 border-2 border-transparent'
       }`}
     >
       <div className="relative h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
@@ -483,31 +485,33 @@ function ConversationListItem({
               target.style.display = 'none';
               const parent = target.parentElement;
               if (parent) {
-                parent.innerHTML = `<span class="font-medium text-gray-500 text-sm flex items-center justify-center h-full">${(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}</span>`;
+                parent.innerHTML = `<span class="typ-ui text-gray-500 typ-body-sm flex items-center justify-center h-full">${(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}</span>`;
               }
             }}
           />
         ) : (
-          <span className="font-medium text-gray-500 text-sm flex items-center justify-center h-full">
+          <span className="typ-ui text-gray-500 typ-body-sm flex items-center justify-center h-full">
             {(otherProfile.display_name || otherProfile.email)?.charAt(0)?.toUpperCase() || '?'}
           </span>
         )}
       </div>
       
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium">{conversationTitle}</span>
+        <div className="flex items-start justify-between gap-2">
+          <span className="typ-ui text-gray-900 leading-tight">{conversationTitle}</span>
           {conversation.accessStatus && (
-            <ChatAccessStatusBadge status={conversation.accessStatus} />
+            <div className="flex-shrink-0">
+              <ChatAccessStatusBadge status={conversation.accessStatus} />
+            </div>
           )}
         </div>
         {conversation.lastMessage ? (
-          <p className="truncate text-xs text-gray-500">
+          <p className="truncate typ-caption text-gray-500">
             {conversation.lastMessage.sender_id === currentProfile.id ? 'You: ' : ''}
             {conversation.lastMessage.content}
           </p>
         ) : (
-          <p className="truncate text-xs text-gray-500">No messages yet</p>
+          <p className="truncate typ-caption text-gray-500">No messages yet</p>
         )}
       </div>
     </button>

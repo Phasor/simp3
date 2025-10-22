@@ -21,10 +21,10 @@ export default function CreatorDashboard({ creatorHandle, displayName }: Creator
       <div className="bg-slate-50 text-slate-900 font-sans min-h-screen">
         <main className="max-w-6xl mx-auto px-4 py-6 md:px-6">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <h1 className="typ-h1 text-slate-900 mb-2">
               Welcome back, {displayName}!
             </h1>
-            <p className="text-slate-600">
+            <p className="typ-body text-slate-600">
               Loading your dashboard...
             </p>
           </div>
@@ -56,10 +56,10 @@ export default function CreatorDashboard({ creatorHandle, displayName }: Creator
       <div className="bg-slate-50 text-slate-900 font-sans min-h-screen">
         <main className="max-w-6xl mx-auto px-4 py-6 md:px-6">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <h1 className="typ-h1 text-slate-900 mb-2">
               Welcome back, {displayName}!
             </h1>
-            <p className="text-red-600">
+            <p className="typ-body text-red-600">
               Error loading dashboard: {error}
             </p>
           </div>
@@ -82,10 +82,10 @@ export default function CreatorDashboard({ creatorHandle, displayName }: Creator
       <main className="max-w-6xl mx-auto px-4 py-6 md:px-6">
         {/* Welcome Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+          <h1 className="typ-h1 text-slate-900 mb-2">
             Welcome back, {displayName}!
           </h1>
-          <p className="text-slate-600">
+          <p className="typ-body text-slate-600">
             Here's how your creator profile is performing
           </p>
         </div>

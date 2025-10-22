@@ -119,16 +119,16 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
             />
             <div className="absolute bottom-2 right-2 bg-emerald-500 h-4 w-4 rounded-full border-2 border-white" title="Online"></div>
           </div>
-          <h1 className="mt-4 text-2xl font-bold">
+          <h1 className="mt-4 typ-h2">
             {creator.display_name || 'Creator'} <Star className="inline w-5 h-5 text-amber-500 fill-current" />
           </h1>
-          <p className="text-sm text-slate-500">Creator on simp3 · Available now</p>
+          <p className="typ-body-sm text-slate-500">Creator on simp3 · Available now</p>
           
           {/* CTA Button above the fold */}
           <button
             onClick={handleChatClick}
             disabled={loading || authLoading || accessLoading}
-            className="mt-4 flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 font-medium"
+            className="mt-4 flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 typ-ui"
           >
             {(loading || authLoading || accessLoading) ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -162,8 +162,8 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
         {/* About section */}
         {creator.about_text && (
           <section className="mt-8 max-w-3xl mx-auto px-4">
-            <h2 className="text-xl font-semibold text-slate-900 mb-4 text-center">About</h2>
-            <p className="text-slate-700 text-lg leading-relaxed whitespace-pre-wrap text-justify">
+            <h2 className="typ-h3 text-slate-900 mb-4 text-center">About</h2>
+            <p className="typ-body-lg text-slate-700 leading-relaxed whitespace-pre-wrap text-justify">
               {creator.about_text}
             </p>
           </section>
@@ -171,27 +171,27 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
         {/* Offer and CTA */}
         <section className="mt-8 bg-white border border-slate-200 rounded-2xl shadow p-6">
-          <h2 className="text-lg font-semibold mb-3">Unlock Private Chat Access</h2>
-          <p className="text-slate-600 text-sm max-w-md mx-auto">
+          <h2 className="typ-h3 mb-3">Unlock Private Chat Access</h2>
+          <p className="typ-body-sm text-slate-600 max-w-md mx-auto">
             Get exclusive one-on-one access to chat, photos, and updates directly from{' '}
             <strong>{creator.display_name || 'this creator'}</strong>. Only limited spots available.
           </p>
 
           <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
             <div className="rounded-xl border border-slate-200 px-6 py-4 bg-gradient-to-br from-slate-50 to-white">
-              <p className="text-xs text-slate-500">Price</p>
-              <p className="text-2xl font-bold mt-1">${minSpendAmount}</p>
+              <p className="typ-caption text-slate-500">Price</p>
+              <p className="typ-h2 mt-1">${minSpendAmount}</p>
             </div>
             <div className="rounded-xl border border-slate-200 px-6 py-4 bg-gradient-to-br from-slate-50 to-white">
-              <p className="text-xs text-slate-500">Access</p>
-              <p className="text-2xl font-bold mt-1">{accessDays} days</p>
+              <p className="typ-caption text-slate-500">Access</p>
+              <p className="typ-h2 mt-1">{accessDays} days</p>
             </div>
           </div>
 
           <button 
             onClick={handleChatClick}
             disabled={loading || authLoading || accessLoading}
-            className="mt-8 w-full sm:w-auto bg-indigo-600 text-white font-semibold text-lg px-10 py-3 rounded-full shadow hover:bg-indigo-500 active:scale-95 transition-transform disabled:opacity-50"
+            className="mt-8 w-full sm:w-auto bg-indigo-600 text-white typ-body-lg px-10 py-3 rounded-full shadow hover:bg-indigo-500 active:scale-95 transition-transform disabled:opacity-50"
           >
             {(loading || authLoading || accessLoading) ? (
               <div className="flex items-center justify-center gap-2">
@@ -213,16 +213,16 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
             )}
           </button>
 
-          <p className="mt-4 text-xs text-slate-500">Secure and private · Cancel anytime</p>
+          <p className="mt-4 typ-caption text-slate-500">Secure and private · Cancel anytime</p>
         </section>
 
         {/* Social proof & urgency section */}
         <section className="mt-10 text-center">
-          <p className="text-slate-600 text-sm">
+          <p className="typ-body-sm text-slate-600">
             ⭐ Over <strong>1,200</strong> fans have already chatted with{' '}
             <strong>{creator.display_name || 'this creator'}</strong>
           </p>
-          <p className="text-slate-500 text-xs mt-2 italic">
+          <p className="typ-caption text-slate-500 mt-2 italic">
             "She replies fast and is super friendly!" — fan review
           </p>
         </section>

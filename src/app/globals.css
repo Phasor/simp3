@@ -29,6 +29,18 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+
+    /* Typography Variables */
+    --font-sans: Inter, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    --text-primary: rgba(255,255,255,0.98);
+    --text-secondary: rgba(255,255,255,0.80);
+    --text-muted: rgba(255,255,255,0.65);
+
+    --fs-display: clamp(2rem, 3vw + 1rem, 3rem);
+    --fs-h1: clamp(1.75rem, 2.5vw + .75rem, 2.25rem);
+    --fs-h2: clamp(1.5rem, 1.6vw + .8rem, 1.875rem);
+    --fs-h3: clamp(1.25rem, 1.2vw + .6rem, 1.5rem);
+    --fs-body: 1rem;
   }
 
   .dark {
@@ -127,4 +139,18 @@
     background: #e5e7eb; 
     border-radius: 4px; 
   }
+}
+
+@layer components {
+  .typ-hero { @apply text-display font-extrabold text-text-primary; }
+  .typ-h1 { @apply text-h1 font-bold text-text-primary; }
+  .typ-h2 { @apply text-h2 font-semibold text-text-primary; }
+  .typ-h3 { @apply text-h3 font-semibold text-text-primary; }
+  .typ-body { @apply text-body text-text-primary; }
+  .typ-body-lg { @apply text-body-lg text-text-primary; }
+  .typ-body-sm { @apply text-body-sm text-text-secondary; }
+  .typ-ui { @apply text-ui font-medium text-text-primary; }
+  .typ-label { @apply text-label font-medium text-text-secondary; }
+  .typ-caption { @apply text-caption text-text-muted; }
+  .typ-overline { @apply text-overline font-medium text-text-muted; }
 }

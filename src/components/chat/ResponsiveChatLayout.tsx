@@ -246,7 +246,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     <>
       <div className={`h-screen w-screen flex ${className}`}>
         {/* SIDEBAR */}
-        <aside className="w-72 min-w-64 border-r bg-white flex flex-col">
+        <aside className="w-80 min-w-72 border-r bg-white flex flex-col">
           {/* Inbox with search and conversations */}
           <div className="flex-1 overflow-hidden">
             <ChatInbox
@@ -258,29 +258,26 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           {/* Bottom Mini-Nav */}
           <div className="border-t p-2">
             <div className="grid grid-cols-3 gap-2">
-              <a href="/" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
-                <LayoutDashboard className="h-4 w-4" />
-                <span className="text-sm">Dashboard</span>
+              <a href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
+                <span className="typ-body-sm text-gray-700">Dashboard</span>
               </a>
               
-              <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
-                <User className="h-4 w-4" />
-                <span className="text-sm">Profile</span>
+              <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
+                <span className="typ-body-sm text-gray-700">Profile</span>
               </a>
               
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50 text-rose-600"
+                className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50 text-rose-600"
               >
-                <LogOut className="h-4 w-4" />
-                <span className="text-sm">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
+                <span className="typ-body-sm text-rose-600">{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
               </button>
             </div>
             
             <a
               href="/chat/new"
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 text-sm text-white hover:opacity-90"
+              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 typ-body-sm text-white hover:opacity-90"
             >
               <Plus className="h-4 w-4" />
               New Chat

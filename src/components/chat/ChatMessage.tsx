@@ -27,7 +27,7 @@ export const ChatMessage = memo(function ChatMessage({
         {message.content}
         
         {showTimestamp && (
-          <div className={`text-xs mt-1 opacity-70 ${
+          <div className={`typ-caption mt-1 opacity-70 ${
             isCurrentUser 
               ? 'text-white/70' 
               : 'text-gray-500'
@@ -64,7 +64,7 @@ export const MessageGroup = memo(function MessageGroup({
             <div key={message.id} className="msg max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 bg-brand-600 text-white leading-6 break-words whitespace-pre-wrap shadow-soft">
               {message.content}
               {index === messages.length - 1 && (
-                <span className="time absolute -bottom-5 right-2 text-[10px] text-white/70 opacity-0 transition">
+                <span className="time absolute -bottom-5 right-2 typ-caption text-white/70 opacity-0 transition">
                   {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                 </span>
               )}
@@ -82,7 +82,7 @@ export const MessageGroup = memo(function MessageGroup({
             <div key={message.id} className="msg max-w-[78%] sm:max-w-[62%] min-w-[8ch] rounded-2xl px-3.5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 leading-6 break-words whitespace-pre-wrap shadow-soft">
               {message.content}
               {index === messages.length - 1 && (
-                <span className="time absolute -bottom-5 left-2 text-[10px] text-gray-400 opacity-0 transition">
+                <span className="time absolute -bottom-5 left-2 typ-caption text-gray-400 opacity-0 transition">
                   {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                 </span>
               )}
@@ -150,8 +150,8 @@ export function MessageList({
     return (
       <div className={`flex items-center justify-center py-8 ${className}`}>
         <div className="text-center">
-          <p className="text-destructive text-sm mb-2">Failed to load messages</p>
-          <p className="text-muted-foreground text-xs">{error}</p>
+          <p className="typ-body-sm text-destructive mb-2">Failed to load messages</p>
+          <p className="typ-caption text-muted-foreground">{error}</p>
         </div>
       </div>
     );
@@ -161,8 +161,8 @@ export function MessageList({
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
         <div className="text-center">
-          <p className="text-muted-foreground text-sm mb-2">No messages yet</p>
-          <p className="text-muted-foreground text-xs">Start the conversation!</p>
+          <p className="typ-body-sm text-muted-foreground mb-2">No messages yet</p>
+          <p className="typ-caption text-muted-foreground">Start the conversation!</p>
         </div>
       </div>
     );

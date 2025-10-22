@@ -58,6 +58,16 @@ export default {
           DEFAULT: '#2563EB',
           600: '#2563EB',
           700: '#1D4ED8'
+        },
+        text: {
+          primary: 'rgba(255,255,255,0.98)',
+          secondary: 'rgba(255,255,255,0.80)',
+          muted: 'rgba(255,255,255,0.65)',
+          subtle: 'rgba(255,255,255,0.55)',
+          inverse: '#111827',
+          accent: '#0ea5e9',
+          success: '#34d399',
+          danger: '#f87171',
         }
       },
       borderRadius: {
@@ -66,8 +76,28 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-inter)', 'Inter', 'ui-sans-serif', 'system-ui'],
-        mono: 'var(--font-mono)',
+        sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+      },
+      fontSize: {
+        display: ['clamp(2rem, 3vw + 1rem, 3rem)', { lineHeight: '1.15', letterSpacing: '-0.01em' }],
+        h1: ['clamp(1.75rem, 2.5vw + 0.75rem, 2.25rem)', { lineHeight: '1.2' }],
+        h2: ['clamp(1.5rem, 1.6vw + 0.8rem, 1.875rem)', { lineHeight: '1.25' }],
+        h3: ['clamp(1.25rem, 1.2vw + 0.6rem, 1.5rem)', { lineHeight: '1.3' }],
+        'body-lg': ['1.125rem', { lineHeight: '1.65' }],
+        body: ['1rem', { lineHeight: '1.65' }],
+        'body-sm': ['0.9375rem', { lineHeight: '1.6' }],
+        ui: ['0.9375rem', { lineHeight: '1.4', letterSpacing: '0.005em' }],
+        label: ['0.875rem', { lineHeight: '1.4', letterSpacing: '0.01em' }],
+        caption: ['0.8125rem', { lineHeight: '1.35' }],
+        overline: ['0.75rem', { lineHeight: '1.2', letterSpacing: '0.08em', textTransform: 'uppercase' }],
+      },
+      fontWeight: {
+        regular: '400',
+        medium: '500',
+        semibold: '600',
+        bold: '700',
+        extrabold: '800',
       },
       boxShadow: {
         soft: '0 4px 24px rgba(0,0,0,0.06)',

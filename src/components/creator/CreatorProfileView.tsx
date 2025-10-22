@@ -220,19 +220,19 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen">
       <main className="max-w-3xl mx-auto px-4 py-8">
         <header className="mb-6">
-          <h1 className="text-xl font-semibold">Profile Settings</h1>
-          <p className="text-sm text-slate-500">Manage your identity and chat access. All fields are pre‑filled with your current values.</p>
+          <h1 className="typ-h2">Profile Settings</h1>
+          <p className="typ-body-sm text-slate-500">Manage your identity and chat access. All fields are pre‑filled with your current values.</p>
         </header>
 
         <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
           {/* Identity Section */}
           <section className="rounded-2xl bg-white border border-slate-200 shadow">
             <div className="px-5 py-4 border-b border-slate-100">
-              <h2 className="text-sm font-semibold">Identity</h2>
+              <h2 className="typ-label">Identity</h2>
             </div>
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Nickname</label>
+                <label className="typ-caption block text-slate-500 mb-1">Nickname</label>
                 <input 
                   type="text" 
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
@@ -242,7 +242,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                 />
               </div>
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Email</label>
+                <label className="typ-caption block text-slate-500 mb-1">Email</label>
                 <input 
                   type="email" 
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
@@ -252,7 +252,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1">Profile Picture</label>
+                <label className="typ-caption block text-slate-500 mb-1">Profile Picture</label>
                 <div className="flex items-center gap-3">
                   <img 
                     className="h-14 w-14 rounded-full object-cover bg-slate-200" 
@@ -271,26 +271,26 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
                     />
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="typ-caption text-slate-500 mt-1">
                       {uploadingImage ? 'Uploading...' : 'JPG or PNG, up to 5MB.'}
                     </p>
                   </div>
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs text-slate-500 mb-3">Banner Image</label>
+                <label className="typ-caption block text-slate-500 mb-3">Banner Image</label>
                 <BannerUpload
                   onFileSelect={handleBannerUpload}
                   currentImageUrl={bannerImageUrl}
                   uploading={uploadingBanner}
                   maxSize={10 * 1024 * 1024} // 10MB
                 />
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg typ-caption text-blue-700">
                   💡 <strong>Twitter Tip:</strong> Use 1200×630px for best Twitter card display. Your banner will appear when fans share your landing page!
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs text-slate-500 mb-2">About You</label>
+                <label className="typ-caption block text-slate-500 mb-2">About You</label>
                 <textarea
                   value={aboutText}
                   onChange={(e) => setAboutText(e.target.value)}
@@ -300,10 +300,10 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                   maxLength={400}
                 />
                 <div className="flex justify-between items-center mt-1">
-                  <p className="text-xs text-slate-500">
+                  <p className="typ-caption text-slate-500">
                     This appears on your public landing page. Emoji and simple formatting supported.
                   </p>
-                  <span className={`text-xs ${aboutText.length > 350 ? 'text-red-500' : 'text-slate-400'}`}>
+                  <span className={`typ-caption ${aboutText.length > 350 ? 'text-red-500' : 'text-slate-400'}`}>
                     {aboutText.length}/400
                   </span>
                 </div>
@@ -314,12 +314,12 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
           {/* Access & Pricing Section */}
           <section className="rounded-2xl bg-white border border-slate-200 shadow">
             <div className="px-5 py-4 border-b border-slate-100">
-              <h2 className="text-sm font-semibold">Chat Access & Pricing</h2>
+              <h2 className="typ-label">Chat Access & Pricing</h2>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Price (USD)</label>
+                  <label className="typ-caption block text-slate-500 mb-1">Price (USD)</label>
                   <div className="flex rounded-lg border border-slate-300 overflow-hidden">
                     <span className="px-2 bg-slate-50 text-slate-500 text-sm grid place-items-center">$</span>
                     <input 
@@ -332,10 +332,10 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                       onChange={(e) => setMinSpendCents(Math.round(parseFloat(e.target.value || '0') * 100))}
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">Minimum price may apply.</p>
+                  <p className="typ-caption text-slate-500 mt-1">Minimum price may apply.</p>
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Access Term</label>
+                  <label className="typ-caption block text-slate-500 mb-1">Access Term</label>
                   <input 
                     type="number" 
                     min="1" 
@@ -344,12 +344,12 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                     value={accessDays}
                     onChange={(e) => setAccessDays(parseInt(e.target.value || '1'))}
                   />
-                  <p className="text-[11px] text-slate-500 mt-1">Days (1-365)</p>
+                  <p className="typ-caption text-slate-500 mt-1">Days (1-365)</p>
                 </div>
               </div>
               
               <div>
-                <label className="block text-xs text-slate-500 mb-1">Landing Page URL (for social media)</label>
+                <label className="typ-caption block text-slate-500 mb-1">Landing Page URL (for social media)</label>
                 <div className="flex rounded-lg border border-slate-300 overflow-hidden">
                   <input 
                     type="text" 
@@ -366,7 +366,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                     {copiedLanding ? 'Copied' : 'Copy'}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Share this conversion-optimized page on your social media. Includes Twitter Card optimization.</p>
+                <p className="typ-caption text-slate-500 mt-1">Share this conversion-optimized page on your social media. Includes Twitter Card optimization.</p>
               </div>
             </div>
           </section>
