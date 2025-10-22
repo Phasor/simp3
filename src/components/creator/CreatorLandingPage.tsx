@@ -84,6 +84,21 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
             {creator.display_name || 'Creator'} <Star className="inline w-5 h-5 text-amber-500 fill-current" />
           </h1>
           <p className="text-sm text-slate-500">Creator on simp3 · Available now</p>
+          
+          {/* CTA Button above the fold */}
+          <button
+            onClick={handleChatClick}
+            disabled={loading}
+            className="mt-4 flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 font-medium"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            ) : (
+              <>
+                💬 Chat with me
+              </>
+            )}
+          </button>
         </div>
 
         {/* Visual focus zone */}
@@ -96,6 +111,16 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
             />
           </div>
         </div>
+
+        {/* About section */}
+        {creator.about_text && (
+          <section className="mt-8 max-w-3xl mx-auto px-4">
+            <h2 className="text-xl font-semibold text-slate-900 mb-4 text-center">About</h2>
+            <p className="text-slate-700 text-lg leading-relaxed whitespace-pre-wrap text-justify">
+              {creator.about_text}
+            </p>
+          </section>
+        )}
 
         {/* Offer and CTA */}
         <section className="mt-8 bg-white border border-slate-200 rounded-2xl shadow p-6">

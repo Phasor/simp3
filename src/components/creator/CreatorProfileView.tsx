@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageCircle, Star, Clock, DollarSign, ArrowRight, Settings, Edit, Save, X, Camera, User, Mail, Copy, Check } from 'lucide-react';
+import { Settings, Edit, Save, X, Camera, User, Mail, Copy, Check, Star } from 'lucide-react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import type { Profile } from '@/lib/types/database';
 import { getProfilePictureUrl, getBannerImageUrl } from '@/lib/utils/bunnynet';
+import { BannerUpload } from '@/components/ui/BannerUpload';
 import toast from 'react-hot-toast';
 
 interface ChatRules {
@@ -36,51 +37,15 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
   const [email, setEmail] = useState(creator.email || '');
   const [profilePictureUrl, setProfilePictureUrl] = useState(creator.profile_picture_url || '');
   const [bannerImageUrl, setBannerImageUrl] = useState(creator.banner_image_url || '');
+  const [aboutText, setAboutText] = useState(creator.about_text || '');
   const [minSpendCents, setMinSpendCents] = useState(chatRules?.min_spend_cents || 2000);
   const [accessDays, setAccessDays] = useState(chatRules?.access_days || 30);
 
   const minSpendAmount = minSpendCents / 100;
-  const displayMinSpendAmount = chatRules ? chatRules.min_spend_cents / 100 : 20;
-  const displayAccessDays = chatRules ? chatRules.access_days : 30;
   
   // Generate landing page URL
   const landingPageUrl = `https://simp3.app/creator/${creator.id}/landing`;
 
-  const handleGetChatAccess = async () => {
-    if (!user) {
-      router.push('/login');
-      return;
-    }
-
-    if (!currentProfile) {
-      router.push('/signup');
-      return;
-    }
-
-    if (currentProfile.user_type === 'CREATOR') {
-      toast.error('Creators cannot purchase chat access from other creators');
-      return;
-    }
-
-    // For now, redirect to chat page - in a real app, this would go to a purchase flow
-    toast.success('Redirecting to purchase flow...', { icon: '💳' });
-    
-    // In a real implementation, you'd redirect to a purchase/payment page
-    // For now, we'll just redirect to the chat page
-    setTimeout(() => {
-      router.push('/chat');
-    }, 1500);
-  };
-
-  const handleStartChat = () => {
-    if (!user || !currentProfile) {
-      router.push('/login');
-      return;
-    }
-
-    // Redirect to chat with this creator
-    router.push(`/chat?creator=${creator.id}&fan=${currentProfile.id}`);
-  };
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -124,21 +89,8 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     }
   };
 
-  const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleBannerUpload = async (file: File | null) => {
     if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 10MB for banner images)
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Banner image must be less than 10MB');
-      return;
-    }
 
     setUploadingBanner(true);
 
@@ -191,6 +143,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
           email: email.trim(),
           profilePictureUrl,
           bannerImageUrl,
+          aboutText: aboutText.trim(),
         }),
       });
 
@@ -232,6 +185,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     setEmail(creator.email || '');
     setProfilePictureUrl(creator.profile_picture_url || '');
     setBannerImageUrl(creator.banner_image_url || '');
+    setAboutText(creator.about_text || '');
     setMinSpendCents(chatRules?.min_spend_cents || 2000);
     setAccessDays(chatRules?.access_days || 30);
   };
@@ -247,146 +201,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     }
   };
 
-  // If not the creator's own profile, show the fan view
-  if (currentProfile?.id !== creator.id) {
-    return (
-      <div className="max-w-2xl mx-auto p-6">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-start gap-4">
-            {/* Profile Picture */}
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-              <img
-                src={getProfilePictureUrl(creator.profile_picture_url)}
-                alt={creator.display_name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = '/api/image/profile-pictures/default-avatar.jpg';
-                }}
-              />
-            </div>
-
-            {/* Creator Info */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h1 className="text-2xl font-bold text-gray-900">{creator.display_name}</h1>
-                <Star className="w-5 h-5 text-yellow-500 fill-current" />
-              </div>
-              <p className="text-gray-600 mb-3">Creator on CreatorHub</p>
-              
-              {/* Stats */}
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <div className="flex items-center gap-1">
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Available for chat</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  <span>{displayAccessDays} days access</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Chat Access Info */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Chat Access</h2>
-          
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Unlock Private Messaging</h3>
-                <p className="text-sm text-gray-600">Get direct access to chat with {creator.display_name}</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="text-center p-3 bg-white rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-lg font-bold text-green-600 mb-1">
-                  <DollarSign className="w-5 h-5" />
-                  {displayMinSpendAmount}
-                </div>
-                <p className="text-xs text-gray-500">Minimum spend</p>
-              </div>
-              <div className="text-center p-3 bg-white rounded-lg">
-                <div className="text-lg font-bold text-blue-600 mb-1">{displayAccessDays} days</div>
-                <p className="text-xs text-gray-500">Chat access</p>
-              </div>
-            </div>
-            
-            <ul className="text-sm text-gray-600 space-y-1 mb-4">
-              <li>• Direct messaging with {creator.display_name}</li>
-              <li>• Receive exclusive photos and videos</li>
-              <li>• {displayAccessDays} days of unlimited chat access</li>
-              <li>• Real-time notifications</li>
-            </ul>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-3">
-            {user && currentProfile ? (
-              // If logged in as different user
-              <div className="space-y-2">
-                <button
-                  onClick={handleGetChatAccess}
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors disabled:opacity-50"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <DollarSign className="w-5 h-5" />
-                      Get Chat Access (${displayMinSpendAmount})
-                      <ArrowRight className="w-5 h-5" />
-                    </>
-                  )}
-                </button>
-                
-                <button
-                  onClick={handleStartChat}
-                  className="w-full py-2 px-6 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  View Existing Chat
-                </button>
-              </div>
-            ) : (
-              // If not logged in
-              <div className="space-y-2">
-                <button
-                  onClick={() => router.push('/signup')}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors"
-                >
-                  <DollarSign className="w-5 h-5" />
-                  Sign Up to Get Access
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-                
-                <button
-                  onClick={() => router.push('/login')}
-                  className="w-full py-2 px-6 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Already have an account? Sign In
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-gray-500">
-          <p>Powered by CreatorHub</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Creator's own profile - show settings form
+  // Creator profile settings - always show settings form
   return (
     <div className="bg-slate-50 text-slate-900 font-sans min-h-screen">
       <main className="max-w-3xl mx-auto px-4 py-8">
@@ -449,30 +264,34 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                 </div>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs text-slate-500 mb-1">Banner Image</label>
-                <div className="space-y-3">
-                  <div className="w-full aspect-[1.91/1] rounded-lg overflow-hidden bg-slate-100 border border-slate-300">
-                    <img 
-                      className="w-full h-full object-cover" 
-                      src={getBannerImageUrl(bannerImageUrl)}
-                      alt="Banner preview (Twitter optimized)"
-                    />
-                  </div>
-                  <div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="block text-sm"
-                      onChange={handleBannerUpload}
-                      disabled={uploadingBanner}
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      {uploadingBanner ? 'Uploading...' : 'JPG or PNG, up to 10MB. Recommended: 1200x630px (Twitter optimized).'}
-                    </p>
-                    <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-                      💡 <strong>Twitter Tip:</strong> Use 1200x630px for best Twitter card display. Your banner will appear when fans share your landing page!
-                    </div>
-                  </div>
+                <label className="block text-xs text-slate-500 mb-3">Banner Image</label>
+                <BannerUpload
+                  onFileSelect={handleBannerUpload}
+                  currentImageUrl={bannerImageUrl}
+                  uploading={uploadingBanner}
+                  maxSize={10 * 1024 * 1024} // 10MB
+                />
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
+                  💡 <strong>Twitter Tip:</strong> Use 1200×630px for best Twitter card display. Your banner will appear when fans share your landing page!
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-xs text-slate-500 mb-2">About You</label>
+                <textarea
+                  value={aboutText}
+                  onChange={(e) => setAboutText(e.target.value)}
+                  placeholder="Tell fans what you love to talk about… 💕 Share your interests, hobbies, or what makes you unique!"
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={3}
+                  maxLength={400}
+                />
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs text-slate-500">
+                    This appears on your public landing page. Emoji and simple formatting supported.
+                  </p>
+                  <span className={`text-xs ${aboutText.length > 350 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {aboutText.length}/400
+                  </span>
                 </div>
               </div>
             </div>
@@ -589,6 +408,11 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                   {displayName || 'Your Name'} <Star className="inline w-4 h-4 text-amber-500 fill-current" />
                 </h1>
                 <p className="text-xs text-slate-500">Creator on simp3 · Available now</p>
+                
+                {/* CTA Button preview */}
+                <button className="mt-3 flex items-center justify-center gap-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-xs font-medium shadow-sm">
+                  💬 Chat with me
+                </button>
               </div>
 
               {/* Banner preview */}
@@ -601,6 +425,16 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                   />
                 </div>
               </div>
+
+              {/* About section */}
+              {aboutText && (
+                <div className="mb-4 px-2">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-2 text-center">About</h3>
+                  <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap text-justify">
+                    {aboutText}
+                  </p>
+                </div>
+              )}
 
               {/* Offer section */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">

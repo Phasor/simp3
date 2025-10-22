@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { displayName, email, profilePictureUrl, bannerImageUrl } = body
+    const { displayName, email, profilePictureUrl, bannerImageUrl, aboutText } = body
 
     // Create server-side Supabase client
     const supabase = await createClient()
@@ -51,6 +51,18 @@ export async function PUT(request: NextRequest) {
     
     if (bannerImageUrl !== undefined) {
       updateData.banner_image_url = bannerImageUrl
+    }
+    
+    if (aboutText !== undefined) {
+      // Validate about text length (400 characters max)
+      const trimmedAbout = aboutText.trim()
+      if (trimmedAbout.length > 400) {
+        return NextResponse.json(
+          { error: 'About text must be 400 characters or less' },
+          { status: 400 }
+        )
+      }
+      updateData.about_text = trimmedAbout
     }
 
     // Update the profile - RLS policies ensure users can only update their own profile

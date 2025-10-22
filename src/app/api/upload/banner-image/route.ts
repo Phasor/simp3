@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     // Update profile with new banner image URL
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ banner_image_url: filename })
+      .update({ banner_image_url: uploadResult.url })
       .eq('id', profile.id);
 
     if (updateError) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      url: filename,
+      url: uploadResult.url,
       message: 'Banner image uploaded successfully' 
     });
 
