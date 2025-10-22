@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { MessageCircle, Users, Shield } from 'lucide-react';
+import { MessageCircle, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import CreatorDashboard from '@/components/dashboard/CreatorDashboard';
 
@@ -49,7 +49,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 mb-12">
+        <div className="grid md:grid-cols-2 gap-6 mb-12">
           {/* Chat Card */}
           <Link href="/chat" className="group">
             <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -72,19 +72,6 @@ export default async function HomePage() {
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Dashboard</h3>
               <p className="text-gray-600 text-sm">
                 View your purchases and creator interactions
-              </p>
-            </div>
-          </Link>
-
-          {/* Settings Card */}
-          <Link href="/settings" className="group">
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-lg mb-4 group-hover:bg-purple-200 transition-colors">
-                <Shield className="h-6 w-6 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Settings</h3>
-              <p className="text-gray-600 text-sm">
-                Manage your account preferences and privacy settings
               </p>
             </div>
           </Link>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Menu, X, LayoutDashboard, User, Settings, LogOut, Plus } from 'lucide-react';
+import { Menu, X, LayoutDashboard, User, LogOut, Plus } from 'lucide-react';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
 import { CreatorWelcomeModal } from './CreatorWelcomeModal';
@@ -192,14 +192,9 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
                   Dashboard
                 </a>
                 
-                <a href="/profile" className="flex items-center gap-3 text-sm">
+                <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center gap-3 text-sm">
                   <User className="h-4 w-4" />
                   Profile
-                </a>
-                
-                <a href="/settings" className="flex items-center gap-3 text-sm">
-                  <Settings className="h-4 w-4" />
-                  Settings
                 </a>
                 
                 <button
@@ -257,20 +252,15 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
 
           {/* Bottom Mini-Nav */}
           <div className="border-t p-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <a href="/" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <LayoutDashboard className="h-4 w-4" />
                 <span className="text-sm">Dashboard</span>
               </a>
               
-              <a href="/profile" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
+              <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <User className="h-4 w-4" />
                 <span className="text-sm">Profile</span>
-              </a>
-              
-              <a href="/settings" className="flex items-center gap-2 rounded-lg border px-2 py-2 hover:bg-gray-50">
-                <Settings className="h-4 w-4" />
-                <span className="text-sm">Settings</span>
               </a>
               
               <button
