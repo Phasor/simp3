@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, MessageCircle, Crown, Heart, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
@@ -17,9 +17,10 @@ function timeout<T>(p: Promise<T>, ms = 3000): Promise<T> {
     p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
   });
 }
-import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import type { Profile, ChatAccess, ChatMessage } from '@/lib/types/database';
+
+const DEBUG = process.env.NEXT_PUBLIC_DEBUG === '1';
 
 interface ConversationItem {
   id: string;
@@ -51,9 +52,19 @@ export function ChatInbox({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeOpen, setActiveOpen] = useState(true);
   const [expiredOpen, setExpiredOpen] = useState(false);
+  
+  // Mounted ref to prevent state updates after unmount
+  const mountedRef = useRef(true);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Debug logging for component mount and auth state
-  console.log('🏠 ChatInbox component rendered:', { 
+  DEBUG && console.log('🏠 ChatInbox component rendered:', { 
     authLoading, 
     hasProfile: !!currentProfile, 
     profileId: currentProfile?.id,
@@ -81,7 +92,7 @@ export function ChatInbox({
     const currentAuthLoading = isAuthLoadingOverride ?? authLoading;
     const currentUserProfile = profile ?? currentProfile;
 
-    console.log('🔄 loadConversations called:', {
+    DEBUG && console.log('🔄 loadConversations called:', {
       profileId: currentUserProfile?.id,
       authLoading: currentAuthLoading,
       hasProfile: !!currentUserProfile
@@ -89,24 +100,28 @@ export function ChatInbox({
 
     // Only skip if we truly don't have a profile; allow Try Again to bypass the auth gate
     if (currentAuthLoading && !isAuthLoadingOverride) {
-      console.log('⏳ Auth still loading, skipping...');
+      DEBUG && console.log('⏳ Auth still loading, skipping...');
       return;
     }
     if (!currentUserProfile?.id) {
-      console.log('❌ No profile found, stopping loading');
-      setLoading(false);
-      setError('You are not signed in.');
+      DEBUG && console.log('❌ No profile found, stopping loading');
+      if (mountedRef.current) {
+        setLoading(false);
+        setError('You are not signed in.');
+      }
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      if (mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
 
       // Use supabase from context instead of creating new client
 
       // Get conversations with last messages in one optimized query
-      console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
+      DEBUG && console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
       
       let conversationsData, conversationsError;
       
@@ -122,9 +137,9 @@ export function ChatInbox({
         );
         conversationsData = result.data;
         conversationsError = result.error;
-        console.log('📊 Optimized conversations query result:', { data: conversationsData, error: conversationsError });
+        DEBUG && console.log('📊 Optimized conversations query result:', { data: conversationsData, error: conversationsError });
       } catch (error) {
-        console.warn('⚠️ Optimized view failed, falling back to basic query:', (error as Error).message);
+        DEBUG && console.warn('⚠️ Optimized view failed, falling back to basic query:', (error as Error).message);
         
         // Fallback to basic conversations query without the view
         const result = await timeout(
@@ -142,7 +157,7 @@ export function ChatInbox({
         
         conversationsData = result.data;
         conversationsError = result.error;
-        console.log('📊 Fallback conversations query result:', { data: conversationsData, error: conversationsError });
+        DEBUG && console.log('📊 Fallback conversations query result:', { data: conversationsData, error: conversationsError });
       }
 
       if (conversationsError) {
@@ -151,8 +166,10 @@ export function ChatInbox({
       }
 
       if (!conversationsData || conversationsData.length === 0) {
-        setConversations([]);
-        setLoading(false);
+        if (mountedRef.current) {
+          setConversations([]);
+          setLoading(false);
+        }
         return;
       }
 
@@ -259,7 +276,9 @@ export function ChatInbox({
       
       console.log('✅ Transformed conversations:', conversationItems.length);
 
-      setConversations(conversationItems);
+      if (mountedRef.current) {
+        setConversations(conversationItems);
+      }
 
     } catch (err) {
       console.error('Error loading conversations:', err);
@@ -281,9 +300,13 @@ export function ChatInbox({
         }
       }
       
-      setError(errorMessage);
+      if (mountedRef.current) {
+        setError(errorMessage);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [authLoading, currentProfile, supabase]); // include deps; no infinite loops because we gate usage
 
