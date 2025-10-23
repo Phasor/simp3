@@ -56,6 +56,10 @@ export function ChatInbox({
   // Mounted ref to prevent state updates after unmount
   const mountedRef = useRef(true);
   
+  // AbortController and loading refs for race condition prevention
+  const inFlight = useRef<AbortController | null>(null);
+  const loadingRef = useRef(false);
+  
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -71,24 +75,34 @@ export function ChatInbox({
     loading 
   });
 
-  // Safety timeout to prevent infinite loading
+  // Safety timeout to prevent infinite loading (non-destructive)
   useEffect(() => {
+    if (!loading) return;
     const timeout = setTimeout(() => {
-      if (loading && !authLoading) {
-        console.warn('⚠️ Loading timeout reached, forcing loading to false');
+      if (loading && inFlight.current) {
+        console.warn('⚠️ UI timeout: showing partial state');
+        // Don't set an error that blocks the list; prefer a non-blocking banner
+        setError(prev => prev ?? 'Taking longer than usual…');
         setLoading(false);
-        setError('Loading timeout - please refresh the page');
       }
     }, 10000); // 10 second timeout
 
     return () => clearTimeout(timeout);
-  }, [loading, authLoading]);
+  }, [loading]);
 
   // Load conversations
   const loadConversations = useCallback(async (
     profile?: typeof currentProfile,
     isAuthLoadingOverride?: boolean
   ) => {
+    // Cancel any previous run
+    if (inFlight.current) inFlight.current.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
+
+    if (loadingRef.current) return;         // prevent overlap
+    loadingRef.current = true;
+
     const currentAuthLoading = isAuthLoadingOverride ?? authLoading;
     const currentUserProfile = profile ?? currentProfile;
 
@@ -101,6 +115,7 @@ export function ChatInbox({
     // Only skip if we truly don't have a profile; allow Try Again to bypass the auth gate
     if (currentAuthLoading && !isAuthLoadingOverride) {
       DEBUG && console.log('⏳ Auth still loading, skipping...');
+      loadingRef.current = false;
       return;
     }
     if (!currentUserProfile?.id) {
@@ -109,6 +124,7 @@ export function ChatInbox({
         setLoading(false);
         setError('You are not signed in.');
       }
+      loadingRef.current = false;
       return;
     }
 
@@ -127,14 +143,11 @@ export function ChatInbox({
       
       // Try the optimized view first
       try {
-        const result = await timeout(
-          supabase
-            .from('conversations_with_last_message')
-            .select('*')
-            .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-            .order('last_message_at', { ascending: false }),
-          5000 // 5 second timeout for the optimized query
-        );
+        const result = await supabase
+          .from('conversations_with_last_message')
+          .select('*')
+          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+          .order('last_message_at', { ascending: false });
         conversationsData = result.data;
         conversationsError = result.error;
         DEBUG && console.log('📊 Optimized conversations query result:', { data: conversationsData, error: conversationsError });
@@ -142,23 +155,22 @@ export function ChatInbox({
         DEBUG && console.warn('⚠️ Optimized view failed, falling back to basic query:', (error as Error).message);
         
         // Fallback to basic conversations query without the view
-        const result = await timeout(
-          supabase
-            .from('conversations')
-            .select(`
-              *,
-              creator:profiles!conversations_creator_id_fkey(*),
-              fan:profiles!conversations_fan_id_fkey(*)
-            `)
-            .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-            .order('created_at', { ascending: false }),
-          5000
-        );
+        const result = await supabase
+          .from('conversations')
+          .select(`
+            *,
+            creator:profiles!conversations_creator_id_fkey(*),
+            fan:profiles!conversations_fan_id_fkey(*)
+          `)
+          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+          .order('created_at', { ascending: false });
         
         conversationsData = result.data;
         conversationsError = result.error;
         DEBUG && console.log('📊 Fallback conversations query result:', { data: conversationsData, error: conversationsError });
       }
+
+      if (controller.signal.aborted) return;     // bail quietly
 
       if (conversationsError) {
         console.error('Error loading conversations:', conversationsError);
@@ -178,49 +190,51 @@ export function ChatInbox({
       try {
         console.log('🔍 Fetching chat access records for user:', currentUserProfile.id);
         const accessResult = await timeout(
-          getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type),
+          getUserChatAccess(supabase, currentUserProfile.id, currentUserProfile.user_type),
           3000
         );
         console.log('📊 Chat access result:', accessResult);
         
-        const accessRecords = accessResult.data || [];
-        console.log('📋 Found', accessRecords.length, 'access records');
-        
-        // Create a map for fast lookup
-        const accessMap = new Map<string, any>();
-        accessRecords.forEach(access => {
-          const key = `${access.creator_id}|${access.fan_id}`;
-          accessMap.set(key, access);
-        });
-        
-        // Apply access status to each conversation
-        conversationsWithAccess = conversationsData.map(conv => {
-          const accessKey = `${conv.creator_id}|${conv.fan_id}`;
-          const relevantAccess = accessMap.get(accessKey);
+        if (!controller.signal.aborted) {
+          const accessRecords = accessResult.data || [];
+          console.log('📋 Found', accessRecords.length, 'access records');
           
-          const accessStatus = relevantAccess 
-            ? calculateAccessStatus(relevantAccess)
-            : {
-                hasAccess: false,
-                accessUntil: null,
-                isExpired: true,
-                timeRemaining: 0,
-                daysRemaining: 0,
-                hoursRemaining: 0,
-                minutesRemaining: 0,
-                lastQualifyingPurchaseId: null
-              } as ChatAccessStatus;
+          // Create a map for fast lookup
+          const accessMap = new Map<string, any>();
+          accessRecords.forEach(access => {
+            const key = `${access.creator_id}|${access.fan_id}`;
+            accessMap.set(key, access);
+          });
+          
+          // Apply access status to each conversation
+          conversationsWithAccess = conversationsData.map(conv => {
+            const accessKey = `${conv.creator_id}|${conv.fan_id}`;
+            const relevantAccess = accessMap.get(accessKey);
+            
+            const accessStatus = relevantAccess 
+              ? calculateAccessStatus(relevantAccess)
+              : {
+                  hasAccess: false,
+                  accessUntil: null,
+                  isExpired: true,
+                  timeRemaining: 0,
+                  daysRemaining: 0,
+                  hoursRemaining: 0,
+                  minutesRemaining: 0,
+                  lastQualifyingPurchaseId: null
+                } as ChatAccessStatus;
 
-          return {
-            ...conv,
-            accessStatus
-          };
-        });
-        
-        console.log('✅ Applied access status to', conversationsWithAccess.length, 'conversations');
+            return {
+              ...conv,
+              accessStatus
+            };
+          });
+          
+          console.log('✅ Applied access status to', conversationsWithAccess.length, 'conversations');
+        }
       } catch (error) {
+        // Not fatal — use fallback status
         console.warn('⚠️ Chat access lookup skipped:', (error as Error).message);
-        // Apply fallback status to all conversations
         conversationsWithAccess = conversationsData.map(conv => ({
           ...conv,
           accessStatus: {
@@ -235,6 +249,8 @@ export function ChatInbox({
           } as ChatAccessStatus
         }));
       }
+
+      if (controller.signal.aborted) return;
 
       // Transform to ConversationItem format (handle both optimized view and fallback formats)
       console.log('🔄 Transforming conversations data');
@@ -281,6 +297,8 @@ export function ChatInbox({
       }
 
     } catch (err) {
+      if ((err as any)?.name === 'AbortError') return;   // silent cancel
+      
       console.error('Error loading conversations:', err);
       
       // More specific error handling with better user messaging
@@ -304,6 +322,8 @@ export function ChatInbox({
         setError(errorMessage);
       }
     } finally {
+      if (inFlight.current === controller) inFlight.current = null;
+      loadingRef.current = false;
       if (mountedRef.current) {
         setLoading(false);
       }

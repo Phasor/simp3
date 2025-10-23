@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChatAccess, ChatRules } from '@/lib/types/database';
 
 export interface ChatAccessStatus {
@@ -218,12 +219,12 @@ function createEmptyAccessStatus(): ChatAccessStatus {
  * - CREATE INDEX IF NOT EXISTS chat_access_fan_updated_idx ON chat_access (fan_id, updated_at DESC);
  */
 export async function getUserChatAccess(
+  supabase: SupabaseClient,         // 👈 use the caller's client
   userId: string,
   userType: 'CREATOR' | 'FAN',
   opts: { limit?: number; offset?: number } = {}
 ) {
   try {
-    const supabase = createClient();
     const { limit = 50, offset = 0 } = opts;
 
     if (userType === 'CREATOR') {
