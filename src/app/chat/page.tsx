@@ -1,12 +1,51 @@
-import { ResponsiveChatLayout } from '@/components/chat/ResponsiveChatLayout';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { createServerClient } from '@supabase/ssr';
+import { FLAGS } from '@/lib/flags';
+import ChatClient from './ChatClient';
 
 // Force dynamic rendering for user-specific content
 export const dynamic = 'force-dynamic';
 
-export default function ChatPage() {
-  return (
-    <div className="h-full bg-gray-50 dark:bg-gray-900">
-      <ResponsiveChatLayout />
-    </div>
-  );
+export default async function ChatPage() {
+  if (!FLAGS.SERVER_AUTH_GATE) {
+    return <ChatClient />;
+  }
+
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing
+              // user sessions.
+            }
+          },
+        },
+      }
+    );
+
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      redirect('/login?next=/chat');
+    }
+
+    return <ChatClient />;
+  } catch (error) {
+    console.error('Chat page error:', error);
+    redirect('/login?next=/chat');
+  }
 }

@@ -1,5 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@/lib/supabase/server';
+import { FLAGS } from '@/lib/flags';
 import { CreatorProfileView } from '@/components/creator/CreatorProfileView';
 
 interface CreatorPageProps {
@@ -8,14 +11,48 @@ interface CreatorPageProps {
 
 export default async function CreatorPage({ params }: CreatorPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  // CRITICAL SECURITY CHECK: Verify the current user is the creator
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
   
-  if (!user || userError) {
-    // Redirect unauthenticated users to login
-    redirect('/login');
+  // Use flag-guarded server auth or fallback to existing logic
+  let supabase, user, userError;
+  
+  if (FLAGS.SERVER_AUTH_GATE) {
+    const cookieStore = await cookies();
+    supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              );
+            } catch {
+              // The `setAll` method was called from a Server Component.
+            }
+          },
+        },
+      }
+    );
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      redirect(`/login?next=/creator/${id}`);
+    }
+    user = session.user;
+    userError = null;
+  } else {
+    supabase = await createClient();
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+    userError = result.error;
+    
+    if (!user || userError) {
+      redirect('/login');
+    }
   }
 
   // Get current user's profile

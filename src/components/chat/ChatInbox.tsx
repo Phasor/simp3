@@ -107,13 +107,43 @@ export function ChatInbox({
 
       // Get conversations with last messages in one optimized query
       console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
-      const { data: conversationsData, error: conversationsError } = await supabase
-        .from('conversations_with_last_message')
-        .select('*')
-        .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-        .order('last_message_at', { ascending: false });
       
-      console.log('📊 Conversations query result:', { data: conversationsData, error: conversationsError });
+      let conversationsData, conversationsError;
+      
+      // Try the optimized view first
+      try {
+        const result = await timeout(
+          supabase
+            .from('conversations_with_last_message')
+            .select('*')
+            .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+            .order('last_message_at', { ascending: false }),
+          5000 // 5 second timeout for the optimized query
+        );
+        conversationsData = result.data;
+        conversationsError = result.error;
+        console.log('📊 Optimized conversations query result:', { data: conversationsData, error: conversationsError });
+      } catch (error) {
+        console.warn('⚠️ Optimized view failed, falling back to basic query:', (error as Error).message);
+        
+        // Fallback to basic conversations query without the view
+        const result = await timeout(
+          supabase
+            .from('conversations')
+            .select(`
+              *,
+              creator:profiles!conversations_creator_id_fkey(*),
+              fan:profiles!conversations_fan_id_fkey(*)
+            `)
+            .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+            .order('created_at', { ascending: false }),
+          5000
+        );
+        
+        conversationsData = result.data;
+        conversationsError = result.error;
+        console.log('📊 Fallback conversations query result:', { data: conversationsData, error: conversationsError });
+      }
 
       if (conversationsError) {
         console.error('Error loading conversations:', conversationsError);
@@ -189,38 +219,43 @@ export function ChatInbox({
         }));
       }
 
-      // Transform to ConversationItem format (last messages already included from view)
+      // Transform to ConversationItem format (handle both optimized view and fallback formats)
       console.log('🔄 Transforming conversations data');
-      const conversationItems: ConversationItem[] = conversationsWithAccess.map((conv: any) => ({
-        id: conv.id,
-        creatorId: conv.creator_id,
-        fanId: conv.fan_id,
-        creator: {
-          id: conv.creator_id_join,
-          email: conv.creator_email,
-          display_name: conv.creator_display_name,
-          user_type: conv.creator_user_type,
-          profile_picture_url: conv.creator_ppu
-        } as Profile,
-        fan: {
-          id: conv.fan_id_join,
-          email: conv.fan_email,
-          display_name: conv.fan_display_name,
-          user_type: conv.fan_user_type,
-          profile_picture_url: conv.fan_ppu
-        } as Profile,
-        lastMessage: conv.last_message_id ? {
-          id: conv.last_message_id,
-          sender_id: conv.last_message_sender_id,
-          content: conv.last_message_content,
-          created_at: conv.last_message_created_at,
-          creator_id: conv.creator_id,
-          fan_id: conv.fan_id
-        } as ChatMessage : undefined,
-        lastMessageAt: conv.last_message_at || conv.created_at,
-        unreadCount: 0, // TODO: Implement unread count
-        accessStatus: conv.accessStatus
-      }));
+      const conversationItems: ConversationItem[] = conversationsWithAccess.map((conv: any) => {
+        // Check if this is from the optimized view (has creator_id_join) or fallback (has creator object)
+        const isOptimizedView = conv.creator_id_join !== undefined;
+        
+        return {
+          id: conv.id,
+          creatorId: conv.creator_id,
+          fanId: conv.fan_id,
+          creator: isOptimizedView ? {
+            id: conv.creator_id_join,
+            email: conv.creator_email,
+            display_name: conv.creator_display_name,
+            user_type: conv.creator_user_type,
+            profile_picture_url: conv.creator_ppu
+          } as Profile : conv.creator,
+          fan: isOptimizedView ? {
+            id: conv.fan_id_join,
+            email: conv.fan_email,
+            display_name: conv.fan_display_name,
+            user_type: conv.fan_user_type,
+            profile_picture_url: conv.fan_ppu
+          } as Profile : conv.fan,
+          lastMessage: (isOptimizedView && conv.last_message_id) ? {
+            id: conv.last_message_id,
+            sender_id: conv.last_message_sender_id,
+            content: conv.last_message_content,
+            created_at: conv.last_message_created_at,
+            creator_id: conv.creator_id,
+            fan_id: conv.fan_id
+          } as ChatMessage : undefined,
+          lastMessageAt: (isOptimizedView ? conv.last_message_at : null) || conv.created_at,
+          unreadCount: 0, // TODO: Implement unread count
+          accessStatus: conv.accessStatus
+        };
+      });
       
       console.log('✅ Transformed conversations:', conversationItems.length);
 
