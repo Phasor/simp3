@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from 'date-fns';
 import { memo } from 'react';
+import { MessageCircle } from 'lucide-react';
 import type { ChatMessage, Profile } from '@/lib/types/database';
 
 interface ChatMessageProps {
@@ -160,9 +161,19 @@ export function MessageList({
   if (messages.length === 0) {
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
-        <div className="text-center">
-          <p className="typ-body-sm text-muted-foreground mb-2">No messages yet</p>
-          <p className="typ-caption text-muted-foreground">Start the conversation!</p>
+        <div className="text-center max-w-sm">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="w-8 h-8 text-blue-600" />
+          </div>
+          <h3 className="typ-h4 mb-2">Welcome to your private chat!</h3>
+          <p className="typ-body-sm text-muted-foreground mb-4">
+            This is the beginning of your conversation. Say hello and introduce yourself!
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="typ-caption text-blue-700">
+              💡 <strong>Tip:</strong> Be respectful and enjoy getting to know each other!
+            </p>
+          </div>
         </div>
       </div>
     );

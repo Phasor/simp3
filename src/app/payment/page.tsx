@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CreditCard, Shield, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { getProfilePictureUrl } from '@/lib/utils/bunnynet';
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -15,6 +16,8 @@ export default function PaymentPage() {
   const days = searchParams.get('days');
   
   const [creatorInfo, setCreatorInfo] = useState<any>(null);
+  const [actualPrice, setActualPrice] = useState<number | null>(null);
+  const [actualDays, setActualDays] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,12 +36,21 @@ export default function PaymentPage() {
       return;
     }
 
-    // Fetch creator info
+    // Fetch creator info and chat rules
     if (creatorId) {
-      fetch(`/api/profiles/${creatorId}`)
-        .then(res => res.json())
-        .then(data => {
-          setCreatorInfo(data);
+      Promise.all([
+        fetch(`/api/profiles/${creatorId}`).then(res => res.json()),
+        fetch(`/api/chat/rules/${creatorId}`).then(res => res.json())
+      ])
+        .then(([creatorData, rulesData]) => {
+          setCreatorInfo(creatorData);
+          
+          // Use actual chat rules or defaults
+          const price = rulesData.min_spend_cents ? rulesData.min_spend_cents / 100 : 100;
+          const accessDays = rulesData.access_days || 30;
+          
+          setActualPrice(price);
+          setActualDays(accessDays);
           setLoading(false);
         })
         .catch(err => {
@@ -49,7 +61,7 @@ export default function PaymentPage() {
   }, [user, profile, creatorId, router]);
 
   const handlePayment = async () => {
-    if (!creatorId || !amount || !days) {
+    if (!creatorId || actualPrice === null || actualDays === null) {
       setError('Missing payment information');
       return;
     }
@@ -65,8 +77,8 @@ export default function PaymentPage() {
         },
         body: JSON.stringify({
           creatorId,
-          amount: parseFloat(amount),
-          days: parseInt(days)
+          amount: actualPrice,
+          days: actualDays
         })
       });
 
@@ -120,7 +132,7 @@ export default function PaymentPage() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
             <div className="flex items-center gap-4 mb-4">
               <img 
-                src={creatorInfo.profile_picture_url || '/default-avatar.svg'} 
+                src={getProfilePictureUrl(creatorInfo.profile_picture_url)} 
                 alt={creatorInfo.display_name}
                 className="w-16 h-16 rounded-full object-cover"
               />
@@ -139,16 +151,16 @@ export default function PaymentPage() {
           <div className="space-y-3 mb-6">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Access Duration</span>
-              <span className="font-medium">{days} days</span>
+              <span className="font-medium">{actualDays || days} days</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Price</span>
-              <span className="font-semibold text-lg">${amount}</span>
+              <span className="font-semibold text-lg">${actualPrice || amount}</span>
             </div>
             <div className="border-t pt-3">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total</span>
-                <span className="font-bold text-xl">${amount}</span>
+                <span className="font-bold text-xl">${actualPrice || amount}</span>
               </div>
             </div>
           </div>

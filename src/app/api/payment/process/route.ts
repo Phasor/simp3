@@ -88,6 +88,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get creator's chat rules to validate the payment amount
+    const { data: chatRules, error: rulesError } = await supabase
+      .from('chat_rules')
+      .select('min_spend_cents, access_days')
+      .eq('creator_id', creatorId)
+      .single();
+
+    // Use default values if no chat rules found
+    const requiredAmountCents = chatRules?.min_spend_cents || 10000; // Default $100
+    const requiredDays = chatRules?.access_days || 30; // Default 30 days
+    
+    // Validate that the payment amount matches the creator's required amount
+    const providedAmountCents = Math.round(amountNum * 100);
+    if (providedAmountCents !== requiredAmountCents) {
+      return NextResponse.json(
+        { 
+          error: `Invalid payment amount. Required: $${requiredAmountCents / 100}, provided: $${providedAmountCents / 100}`,
+          requiredAmount: requiredAmountCents / 100,
+          providedAmount: providedAmountCents / 100
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate that the access days match the creator's settings
+    if (daysNum !== requiredDays) {
+      return NextResponse.json(
+        { 
+          error: `Invalid access duration. Required: ${requiredDays} days, provided: ${daysNum} days`,
+          requiredDays,
+          providedDays: daysNum
+        },
+        { status: 400 }
+      );
+    }
+
     // Process payment
     const paymentService = createPaymentService(
       process.env.NODE_ENV === 'production' ? 'production' : 'development'
@@ -96,7 +132,7 @@ export async function POST(request: NextRequest) {
     const paymentResult = await paymentService.processPayment({
       creatorId,
       fanId: profile.id,
-      amountCents: Math.round(amountNum * 100), // Convert dollars to cents
+      amountCents: requiredAmountCents, // Use validated amount from creator's chat rules
       accessDays: daysNum,
       description: `Chat access to ${creator.display_name} for ${daysNum} days`
     });
@@ -176,7 +212,7 @@ export async function POST(request: NextRequest) {
           slug: `chat-access-${creatorId}`,
           title: 'Chat Access',
           description: `Direct messaging access with ${creator.display_name}`,
-          price_cents: Math.round(amountNum * 100),
+          price_cents: requiredAmountCents,
           points: 0,
           media_id: mediaAsset.id,
           active: true
@@ -200,7 +236,7 @@ export async function POST(request: NextRequest) {
       .insert({
         profile_id: profile.id,
         task_id: chatAccessTask.id, // Use the chat access task ID
-        amount_cents: Math.round(amountNum * 100),
+        amount_cents: requiredAmountCents,
         processor: paymentService.getCurrentProcessor() as 'CCBILL' | 'SEGPAY' | 'EPOCH',
         processor_tx_id: paymentResult.transactionId!
       })

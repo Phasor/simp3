@@ -85,20 +85,82 @@ export async function GET(req: Request) {
       });
 
       if (!profile) {
-        // Go straight to the completion step, include ut so the client has it
-        console.log('🔄 No profile found, redirecting to signup completion step');
-        const dest = new URL('/signup', url.origin);
-        dest.searchParams.set('step', 'complete');
-        if (ut) dest.searchParams.set('ut', ut);
-        // 303 avoids re-POST and forces a new navigation with fresh cookies
-        return NextResponse.redirect(dest, { status: 303 });
+        // Handle different flows for fans vs creators
+        if (ut === 'FAN') {
+          // For fans, create a basic profile automatically and redirect to dashboard
+          console.log('🔄 No profile found for fan, creating basic profile');
+          try {
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert({
+                auth_user_id: user.id,
+                email: user.email,
+                display_name: user.email?.split('@')[0] || 'Fan',
+                user_type: 'FAN'
+              })
+              .select('id')
+              .single();
+
+            if (createError) {
+              console.error('❌ Failed to create fan profile:', createError);
+              // Fall back to signup completion
+              const dest = new URL('/signup', url.origin);
+              dest.searchParams.set('step', 'complete');
+              dest.searchParams.set('ut', ut);
+              return NextResponse.redirect(dest, { status: 303 });
+            }
+
+            console.log('✅ Fan profile created, redirecting to dashboard');
+            return NextResponse.redirect(new URL('/', url.origin), { status: 303 });
+          } catch (fanProfileError) {
+            console.error('❌ Exception creating fan profile:', fanProfileError);
+            // Fall back to signup completion
+            const dest = new URL('/signup', url.origin);
+            dest.searchParams.set('step', 'complete');
+            dest.searchParams.set('ut', ut);
+            return NextResponse.redirect(dest, { status: 303 });
+          }
+        } else {
+          // For creators, go to the completion step
+          console.log('🔄 No profile found for creator, redirecting to signup completion step');
+          const dest = new URL('/signup', url.origin);
+          dest.searchParams.set('step', 'complete');
+          if (ut) dest.searchParams.set('ut', ut);
+          // 303 avoids re-POST and forces a new navigation with fresh cookies
+          return NextResponse.redirect(dest, { status: 303 });
+        }
       } else {
         console.log('✅ Profile exists, proceeding with normal redirect');
       }
     } catch (profileCheckError) {
       console.error('❌ Profile check exception:', profileCheckError);
-      // Treat as no profile and continue to signup
-      console.log('🔄 Profile check failed, redirecting to signup completion step');
+      // Treat as no profile and handle fan vs creator differently
+      if (ut === 'FAN') {
+        // For fans, try to create a basic profile
+        console.log('🔄 Profile check failed for fan, attempting to create basic profile');
+        try {
+          const { data: newProfile, error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              auth_user_id: user.id,
+              email: user.email,
+              display_name: user.email?.split('@')[0] || 'Fan',
+              user_type: 'FAN'
+            })
+            .select('id')
+            .single();
+
+          if (!createError) {
+            console.log('✅ Fan profile created after exception, redirecting to dashboard');
+            return NextResponse.redirect(new URL('/', url.origin), { status: 303 });
+          }
+        } catch (retryError) {
+          console.error('❌ Retry failed:', retryError);
+        }
+      }
+      
+      // Fall back to signup completion for creators or if fan profile creation failed
+      console.log('🔄 Redirecting to signup completion step');
       const dest = new URL('/signup', url.origin);
       dest.searchParams.set('step', 'complete');
       if (ut) dest.searchParams.set('ut', ut);

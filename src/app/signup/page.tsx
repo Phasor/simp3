@@ -60,10 +60,14 @@ export default function SignupPage() {
     
     if (authLoading) return;
 
-    // If the server sent us here with step=complete, just render it immediately
-    // This takes priority over everything else
+    // If the server sent us here with step=complete, check if it's a fan first
     if (requestedStep === 'complete') {
-      console.log('✅ Server requested complete step, showing profile form immediately');
+      if (utParam === 'FAN') {
+        console.log('🔄 Fan reached completion step, redirecting to dashboard');
+        router.replace('/');
+        return;
+      }
+      console.log('✅ Server requested complete step for creator, showing profile form immediately');
       setStep('complete-profile');
       return;
     }

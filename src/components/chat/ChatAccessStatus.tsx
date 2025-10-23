@@ -114,7 +114,7 @@ export function ChatAccessCard({
 
           <div className="bg-muted rounded-md p-3">
             <p className="text-sm text-muted-foreground mb-2">
-              To unlock chat access, make a qualifying purchase of $100 or more.
+              To unlock chat access, make a qualifying purchase that meets the creator's minimum spend requirement.
             </p>
             {onUpgrade && (
               <button

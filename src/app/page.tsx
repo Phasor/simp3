@@ -140,13 +140,7 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow p-8 text-center">
-              <p className="typ-body text-slate-500 mb-4">You don't have access to any creators yet.</p>
-              <Link 
-                href="/creators" 
-                className="inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors typ-ui"
-              >
-                Discover Creators
-              </Link>
+              <p className="typ-body text-slate-500 mb-4">You don't have access to any Creators yet, check out trending Creators below!</p>
             </div>
           )}
         </section>
@@ -183,6 +177,16 @@ export default async function HomePage() {
                 </div>
               </Link>
             ))}
+          </div>
+          
+          {/* Load More Button */}
+          <div className="text-center mt-8">
+            <Link 
+              href="/creators"
+              className="inline-block px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors typ-ui font-medium"
+            >
+              Load More Creators
+            </Link>
           </div>
         </section>
       </main>
