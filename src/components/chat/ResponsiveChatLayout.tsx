@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu, X, LayoutDashboard, User, LogOut, Plus } from 'lucide-react';
+import Link from 'next/link';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
 import { CreatorWelcomeModal } from './CreatorWelcomeModal';
@@ -18,6 +19,13 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const { profile: currentProfile, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Stabilize profile href to prevent /creator/undefined prefetch
+  const profileHref = currentProfile
+    ? (currentProfile.user_type === 'CREATOR'
+        ? `/creator/${currentProfile.id}`
+        : '/profile')
+    : '/profile';
 
   // --- STATE (no conditional hooks) ---
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
@@ -192,13 +200,15 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </a>
-                <a
-                  href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'}
+                <Link
+                  href={profileHref}
+                  prefetch={false}
                   className="flex items-center gap-3 text-sm"
+                  onClick={closeMobileMenu}
                 >
                   <User className="h-4 w-4" />
                   Profile
-                </a>
+                </Link>
                 <button onClick={handleLogout} disabled={isLoggingOut} className="flex items-center gap-3 text-sm text-rose-600">
                   <LogOut className="h-4 w-4" />
                   {isLoggingOut ? 'Logging out...' : 'Logout'}
@@ -240,12 +250,13 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
               <a href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <span className="typ-body-sm text-gray-700">Dashboard</span>
               </a>
-              <a
-                href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'}
+              <Link
+                href={profileHref}
+                prefetch={false}
                 className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50"
               >
                 <span className="typ-body-sm text-gray-700">Profile</span>
-              </a>
+              </Link>
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
