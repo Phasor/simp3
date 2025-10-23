@@ -44,6 +44,14 @@ export function ChatInbox({
   const [activeOpen, setActiveOpen] = useState(true);
   const [expiredOpen, setExpiredOpen] = useState(false);
 
+  // Debug logging for component mount and auth state
+  console.log('🏠 ChatInbox component rendered:', { 
+    authLoading, 
+    hasProfile: !!currentProfile, 
+    profileId: currentProfile?.id,
+    loading 
+  });
+
   // Safety timeout to prevent infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -88,6 +96,7 @@ export function ChatInbox({
       const supabase = createClient();
 
       // Get conversations where current user is either creator or fan
+      console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
       const { data: conversationsData, error: conversationsError } = await supabase
         .from('conversations')
         .select(`
@@ -113,6 +122,8 @@ export function ChatInbox({
         `)
         .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
         .order('last_message_at', { ascending: false });
+      
+      console.log('📊 Conversations query result:', { data: conversationsData, error: conversationsError });
 
       if (conversationsError) {
         console.error('Error loading conversations:', conversationsError);
@@ -125,14 +136,27 @@ export function ChatInbox({
         return;
       }
 
-      // Get chat access status for each conversation
-      const chatAccessPromises = conversationsData.map(async (conv) => {
-        try {
-          const accessResult = await getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type);
-          const accessRecords = accessResult.data || [];
-          const relevantAccess = accessRecords.find(
-            (access) => access.creator_id === conv.creator_id && access.fan_id === conv.fan_id
-          );
+      // Get chat access status for all conversations in one call (optimization)
+      let conversationsWithAccess = conversationsData;
+      try {
+        console.log('🔍 Fetching chat access records for user:', currentUserProfile.id);
+        const accessResult = await getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type);
+        console.log('📊 Chat access result:', accessResult);
+        
+        const accessRecords = accessResult.data || [];
+        console.log('📋 Found', accessRecords.length, 'access records');
+        
+        // Create a map for fast lookup
+        const accessMap = new Map<string, any>();
+        accessRecords.forEach(access => {
+          const key = `${access.creator_id}|${access.fan_id}`;
+          accessMap.set(key, access);
+        });
+        
+        // Apply access status to each conversation
+        conversationsWithAccess = conversationsData.map(conv => {
+          const accessKey = `${conv.creator_id}|${conv.fan_id}`;
+          const relevantAccess = accessMap.get(accessKey);
           
           const accessStatus = relevantAccess 
             ? calculateAccessStatus(relevantAccess)
@@ -151,9 +175,15 @@ export function ChatInbox({
             ...conv,
             accessStatus
           };
-        } catch (error) {
-          console.warn('Failed to get access status for conversation:', conv.id, error);
-          const fallbackStatus: ChatAccessStatus = {
+        });
+        
+        console.log('✅ Applied access status to', conversationsWithAccess.length, 'conversations');
+      } catch (error) {
+        console.warn('Failed to get chat access records, using fallback status:', error);
+        // Apply fallback status to all conversations
+        conversationsWithAccess = conversationsData.map(conv => ({
+          ...conv,
+          accessStatus: {
             hasAccess: false,
             accessUntil: null,
             isExpired: true,
@@ -162,17 +192,12 @@ export function ChatInbox({
             hoursRemaining: 0,
             minutesRemaining: 0,
             lastQualifyingPurchaseId: null
-          };
-          return {
-            ...conv,
-            accessStatus: fallbackStatus
-          };
-        }
-      });
+          } as ChatAccessStatus
+        }));
+      }
 
-      const conversationsWithAccess = await Promise.all(chatAccessPromises);
-
-      // Get last messages for each conversation
+      // Get last messages for each conversation (simplified)
+      console.log('🔍 Fetching last messages for', conversationsWithAccess.length, 'conversations');
       const lastMessagePromises = conversationsWithAccess.map(async (conv) => {
         try {
           const { data: lastMessageData } = await supabase
@@ -182,19 +207,20 @@ export function ChatInbox({
             .eq('fan_id', conv.fan_id)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no messages exist
 
           return {
             ...conv,
             lastMessage: lastMessageData || undefined
           };
         } catch (error) {
-          // No last message is fine
+          console.warn('Failed to get last message for conversation:', conv.id, error);
           return conv;
         }
       });
 
       const conversationsWithMessages = await Promise.all(lastMessagePromises);
+      console.log('✅ Loaded last messages for conversations');
 
       // Transform to ConversationItem format
       const conversationItems: ConversationItem[] = conversationsWithMessages.map((conv) => ({
@@ -213,16 +239,25 @@ export function ChatInbox({
 
     } catch (err) {
       console.error('Error loading conversations:', err);
-      // More specific error handling
+      
+      // More specific error handling with better user messaging
+      let errorMessage = 'Failed to load conversations';
+      
       if (err instanceof Error) {
         if (err.message.includes('column') && err.message.includes('does not exist')) {
-          setError('Database schema mismatch. Please contact support.');
+          errorMessage = 'Database schema mismatch. Please contact support.';
+        } else if (err.message.includes('timeout') || err.message.includes('TIMEOUT')) {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (err.message.includes('network') || err.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else if (err.message.includes('unauthorized') || err.message.includes('401')) {
+          errorMessage = 'Authentication error. Please refresh the page and sign in again.';
         } else {
-          setError(err.message);
+          errorMessage = `Error: ${err.message}`;
         }
-      } else {
-        setError('Failed to load conversations');
       }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -230,14 +265,23 @@ export function ChatInbox({
 
   // Load conversations only when auth state changes
   useEffect(() => {
+    console.log('🔄 useEffect triggered:', { 
+      authLoading, 
+      hasProfile: !!currentProfile, 
+      profileId: currentProfile?.id,
+      loading 
+    });
+    
     if (!authLoading && currentProfile?.id) {
-      console.log('🔄 Loading conversations from useEffect:', { profileId: currentProfile.id, authLoading });
+      console.log('✅ Conditions met, calling loadConversations');
       loadConversations(currentProfile, authLoading);
     } else if (!authLoading && !currentProfile?.id) {
       console.log('⚠️ No profile found, stopping loading');
       setLoading(false);
+    } else {
+      console.log('⏳ Waiting for auth or profile...', { authLoading, profileId: currentProfile?.id });
     }
-  }, [authLoading, currentProfile?.id, loadConversations]); // Include loadConversations since it's stable now
+  }, [authLoading, currentProfile?.id]); // Remove loadConversations from dependencies to prevent loops
 
   // Filter conversations based on search
   const filteredConversations = conversations.filter((conv) => {
@@ -309,7 +353,8 @@ export function ChatInbox({
               <button
                 onClick={() => {
                   console.log('🔄 Try Again clicked:', { profileId: currentProfile?.id, authLoading });
-                  loadConversations(currentProfile, authLoading);
+                  // Force loading by passing false for authLoading to bypass early return
+                  loadConversations(currentProfile, false);
                 }}
                 className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
               >

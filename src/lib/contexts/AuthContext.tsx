@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createClient(), [])
 
   const fetchProfile = useMemo(() => async (userId: string) => {
+    console.log('🔍 Fetching profile for user:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -37,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
+        console.log('❌ Profile fetch error:', error);
         // Don't log "not found" errors as they're expected during signup
         if (error.code !== 'PGRST116') {
           console.error('Error fetching profile:', error)
@@ -44,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
 
+      console.log('✅ Profile fetched successfully:', data);
       return data
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -80,15 +83,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    console.log('🔐 AuthContext initializing...');
+    
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('📋 Initial session:', { hasSession: !!session, userId: session?.user?.id });
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile)
+        fetchProfile(session.user.id).then((profile) => {
+          console.log('👤 Initial profile set:', profile);
+          setProfile(profile);
+        })
       }
       
+      console.log('✅ Auth loading complete');
       setLoading(false)
     })
 
@@ -96,16 +106,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
         const profileData = await fetchProfile(session.user.id)
+        console.log('👤 Profile updated:', profileData);
         setProfile(profileData)
       } else {
+        console.log('👤 Profile cleared');
         setProfile(null)
       }
       
+      console.log('✅ Auth state change complete');
       setLoading(false)
     })
 
