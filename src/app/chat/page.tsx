@@ -13,13 +13,11 @@ export default async function ChatPage() {
   }
 
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies,
-      }
-    );
+    const supabase = createServerClient({
+      cookies,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    });
 
     const { data: { session } } = await supabase.auth.getSession();
     

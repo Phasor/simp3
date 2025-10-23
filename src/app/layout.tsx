@@ -38,13 +38,11 @@ export default async function RootLayout({
   
   if (FLAGS.SERVER_AUTH_GATE) {
     try {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies, // ✅ pass the function; ssr helper awaits it
-        }
-      );
+      const supabase = createServerClient({
+        cookies, // ✅ pass the function; helper handles get/set/remove internally
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      });
       
       const { data: { session } } = await supabase.auth.getSession();
       initialSession = session;
