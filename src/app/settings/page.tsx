@@ -1,8 +1,9 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createServerClient } from '@supabase/ssr';
 import { FLAGS } from '@/lib/flags';
+import { getServerSupabase } from '@/lib/supabase/server';
 import SettingsClient from './SettingsClient';
+
+export const runtime = 'nodejs';
 
 export default async function SettingsPage() {
   if (!FLAGS.SERVER_AUTH_GATE) {
@@ -10,17 +11,7 @@ export default async function SettingsPage() {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
-    if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
-
-    const supabase = createServerClient({
-      cookies,
-      supabaseUrl,
-      supabaseKey,
-    });
+    const supabase = await getServerSupabase();
 
     const { data: { session } } = await supabase.auth.getSession();
     

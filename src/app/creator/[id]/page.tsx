@@ -1,9 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@/lib/supabase/server';
+import { getServerSupabase } from '@/lib/supabase/server';
 import { FLAGS } from '@/lib/flags';
 import { CreatorProfileView } from '@/components/creator/CreatorProfileView';
+
+export const runtime = 'nodejs';
 
 interface CreatorPageProps {
   params: Promise<{ id: string }>;
@@ -16,17 +17,7 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
   let supabase, user, userError;
   
   if (FLAGS.SERVER_AUTH_GATE) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
-    if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
-
-    supabase = createServerClient({
-      cookies,
-      supabaseUrl,
-      supabaseKey,
-    });
+    supabase = await getServerSupabase();
     
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { FLAGS } from '@/lib/flags';
+import { getServerSupabase } from '@/lib/supabase/server';
 import { Toaster } from "react-hot-toast";
 import ConditionalNavigation from "@/components/ConditionalNavigation";
 import ConditionalFooter from "@/components/ConditionalFooter";
 import "./globals.css";
+
+export const runtime = 'nodejs';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,46 +39,7 @@ export default async function RootLayout({
   
   if (FLAGS.SERVER_AUTH_GATE) {
     try {
-      // ⬇️ assert envs loudly so failures are obvious
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-      console.log('🔍 Environment check:', {
-        hasUrl: !!supabaseUrl,
-        hasKey: !!supabaseKey,
-        urlLength: supabaseUrl?.length,
-        keyLength: supabaseKey?.length
-      });
-
-      if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
-      if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
-
-      const supabase = createServerClient(
-        supabaseUrl,
-        supabaseKey,
-        {
-          cookies: {
-            async get(name: string) {
-              return (await cookies()).get(name)?.value;
-            },
-            async set(name: string, value: string, options?: any) {
-              try {
-                (await cookies()).set(name, value, options);
-              } catch {
-                // Called from Server Component - safe to ignore
-              }
-            },
-            async remove(name: string, options?: any) {
-              try {
-                (await cookies()).set(name, '', { ...options, maxAge: 0 });
-              } catch {
-                // Called from Server Component - safe to ignore
-              }
-            },
-          },
-        }
-      );
-      
+      const supabase = await getServerSupabase();
       const { data: { session } } = await supabase.auth.getSession();
       initialSession = session;
     } catch (error) {
