@@ -100,11 +100,14 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
               <Link href="/" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Dashboard
               </Link>
-              <Link href="/chat" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+              <Link href="/chat" prefetch={false} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Chat
               </Link>
-              <Link href={profile?.user_type === 'CREATOR' ? `/creator/${profile.id}` : '/profile'} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+              <Link href={profile?.user_type === 'CREATOR' && profile.id ? `/creator/${profile.id}` : '/profile'} prefetch={false} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Profile
+              </Link>
+              <Link href="/settings" prefetch={false} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+                Settings
               </Link>
               <button 
                 className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200"
@@ -152,17 +155,27 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
                 </Link>
                 <Link 
                   href="/chat"
+                  prefetch={false}
                   className="block text-sm hover:text-primary transition-colors"
                   onClick={closeMobileMenu}
                 >
                   Chat
                 </Link>
                 <Link 
-                  href={profile?.user_type === 'CREATOR' ? `/creator/${profile.id}` : '/profile'} 
+                  href={profile?.user_type === 'CREATOR' && profile.id ? `/creator/${profile.id}` : '/profile'} 
+                  prefetch={false}
                   className="block text-sm hover:text-primary transition-colors"
                   onClick={closeMobileMenu}
                 >
                   Profile
+                </Link>
+                <Link 
+                  href="/settings"
+                  prefetch={false}
+                  className="block text-sm hover:text-primary transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  Settings
                 </Link>
                 <button 
                   className="block w-full text-left text-sm bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
