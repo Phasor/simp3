@@ -111,7 +111,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
                 onClick={handleLogout}
                 disabled={isLoggingOut}
               >
-                {isLoggingOut ? 'Logging out...' : 'Logout'}
+                Logout
               </button>
             </>
           )}
