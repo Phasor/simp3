@@ -115,6 +115,9 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
               </button>
             </>
           )}
+          {authLoading && (
+            <div className="text-sm text-gray-500">Loading...</div>
+          )}
           {!authLoading && !user && (
             <Link href="/signup" className="hover:underline">Sign Up Free</Link>
           )}
@@ -172,6 +175,9 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
                   {isLoggingOut ? 'Logging out...' : 'Logout'}
                 </button>
               </>
+            )}
+            {authLoading && (
+              <div className="text-sm text-gray-500">Loading...</div>
             )}
             {!authLoading && !user && (
               <Link 

@@ -92,10 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        // Race getSession with a 3s watchdog so UI never blocks forever
+        // Race getSession with a 10s watchdog so UI never blocks forever
         const { data: { session } } = await Promise.race([
           supabase.auth.getSession(),
-          timeout(3000),
+          timeout(10000),
         ]);
 
         if (!isActive) return;
@@ -111,11 +111,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(profileData);
         }
       } catch (e) {
-        // If we timed out or errored, don't block the app. Let the route render and recover.
+        // If we timed out or errored, don't immediately clear auth state
+        // The onAuthStateChange listener will handle the actual auth state
         console.warn('Auth init fallback (continuing without session):', (e as Error).message);
-        setSession(null);
-        setUser(null);
-        setProfile(null);
+        console.log('⏳ Waiting for onAuthStateChange to handle auth state...');
       } finally {
         if (isActive) setLoading(false);
         console.log('✅ Auth loading complete');
