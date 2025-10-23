@@ -38,10 +38,17 @@ export default async function RootLayout({
   
   if (FLAGS.SERVER_AUTH_GATE) {
     try {
+      // ⬇️ assert envs loudly so failures are obvious
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+      if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
+
       const supabase = createServerClient({
-        cookies, // ✅ pass the function; helper handles get/set/remove internally
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        cookies,             // helper handles get/set/remove internally
+        supabaseUrl,         // ✅ required
+        supabaseKey,         // ✅ required
       });
       
       const { data: { session } } = await supabase.auth.getSession();

@@ -16,10 +16,16 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
   let supabase, user, userError;
   
   if (FLAGS.SERVER_AUTH_GATE) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
+
     supabase = createServerClient({
       cookies,
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseKey,
     });
     
     const { data: { session } } = await supabase.auth.getSession();
