@@ -222,14 +222,14 @@ export async function getUserChatAccess(
   supabase: SupabaseClient,         // 👈 use the caller's client
   userId: string,
   userType: 'CREATOR' | 'FAN',
-  opts: { limit?: number; offset?: number } = {}
+  opts: { limit?: number; offset?: number; signal?: AbortSignal } = {}
 ) {
   try {
-    const { limit = 50, offset = 0 } = opts;
+    const { limit = 50, offset = 0, signal } = opts;
 
     if (userType === 'CREATOR') {
       // Get all fans with access to this creator
-      const { data, error } = await supabase
+      let q = supabase
         .from('chat_access')
         .select(`
           *,
@@ -239,6 +239,10 @@ export async function getUserChatAccess(
         .order('updated_at', { ascending: false })
         .range(offset, offset + limit - 1);
 
+      if (signal) q = q.abortSignal(signal);
+      
+      const { data, error } = await q;
+
       if (error) {
         console.error('Error fetching creator chat access:', error);
         return { data: [], error: error.message };
@@ -247,7 +251,7 @@ export async function getUserChatAccess(
       return { data: data || [], error: null };
     } else {
       // Get all creators this fan has access to
-      const { data, error } = await supabase
+      let q = supabase
         .from('chat_access')
         .select(`
           *,
@@ -256,6 +260,10 @@ export async function getUserChatAccess(
         .eq('fan_id', userId)
         .order('updated_at', { ascending: false })
         .range(offset, offset + limit - 1);
+
+      if (signal) q = q.abortSignal(signal);
+      
+      const { data, error } = await q;
 
       if (error) {
         console.error('Error fetching fan chat access:', error);

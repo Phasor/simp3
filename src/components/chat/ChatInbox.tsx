@@ -51,7 +51,7 @@ export function ChatInbox({
   selectedConversationId,
   className = ''
 }: ChatInboxProps) {
-  const { profile: currentProfile, loading: authLoading, supabase } = useAuth();
+  const { profile: currentProfile, loading: authLoading, resolved: authResolved, supabase } = useAuth();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +76,7 @@ export function ChatInbox({
   // Debug logging for component mount and auth state
   DEBUG && console.log('🏠 ChatInbox component rendered:', { 
     authLoading, 
+    authResolved,
     hasProfile: !!currentProfile, 
     profileId: currentProfile?.id,
     loading 
@@ -87,10 +88,11 @@ export function ChatInbox({
     const timeout = setTimeout(() => {
       if (loading && inFlight.current) {
         console.warn('⚠️ UI timeout: showing partial state');
-        // Don't set an error that blocks the list; prefer a non-blocking banner
         setError(prev => prev ?? 'Taking longer than usual…');
-        // DO NOT setLoading(false) here anymore; finish() handles it.
-        // Let the request complete or be aborted by navigation.
+        // End the spinner; safe because real request has an AbortController
+        if (inFlight.current) inFlight.current = null;
+        loadingRef.current = false;
+        setLoading(false);
       }
     }, 10000); // 10 second timeout
 
@@ -119,44 +121,95 @@ export function ChatInbox({
     };
 
     try {
-      // Gate on auth
+      // Gate on auth - wait for both loading and resolution
       const currentAuthLoading = isAuthLoadingOverride ?? authLoading;
       const currentUserProfile = profile ?? currentProfile;
 
       DEBUG && console.log('🔄 loadConversations called:', {
         profileId: currentUserProfile?.id,
         authLoading: currentAuthLoading,
+        authResolved,
         hasProfile: !!currentUserProfile
       });
 
-      if (currentAuthLoading && !isAuthLoadingOverride) {
-        DEBUG && console.log('⏳ Auth still loading, skipping...');
-        return finish();
+      // Wait for auth to be both not loading AND resolved (important for client-side navigation)
+      if ((currentAuthLoading || !authResolved) && !isAuthLoadingOverride) {
+        DEBUG && console.log('⏳ Auth still loading or not resolved, skipping...', { authLoading: currentAuthLoading, authResolved });
+        finish(); 
+        return;
       }
       if (!currentUserProfile?.id) {
         DEBUG && console.log('❌ No profile found, stopping loading');
         setError('You are not signed in.');
-        return finish();
+        finish(); 
+        return;
       }
 
       // Use supabase from context instead of creating new client
 
-      // Conversations query (with abort)
+      // Conversations query (with abort) - try optimized view first, fallback to basic query
       DEBUG && console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
       
-      const { data: conversationsData, error: conversationsError } = await supabase
-        .from('conversations_with_last_message')
-        .select('*')
-        .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-        .order('last_message_at', { ascending: false })
-        .abortSignal(controller.signal);      // 👈 correct way
+      let conversationsData, conversationsError;
+      
+      // Try the optimized view first
+      try {
+        const result = await supabase
+          .from('conversations_with_last_message')
+          .select('*')
+          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+          .order('last_message_at', { ascending: false })
+          .abortSignal(controller.signal);
+        
+        conversationsData = result.data;
+        conversationsError = result.error;
+        console.log('✅ Optimized view worked:', { count: conversationsData?.length || 0 });
+      } catch (error) {
+        console.warn('⚠️ Optimized view failed, using basic query:', error);
+        
+        // Fallback to basic conversations query
+        const result = await supabase
+          .from('conversations')
+          .select(`
+            *,
+            creator:profiles!conversations_creator_id_fkey(*),
+            fan:profiles!conversations_fan_id_fkey(*)
+          `)
+          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
+          .order('created_at', { ascending: false })
+          .abortSignal(controller.signal);
+        
+        conversationsData = result.data;
+        conversationsError = result.error;
+        console.log('✅ Basic query result:', { count: conversationsData?.length || 0 });
+      }
+
+      console.log('📊 Final conversations data:', { 
+        data: conversationsData, 
+        error: conversationsError,
+        count: conversationsData?.length || 0,
+        userId: currentUserProfile.id,
+        userType: currentUserProfile.user_type
+      });
 
       throwIfAborted(controller);
       if (conversationsError) throw conversationsError;
 
       if (!conversationsData?.length) { 
+        console.log('❌ No conversations found for this user');
+        
+        // Quick debug: check if ANY conversations exist in the database
+        const { data: allConversations } = await supabase
+          .from('conversations')
+          .select('id, creator_id, fan_id')
+          .limit(5);
+        
+        console.log('🔍 Debug - Total conversations in DB:', allConversations?.length || 0, allConversations);
+        console.log('🔍 Debug - Looking for user:', currentUserProfile.id, 'as creator or fan');
+        
         setConversations([]); 
-        return finish();
+        finish();
+        return;
       }
 
       // Access lookup — non-blocking if slow
@@ -164,7 +217,7 @@ export function ChatInbox({
       try {
         console.log('🔍 Fetching chat access records for user:', currentUserProfile.id);
         const accessResult = await timeout(
-          getUserChatAccess(supabase, currentUserProfile.id, currentUserProfile.user_type),
+          getUserChatAccess(supabase, currentUserProfile.id, currentUserProfile.user_type, { signal: controller.signal }),
           3000
         );
         throwIfAborted(controller);
@@ -248,8 +301,13 @@ export function ChatInbox({
       
       console.log('✅ Transformed conversations:', conversationItems.length);
 
+      console.log('🎯 Final conversation items to set:', conversationItems.length, conversationItems);
+      
       if (mountedRef.current) {
         setConversations(conversationItems);
+        console.log('✅ Conversations set in state');
+      } else {
+        console.warn('⚠️ Component unmounted, skipping setConversations');
       }
 
     } catch (e) {
@@ -260,7 +318,7 @@ export function ChatInbox({
     } finally {
       finish(); // 🔑 guarantees loading + flags reset on all paths
     }
-  }, [authLoading, currentProfile, supabase]); // include deps; no infinite loops because we gate usage
+  }, [authLoading, authResolved, currentProfile, supabase]); // include deps; no infinite loops because we gate usage
 
   // Load conversations only when auth state changes
   useEffect(() => {
