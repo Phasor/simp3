@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Menu, X, LayoutDashboard, User, LogOut, Plus } from 'lucide-react';
 import { ChatInbox } from './ChatInbox';
@@ -18,33 +18,49 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const { profile: currentProfile, loading: authLoading, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
+  // --- STATE (no conditional hooks) ---
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
   const [selectedFanId, setSelectedFanId] = useState<string | null>(null);
   const [creatorProfile, setCreatorProfile] = useState<Profile | null>(null);
   const [fanProfile, setFanProfile] = useState<Profile | null>(null);
+
+  // Do not read window during render; assume desktop initially
   const [isMobile, setIsMobile] = useState(false);
   const [showInbox, setShowInbox] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Check if we're on mobile
+  const selectedKey = useMemo(
+    () => (selectedCreatorId && selectedFanId ? `${selectedCreatorId}|${selectedFanId}` : null),
+    [selectedCreatorId, selectedFanId]
+  );
+
+  // --- EFFECTS (safe to run on client only) ---
+
+  // Debounced resize: set mobile flag after mount
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+    if (typeof window === 'undefined') return;
+
+    let rAF: number | null = null;
+    const onResize = () => {
+      if (rAF) cancelAnimationFrame(rAF);
+      rAF = requestAnimationFrame(() => setIsMobile(window.innerWidth < 768));
     };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      if (rAF) cancelAnimationFrame(rAF);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
   // Handle logout
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setIsMobileMenuOpen(false);
-    
     try {
       await signOut();
       window.location.href = '/login';
@@ -55,77 +71,75 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     }
   }, [signOut]);
 
-  // Mobile menu handlers
   const toggleMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(prev => !prev);
+    setIsMobileMenuOpen((prev) => !prev);
   }, []);
+  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
 
-  const closeMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen(false);
-  }, []);
-
-  // Load profiles when conversation is selected
-  const loadProfiles = async (creatorId: string, fanId: string) => {
+  // Load profiles
+  const loadProfiles = useCallback(async (creatorId: string, fanId: string) => {
     try {
       const supabase = createClient();
-      
       const [creatorResult, fanResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', creatorId).single(),
-        supabase.from('profiles').select('*').eq('id', fanId).single()
+        supabase.from('profiles').select('*').eq('id', fanId).single(),
       ]);
-
       if (creatorResult.data) setCreatorProfile(creatorResult.data);
       if (fanResult.data) setFanProfile(fanResult.data);
     } catch (error) {
       console.error('Error loading profiles:', error);
     }
-  };
+  }, []);
 
-  const handleSelectConversation = useCallback(async (creatorId: string, fanId: string, creator?: Profile, fan?: Profile) => {
-    setSelectedCreatorId(creatorId);
-    setSelectedFanId(fanId);
+  // Selecting a conversation (guard against loops)
+  const handleSelectConversation = useCallback(
+    async (creatorId: string, fanId: string, creator?: Profile, fan?: Profile) => {
+      const nextKey = `${creatorId}|${fanId}`;
+      if (selectedKey === nextKey) return;
 
-    // If profiles are provided, use them
-    if (creator && fan) {
-      setCreatorProfile(creator);
-      setFanProfile(fan);
-    } else {
-      // Otherwise load them
-      await loadProfiles(creatorId, fanId);
-    }
+      setSelectedCreatorId(creatorId);
+      setSelectedFanId(fanId);
 
-    // Update URL
-    const params = new URLSearchParams();
-    params.set('creator', creatorId);
-    params.set('fan', fanId);
-    router.push(`/chat?${params.toString()}`);
+      if (creator && fan) {
+        setCreatorProfile(creator);
+        setFanProfile(fan);
+      } else {
+        await loadProfiles(creatorId, fanId);
+      }
 
-    // On mobile, hide inbox when conversation is selected
-    if (isMobile) {
-      setShowInbox(false);
-    }
-  }, [isMobile, router]); // Remove loadProfiles dependency
+      const currentCreator = searchParams.get('creator');
+      const currentFan = searchParams.get('fan');
+      if (currentCreator !== creatorId || currentFan !== fanId) {
+        router.replace(`/chat?creator=${creatorId}&fan=${fanId}`);
+      }
 
-  // Read URL parameters on mount
+      if (isMobile) setShowInbox(false);
+    },
+    [isMobile, router, searchParams, selectedKey, loadProfiles]
+  );
+
+  // Read URL params; only act on genuine change
   useEffect(() => {
-    const creatorId = searchParams.get('creator');
-    const fanId = searchParams.get('fan');
+    const urlCreator = searchParams.get('creator');
+    const urlFan = searchParams.get('fan');
     const welcome = searchParams.get('welcome');
-    
-    if (creatorId && fanId) {
-      handleSelectConversation(creatorId, fanId);
-    } else if (creatorId && currentProfile?.user_type === 'FAN') {
-      // If only creator is specified and current user is a fan, 
-      // try to find existing conversation or create the URL with fan ID
-      const fanId = currentProfile.id;
-      handleSelectConversation(creatorId, fanId);
+
+    const urlKey = urlCreator && urlFan ? `${urlCreator}|${urlFan}` : null;
+
+    if (urlKey && urlKey !== selectedKey) {
+      handleSelectConversation(urlCreator!, urlFan!);
+    } else if (
+      urlCreator &&
+      currentProfile?.user_type === 'FAN' &&
+      (!selectedKey || !selectedKey.startsWith(`${urlCreator}|`))
+    ) {
+      handleSelectConversation(urlCreator, currentProfile.id);
     }
-    
-    // Show welcome modal for new creators
+
     if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
       setShowWelcome(true);
     }
-  }, [searchParams, currentProfile?.user_type, currentProfile?.id]); // Remove handleSelectConversation dependency
+  }, [searchParams, currentProfile?.user_type, currentProfile?.id, selectedKey, handleSelectConversation]);
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);
@@ -133,26 +147,14 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     setCreatorProfile(null);
     setFanProfile(null);
     setShowInbox(true);
-    
-    
-    // Clear URL parameters
     router.push('/chat');
   };
 
-  const selectedConversationId = selectedCreatorId && selectedFanId 
-    ? `${selectedCreatorId}|${selectedFanId}` 
-    : undefined;
+  const selectedConversationId =
+    selectedCreatorId && selectedFanId ? `${selectedCreatorId}|${selectedFanId}` : undefined;
 
-  // Show loading while auth is loading
-  if (authLoading) {
-    return (
-      <div className={`flex items-center justify-center h-full ${className}`}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!currentProfile) {
+  // Keep the sign-in guard; it doesn't affect hook order because it's after all hooks have been declared
+  if (!authLoading && !currentProfile) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="text-center">
@@ -168,45 +170,36 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
     );
   }
 
+  // ----- Render -----
   if (isMobile) {
-    // Mobile: Show either inbox or conversation, not both
     return (
       <>
         <div className={`h-full ${className} relative`}>
-          {/* Mobile Header with Hamburger Menu */}
           <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-end">
             <button
               onClick={toggleMobileMenu}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
               aria-label="Toggle menu"
             >
-              {isMobileMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
 
-          {/* Mobile Navigation Menu */}
           {isMobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-40">
-              <nav className="px-6 py-4 space-y-4">
+              <nav className="px-6 py-4 space-y-4" onClick={closeMobileMenu}>
                 <a href="/" className="flex items-center gap-3 text-sm">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
                 </a>
-                
-                <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center gap-3 text-sm">
+                <a
+                  href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'}
+                  className="flex items-center gap-3 text-sm"
+                >
                   <User className="h-4 w-4" />
                   Profile
                 </a>
-                
-                <button
-                  onClick={handleLogout}
-                  disabled={isLoggingOut}
-                  className="flex items-center gap-3 text-sm text-rose-600"
-                >
+                <button onClick={handleLogout} disabled={isLoggingOut} className="flex items-center gap-3 text-sm text-rose-600">
                   <LogOut className="h-4 w-4" />
                   {isLoggingOut ? 'Logging out...' : 'Logout'}
                 </button>
@@ -214,13 +207,9 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
             </div>
           )}
 
-          {/* Main Content */}
           <div className="h-full">
             {showInbox ? (
-              <ChatInbox
-                selectedConversationId={selectedConversationId}
-                onSelectConversation={handleSelectConversation}
-              />
+              <ChatInbox selectedConversationId={selectedConversationId} onSelectConversation={handleSelectConversation} />
             ) : (
               <ChatContainer
                 creatorId={selectedCreatorId || undefined}
@@ -233,39 +222,30 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           </div>
         </div>
 
-        {/* Welcome modal for new creators */}
-        {showWelcome && (
-          <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />
-        )}
+        {showWelcome && <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />}
       </>
     );
   }
 
-  // Desktop: Show both inbox and conversation side by side with new design
   return (
     <>
       <div className={`h-screen w-screen flex ${className}`}>
-        {/* SIDEBAR */}
         <aside className="w-80 min-w-72 border-r bg-white flex flex-col">
-          {/* Inbox with search and conversations */}
           <div className="flex-1 overflow-hidden">
-            <ChatInbox
-              selectedConversationId={selectedConversationId}
-              onSelectConversation={handleSelectConversation}
-            />
+            <ChatInbox selectedConversationId={selectedConversationId} onSelectConversation={handleSelectConversation} />
           </div>
 
-          {/* Bottom Mini-Nav */}
           <div className="border-t p-2">
             <div className="grid grid-cols-3 gap-2">
               <a href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <span className="typ-body-sm text-gray-700">Dashboard</span>
               </a>
-              
-              <a href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'} className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
+              <a
+                href={currentProfile?.user_type === 'CREATOR' ? `/creator/${currentProfile.id}` : '/profile'}
+                className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50"
+              >
                 <span className="typ-body-sm text-gray-700">Profile</span>
               </a>
-              
               <button
                 onClick={handleLogout}
                 disabled={isLoggingOut}
@@ -274,18 +254,14 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
                 <span className="typ-body-sm text-rose-600">Logout</span>
               </button>
             </div>
-            
-            <a
-              href="/chat/new"
-              className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 typ-body-sm text-white hover:opacity-90"
-            >
+
+            <a href="/chat/new" className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 typ-body-sm text-white hover:opacity-90">
               <Plus className="h-4 w-4" />
               New Chat
             </a>
           </div>
         </aside>
 
-        {/* MAIN CHAT */}
         <main className="flex-1 flex flex-col">
           <ChatContainer
             creatorId={selectedCreatorId || undefined}
@@ -296,10 +272,7 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
         </main>
       </div>
 
-      {/* Welcome modal for new creators */}
-      {showWelcome && (
-        <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />
-      )}
+      {showWelcome && <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />}
     </>
   );
 }

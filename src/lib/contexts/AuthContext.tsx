@@ -84,46 +84,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     console.log('🔐 AuthContext initializing...');
-    
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📋 Initial session:', { hasSession: !!session, userId: session?.user?.id });
-      setSession(session)
-      setUser(session?.user ?? null)
-      
-      if (session?.user) {
-        fetchProfile(session.user.id).then((profile) => {
-          console.log('👤 Initial profile set:', profile);
-          setProfile(profile);
-        })
-      }
-      
-      console.log('✅ Auth loading complete');
-      setLoading(false)
-    })
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
-      setSession(session)
-      setUser(session?.user ?? null)
-      
+    let isActive = true;
+
+    const timeout = (ms: number) =>
+      new Promise<never>((_, rej) => setTimeout(() => rej(new Error('AUTH_INIT_TIMEOUT')), ms));
+
+    (async () => {
+      try {
+        // Race getSession with a 3s watchdog so UI never blocks forever
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          timeout(3000),
+        ]);
+
+        if (!isActive) return;
+
+        console.log('📋 Initial session:', { hasSession: !!session, userId: session?.user?.id });
+        setSession(session ?? null);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const profileData = await fetchProfile(session.user.id);
+          if (!isActive) return;
+          console.log('👤 Initial profile set:', profileData);
+          setProfile(profileData);
+        }
+      } catch (e) {
+        // If we timed out or errored, don't block the app. Let the route render and recover.
+        console.warn('Auth init fallback (continuing without session):', (e as Error).message);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        if (isActive) setLoading(false);
+        console.log('✅ Auth loading complete');
+      }
+    })();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isActive) return;
+      console.log('🔄 Auth state changed:', { hasSession: !!session, userId: session?.user?.id });
+      setSession(session ?? null);
+      setUser(session?.user ?? null);
+
       if (session?.user) {
-        const profileData = await fetchProfile(session.user.id)
+        const profileData = await fetchProfile(session.user.id);
+        if (!isActive) return;
         console.log('👤 Profile updated:', profileData);
-        setProfile(profileData)
+        setProfile(profileData);
       } else {
-        console.log('👤 Profile cleared');
-        setProfile(null)
+        setProfile(null);
       }
-      
-      console.log('✅ Auth state change complete');
-      setLoading(false)
-    })
+      setLoading(false);
+    });
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isActive = false;
+      subscription.unsubscribe();
+    };
   }, [supabase.auth, fetchProfile])
 
   const value = {

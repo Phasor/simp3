@@ -36,7 +36,7 @@ export function ChatInbox({
   selectedConversationId,
   className = ''
 }: ChatInboxProps) {
-  const { profile: currentProfile, loading: authLoading } = useAuth();
+  const { profile: currentProfile, loading: authLoading, supabase } = useAuth();
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,26 +66,28 @@ export function ChatInbox({
   }, [loading, authLoading]);
 
   // Load conversations
-  const loadConversations = useCallback(async (profile?: typeof currentProfile, isAuthLoading?: boolean) => {
-    const currentAuthLoading = isAuthLoading ?? authLoading;
+  const loadConversations = useCallback(async (
+    profile?: typeof currentProfile,
+    isAuthLoadingOverride?: boolean
+  ) => {
+    const currentAuthLoading = isAuthLoadingOverride ?? authLoading;
     const currentUserProfile = profile ?? currentProfile;
-    
-    console.log('🔄 loadConversations called:', { 
-      profileId: currentUserProfile?.id, 
+
+    console.log('🔄 loadConversations called:', {
+      profileId: currentUserProfile?.id,
       authLoading: currentAuthLoading,
-      hasProfile: !!currentUserProfile 
+      hasProfile: !!currentUserProfile
     });
-    
-    // Don't load if auth is still loading
-    if (currentAuthLoading) {
+
+    // Only skip if we truly don't have a profile; allow Try Again to bypass the auth gate
+    if (currentAuthLoading && !isAuthLoadingOverride) {
       console.log('⏳ Auth still loading, skipping...');
       return;
     }
-    
-    // If auth is done but no profile, stop loading
     if (!currentUserProfile?.id) {
       console.log('❌ No profile found, stopping loading');
       setLoading(false);
+      setError('You are not signed in.');
       return;
     }
 
@@ -93,33 +95,13 @@ export function ChatInbox({
       setLoading(true);
       setError(null);
 
-      const supabase = createClient();
+      // Use supabase from context instead of creating new client
 
-      // Get conversations where current user is either creator or fan
+      // Get conversations with last messages in one optimized query
       console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
       const { data: conversationsData, error: conversationsError } = await supabase
-        .from('conversations')
-        .select(`
-          id,
-          creator_id,
-          fan_id,
-          last_message_at,
-          created_at,
-          creator:profiles!conversations_creator_id_fkey(
-            id,
-            email,
-            display_name,
-            user_type,
-            profile_picture_url
-          ),
-          fan:profiles!conversations_fan_id_fkey(
-            id,
-            email,
-            display_name,
-            user_type,
-            profile_picture_url
-          )
-        `)
+        .from('conversations_with_last_message')
+        .select('*')
         .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
         .order('last_message_at', { ascending: false });
       
@@ -196,44 +178,40 @@ export function ChatInbox({
         }));
       }
 
-      // Get last messages for each conversation (simplified)
-      console.log('🔍 Fetching last messages for', conversationsWithAccess.length, 'conversations');
-      const lastMessagePromises = conversationsWithAccess.map(async (conv) => {
-        try {
-          const { data: lastMessageData } = await supabase
-            .from('chat_messages')
-            .select('*')
-            .eq('creator_id', conv.creator_id)
-            .eq('fan_id', conv.fan_id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no messages exist
-
-          return {
-            ...conv,
-            lastMessage: lastMessageData || undefined
-          };
-        } catch (error) {
-          console.warn('Failed to get last message for conversation:', conv.id, error);
-          return conv;
-        }
-      });
-
-      const conversationsWithMessages = await Promise.all(lastMessagePromises);
-      console.log('✅ Loaded last messages for conversations');
-
-      // Transform to ConversationItem format
-      const conversationItems: ConversationItem[] = conversationsWithMessages.map((conv) => ({
+      // Transform to ConversationItem format (last messages already included from view)
+      console.log('🔄 Transforming conversations data');
+      const conversationItems: ConversationItem[] = conversationsWithAccess.map((conv: any) => ({
         id: conv.id,
         creatorId: conv.creator_id,
         fanId: conv.fan_id,
-        creator: conv.creator as unknown as Profile,
-        fan: conv.fan as unknown as Profile,
-        lastMessage: (conv as unknown as { lastMessage?: ChatMessage }).lastMessage,
+        creator: {
+          id: conv.creator_id_join,
+          email: conv.creator_email,
+          display_name: conv.creator_display_name,
+          user_type: conv.creator_user_type,
+          profile_picture_url: conv.creator_ppu
+        } as Profile,
+        fan: {
+          id: conv.fan_id_join,
+          email: conv.fan_email,
+          display_name: conv.fan_display_name,
+          user_type: conv.fan_user_type,
+          profile_picture_url: conv.fan_ppu
+        } as Profile,
+        lastMessage: conv.last_message_id ? {
+          id: conv.last_message_id,
+          sender_id: conv.last_message_sender_id,
+          content: conv.last_message_content,
+          created_at: conv.last_message_created_at,
+          creator_id: conv.creator_id,
+          fan_id: conv.fan_id
+        } as ChatMessage : undefined,
         lastMessageAt: conv.last_message_at || conv.created_at,
         unreadCount: 0, // TODO: Implement unread count
         accessStatus: conv.accessStatus
       }));
+      
+      console.log('✅ Transformed conversations:', conversationItems.length);
 
       setConversations(conversationItems);
 
@@ -261,7 +239,7 @@ export function ChatInbox({
     } finally {
       setLoading(false);
     }
-  }, []); // Remove dependencies to prevent infinite loops
+  }, [authLoading, currentProfile, supabase]); // include deps; no infinite loops because we gate usage
 
   // Load conversations only when auth state changes
   useEffect(() => {
@@ -353,8 +331,7 @@ export function ChatInbox({
               <button
                 onClick={() => {
                   console.log('🔄 Try Again clicked:', { profileId: currentProfile?.id, authLoading });
-                  // Force loading by passing false for authLoading to bypass early return
-                  loadConversations(currentProfile, false);
+                  loadConversations(currentProfile, /* isAuthLoadingOverride */ false);
                 }}
                 className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
               >
