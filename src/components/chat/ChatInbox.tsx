@@ -9,6 +9,14 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { ChatAccessStatus } from '@/lib/utils/chatAccess';
 import { getUserChatAccess, calculateAccessStatus } from '@/lib/utils/chatAccess';
 import { formatConversationTitle } from '@/lib/utils/conversationUtils';
+
+// Timeout wrapper to prevent hanging promises
+function timeout<T>(p: Promise<T>, ms = 3000): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('CHAT_ACCESS_TIMEOUT')), ms);
+    p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
 import { createClient } from '@/lib/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import type { Profile, ChatAccess, ChatMessage } from '@/lib/types/database';
@@ -122,7 +130,10 @@ export function ChatInbox({
       let conversationsWithAccess = conversationsData;
       try {
         console.log('🔍 Fetching chat access records for user:', currentUserProfile.id);
-        const accessResult = await getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type);
+        const accessResult = await timeout(
+          getUserChatAccess(currentUserProfile.id, currentUserProfile.user_type),
+          3000
+        );
         console.log('📊 Chat access result:', accessResult);
         
         const accessRecords = accessResult.data || [];
@@ -161,7 +172,7 @@ export function ChatInbox({
         
         console.log('✅ Applied access status to', conversationsWithAccess.length, 'conversations');
       } catch (error) {
-        console.warn('Failed to get chat access records, using fallback status:', error);
+        console.warn('⚠️ Chat access lookup skipped:', (error as Error).message);
         // Apply fallback status to all conversations
         conversationsWithAccess = conversationsData.map(conv => ({
           ...conv,
@@ -243,6 +254,8 @@ export function ChatInbox({
 
   // Load conversations only when auth state changes
   useEffect(() => {
+    let active = true;
+    
     console.log('🔄 useEffect triggered:', { 
       authLoading, 
       hasProfile: !!currentProfile, 
@@ -250,15 +263,19 @@ export function ChatInbox({
       loading 
     });
     
-    if (!authLoading && currentProfile?.id) {
-      console.log('✅ Conditions met, calling loadConversations');
-      loadConversations(currentProfile, authLoading);
-    } else if (!authLoading && !currentProfile?.id) {
-      console.log('⚠️ No profile found, stopping loading');
-      setLoading(false);
-    } else {
-      console.log('⏳ Waiting for auth or profile...', { authLoading, profileId: currentProfile?.id });
-    }
+    (async () => {
+      if (!authLoading && currentProfile?.id) {
+        console.log('✅ Conditions met, calling loadConversations');
+        await loadConversations(currentProfile, authLoading);
+      } else if (!authLoading && !currentProfile?.id) {
+        console.log('⚠️ No profile found, stopping loading');
+        if (active) setLoading(false);
+      } else {
+        console.log('⏳ Waiting for auth or profile...', { authLoading, profileId: currentProfile?.id });
+      }
+    })();
+    
+    return () => { active = false; };
   }, [authLoading, currentProfile?.id]); // Remove loadConversations from dependencies to prevent loops
 
   // Filter conversations based on search
