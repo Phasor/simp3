@@ -42,14 +42,41 @@ export default async function RootLayout({
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+      console.log('🔍 Environment check:', {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseKey,
+        urlLength: supabaseUrl?.length,
+        keyLength: supabaseKey?.length
+      });
+
       if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
       if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-      const supabase = createServerClient({
-        cookies,             // helper handles get/set/remove internally
-        supabaseUrl,         // ✅ required
-        supabaseKey,         // ✅ required
-      });
+      const supabase = createServerClient(
+        supabaseUrl,
+        supabaseKey,
+        {
+          cookies: {
+            async get(name: string) {
+              return (await cookies()).get(name)?.value;
+            },
+            async set(name: string, value: string, options?: any) {
+              try {
+                (await cookies()).set(name, value, options);
+              } catch {
+                // Called from Server Component - safe to ignore
+              }
+            },
+            async remove(name: string, options?: any) {
+              try {
+                (await cookies()).set(name, '', { ...options, maxAge: 0 });
+              } catch {
+                // Called from Server Component - safe to ignore
+              }
+            },
+          },
+        }
+      );
       
       const { data: { session } } = await supabase.auth.getSession();
       initialSession = session;
