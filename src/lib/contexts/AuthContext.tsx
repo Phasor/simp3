@@ -10,6 +10,7 @@ interface AuthContextType {
   session: Session | null
   profile: Profile | null
   loading: boolean
+  resolved: boolean
   supabase: ReturnType<typeof createClient>
   isCreator: boolean
   isFan: boolean
@@ -19,11 +20,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
+interface AuthProviderProps {
+  children: React.ReactNode
+  initialSession?: Session | null
+}
+
+export function AuthProvider({ children, initialSession = null }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(initialSession?.user ?? null)
+  const [session, setSession] = useState<Session | null>(initialSession)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
+  const [resolved, setResolved] = useState(false)
   
   // Memoize the Supabase client to prevent multiple instances
   const supabase = useMemo(() => createClient(), [])
@@ -83,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    console.log('🔐 AuthContext initializing...');
+    console.log('🔐 AuthContext initializing...', { hasInitialSession: !!initialSession });
 
     let isActive = true;
 
@@ -92,7 +99,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        // Race getSession with a 10s watchdog so UI never blocks forever
+        // If we have an initial session, use it and fetch profile
+        if (initialSession?.user) {
+          console.log('📋 Using initial session:', { userId: initialSession.user.id });
+          const profileData = await fetchProfile(initialSession.user.id);
+          if (!isActive) return;
+          console.log('👤 Initial profile set from server session:', profileData);
+          setProfile(profileData);
+          setResolved(true);
+          setLoading(false);
+          return;
+        }
+
+        // Otherwise, race getSession with a 10s watchdog so UI never blocks forever
         const { data: { session } } = await Promise.race([
           supabase.auth.getSession(),
           timeout(10000),
@@ -100,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!isActive) return;
 
-        console.log('📋 Initial session:', { hasSession: !!session, userId: session?.user?.id });
+        console.log('📋 Initial session from client:', { hasSession: !!session, userId: session?.user?.id });
         setSession(session ?? null);
         setUser(session?.user ?? null);
 
@@ -116,7 +135,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Auth init fallback (continuing without session):', (e as Error).message);
         console.log('⏳ Waiting for onAuthStateChange to handle auth state...');
       } finally {
-        if (isActive) setLoading(false);
+        if (isActive) {
+          setLoading(false);
+          setResolved(true);
+        }
         console.log('✅ Auth loading complete');
       }
     })();
@@ -136,19 +158,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
       }
       setLoading(false);
+      setResolved(true);
     });
 
     return () => {
       isActive = false;
       subscription.unsubscribe();
     };
-  }, [supabase.auth, fetchProfile])
+  }, [supabase.auth, fetchProfile, initialSession])
 
   const value = {
     user,
     session,
     profile,
     loading,
+    resolved,
     supabase,
     isCreator: profile?.user_type === 'CREATOR',
     isFan: profile?.user_type === 'FAN',

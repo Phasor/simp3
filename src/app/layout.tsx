@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
 import { AuthProvider } from "@/lib/contexts/AuthContext";
+import { FLAGS } from '@/lib/flags';
 import { Toaster } from "react-hot-toast";
 import ConditionalNavigation from "@/components/ConditionalNavigation";
 import ConditionalFooter from "@/components/ConditionalFooter";
@@ -26,17 +29,53 @@ export const metadata: Metadata = {
   description: "Connect with creators through exclusive chat experiences",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let initialSession = null;
+  
+  if (FLAGS.SERVER_AUTH_GATE) {
+    try {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return cookieStore.getAll();
+            },
+            setAll(cookiesToSet) {
+              try {
+                cookiesToSet.forEach(({ name, value, options }) =>
+                  cookieStore.set(name, value, options)
+                );
+              } catch {
+                // The `setAll` method was called from a Server Component.
+                // This can be ignored if you have middleware refreshing
+                // user sessions.
+              }
+            },
+          },
+        }
+      );
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      initialSession = session;
+    } catch (error) {
+      console.warn('Failed to get server session:', error);
+      // Continue with null session
+    }
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
-        <AuthProvider>
+        <AuthProvider initialSession={initialSession}>
           <ConditionalNavigation title="simp3" />
           <main className="flex-1">
             {children}
