@@ -4,6 +4,8 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import SettingsClient from './SettingsClient';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function SettingsPage() {
   if (!FLAGS.SERVER_AUTH_GATE) {

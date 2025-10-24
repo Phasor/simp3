@@ -49,7 +49,7 @@ export async function GET() {
         .in('task_id', taskIds)
         .order('created_at', { ascending: false });
       
-      purchases = result.data;
+      purchases = result.data ?? [];
       purchaseError = result.error;
     }
 
@@ -112,7 +112,7 @@ export async function GET() {
     const avgPerUnlock = chatUnlocks > 0 ? totalEarnings / chatUnlocks : 0;
 
     // Get top fans data
-    const fanEarnings = new Map<string, { fan: any, totalSpent: number, unlocks: number, lastActive: string }>();
+    const fanEarnings = new Map<string, { fan: Record<string, unknown>, totalSpent: number, unlocks: number, lastActive: string }>();
     
     purchaseData.forEach(purchase => {
       const fanId = purchase.profile_id;
@@ -141,7 +141,7 @@ export async function GET() {
       .slice(0, 10)
       .map((fanData, index) => ({
         id: fanData.fan.id,
-        username: fanData.fan.display_name || fanData.fan.email.split('@')[0],
+        username: fanData.fan.display_name || (fanData.fan.email as string).split('@')[0],
         unlocks: fanData.unlocks,
         lastActive: formatTimeAgo(fanData.lastActive),
         totalSpent: fanData.totalSpent,

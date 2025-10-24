@@ -17,91 +17,6 @@ export function CreatorWelcomeModal({ onClose }: CreatorWelcomeModalProps) {
   const [tweetCopied, setTweetCopied] = useState(false);
   const router = useRouter();
 
-  if (!profile || profile.user_type !== 'CREATOR') {
-    return null;
-  }
-
-  // Generate the promotional link - fans can visit this to see the creator's profile
-  const creatorLink = `${window.location.origin}/creator/${profile.id}/landing`;
-  const displayName = profile.display_name || 'Creator';
-  const username = profile.display_name?.toLowerCase().replace(/\s+/g, '') || 'creator';
-  const avatar = profile.profile_picture_url 
-    ? getProfilePictureUrl(profile.profile_picture_url)
-    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
-
-  // Compose Tweet
-  const tweetText = `I just opened my paid chat on @simpapp — come say hi 👋`;
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(creatorLink)}`;
-
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(creatorLink);
-      setCopied(true);
-      toast.success('Link copied!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      toast.error('Failed to copy link');
-    }
-  };
-
-  const copyTweetText = async () => {
-    try {
-      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
-      setTweetCopied(true);
-      toast.success('Tweet text copied');
-      setTimeout(() => setTweetCopied(false), 2000);
-    } catch (err) {
-      toast.error('Copy failed');
-    }
-  };
-
-  const shareOnFacebook = () => {
-    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(creatorLink)}`;
-    window.open(shareUrl, '_blank', 'width=600,height=400');
-  };
-
-  const shareOnInstagram = async () => {
-    try {
-      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
-      toast.success('Caption copied — paste in Instagram', { duration: 4000 });
-    } catch (err) {
-      toast.error('Copy failed');
-    }
-  };
-
-  const handleWebShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({ 
-          title: 'Chat with me on Simp', 
-          text: tweetText, 
-          url: creatorLink 
-        });
-      } catch (e) {
-        // User cancelled or error occurred
-      }
-    } else {
-      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
-      toast.success('Copied — paste anywhere');
-    }
-  };
-
-  const handleClose = () => {
-    // Remove the welcome parameter from URL
-    const searchParams = new URLSearchParams(window.location.search);
-    searchParams.delete('welcome');
-    const newUrl = searchParams.toString() 
-      ? `/chat?${searchParams.toString()}` 
-      : '/chat';
-    router.replace(newUrl);
-    onClose();
-  };
-
-  const handleContinueToChat = () => {
-    toast.success('Great! You can access this later in Creator > Promote');
-    handleClose();
-  };
-
   // Simple confetti effect
   useEffect(() => {
     const spawnConfetti = () => {
@@ -137,6 +52,91 @@ export function CreatorWelcomeModal({ onClose }: CreatorWelcomeModalProps) {
       document.head.removeChild(style);
     };
   }, []);
+
+  if (!profile || profile.user_type !== 'CREATOR') {
+    return null;
+  }
+
+  // Generate the promotional link - fans can visit this to see the creator's profile
+  const creatorLink = `${window.location.origin}/creator/${profile.id}/landing`;
+  const displayName = profile.display_name || 'Creator';
+  const username = profile.display_name?.toLowerCase().replace(/\s+/g, '') || 'creator';
+  const avatar = profile.profile_picture_url 
+    ? getProfilePictureUrl(profile.profile_picture_url)
+    : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+
+  // Compose Tweet
+  const tweetText = `I just opened my paid chat on @simpapp — come say hi 👋`;
+  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(creatorLink)}`;
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(creatorLink);
+      setCopied(true);
+      toast.success('Link copied!');
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Failed to copy link');
+    }
+  };
+
+  const copyTweetText = async () => {
+    try {
+      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
+      setTweetCopied(true);
+      toast.success('Tweet text copied');
+      setTimeout(() => setTweetCopied(false), 2000);
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const shareOnFacebook = () => {
+    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(creatorLink)}`;
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  };
+
+  const shareOnInstagram = async () => {
+    try {
+      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
+      toast.success('Caption copied — paste in Instagram', { duration: 4000 });
+    } catch {
+      toast.error('Copy failed');
+    }
+  };
+
+  const handleWebShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ 
+          title: 'Chat with me on Simp', 
+          text: tweetText, 
+          url: creatorLink 
+        });
+      } catch {
+        // User cancelled or error occurred
+      }
+    } else {
+      await navigator.clipboard.writeText(`${tweetText} ${creatorLink}`);
+      toast.success('Copied — paste anywhere');
+    }
+  };
+
+  const handleClose = () => {
+    // Remove the welcome parameter from URL
+    const searchParams = new URLSearchParams(window.location.search);
+    searchParams.delete('welcome');
+    const newUrl = searchParams.toString() 
+      ? `/chat?${searchParams.toString()}` 
+      : '/chat';
+    router.replace(newUrl);
+    onClose();
+  };
+
+  const handleContinueToChat = () => {
+    toast.success('Great! You can access this later in Creator > Promote');
+    handleClose();
+  };
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-indigo-600 via-fuchsia-500 to-rose-500 flex items-center justify-center p-6 z-50">
@@ -219,7 +219,7 @@ export function CreatorWelcomeModal({ onClose }: CreatorWelcomeModalProps) {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h3 className="font-bold text-xl">Tweet your launch</h3>
-                  <p className="text-white/80 text-sm mt-1">"I just opened my paid chat — come say hi 👋"</p>
+                  <p className="text-white/80 text-sm mt-1">&quot;I just opened my paid chat — come say hi 👋&quot;</p>
                   <p className="text-emerald-200/90 text-xs mt-2">Creators who share now often receive their first paid chat within hours.</p>
                 </div>
                 <div className="hidden sm:block w-20 h-20 rounded-2xl bg-white/15 flex items-center justify-center text-3xl">💬</div>

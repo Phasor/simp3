@@ -100,7 +100,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
               <Link href="/" className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Dashboard
               </Link>
-              <Link href="/chat" prefetch={false} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
+              <Link href="/chat" prefetch className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
                 Chat
               </Link>
               <Link href={profile?.user_type === 'CREATOR' && profile.id ? `/creator/${profile.id}` : '/profile'} prefetch={false} className="text-sm bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200">
@@ -149,7 +149,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
                 </Link>
                 <Link 
                   href="/chat"
-                  prefetch={false}
+                  prefetch
                   className="block text-sm hover:text-primary transition-colors"
                   onClick={closeMobileMenu}
                 >

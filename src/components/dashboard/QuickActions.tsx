@@ -41,10 +41,10 @@ export default function QuickActions({ creatorHandle }: QuickActionsProps) {
       // Create CSV content
       const rows = [
         ['date', 'fan', 'amount_usd', 'type'],
-        ...data.map((item: any) => [
-          new Date(item.created_at).toISOString().split('T')[0],
+        ...data.map((item: Record<string, unknown>) => [
+          new Date(item.created_at as string).toISOString().split('T')[0],
           `@${item.fan_username}`,
-          (item.amount_cents / 100).toFixed(2),
+          ((item.amount_cents as number) / 100).toFixed(2),
           'unlock'
         ])
       ];

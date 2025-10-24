@@ -1,5 +1,20 @@
 import type { ChatMessage } from '@/lib/types/database';
 
+// Helpers for safe narrowing
+function pickApiError(x: unknown, fallback = 'Failed to send message'): string {
+  if (typeof x === 'string') return x;
+  if (x && typeof x === 'object') {
+    const o = x as Record<string, unknown>;
+    if (typeof o.error === 'string') return o.error;
+    if (typeof o.message === 'string') return o.message;
+  }
+  return fallback;
+}
+
+function isSendOk<T extends object = object>(x: unknown): x is T {
+  return !!x && typeof x === 'object';
+}
+
 export interface SendMessageRequest {
   creatorId: string;
   fanId: string;
@@ -51,19 +66,36 @@ export async function sendMessage(
       cache: 'no-store',
     });
 
-    let data: unknown = {};
-    try { data = await response.json(); } catch { /* non-JSON error body */ }
+    // `unknown` until we parse & narrow
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      // some endpoints return no JSON on error
+      body = undefined;
+    }
 
     if (!response.ok) {
       return {
         success: false,
-        error: data.error || 'Failed to send message'
+        error: pickApiError(body, 'Failed to send message'),
       };
     }
 
+    // success path — narrow before using
+    if (!isSendOk(body)) {
+      return { success: false, error: 'Malformed response from server' };
+    }
+
+    type SendMessageSuccess = {
+      message: ChatMessage;
+    };
+
+    const data = body as SendMessageSuccess;
+
     return {
       success: true,
-      message: data.message
+      message: data.message,
     };
   } catch (error) {
     console.error('Error sending message:', error);
@@ -104,11 +136,15 @@ export async function fetchMessages(
       cache: 'no-store',
     });
     
-    let data: unknown = {};
-    try { data = await response.json(); } catch { /* ignore */ }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      body = undefined;
+    }
 
     if (!response.ok) {
-      const errorMessage = data.error || 'Failed to fetch messages';
+      const errorMessage = pickApiError(body, 'Failed to fetch messages');
       
       // Handle authorization errors specifically
       if (response.status === 403 || errorMessage.includes('Not authorized')) {
@@ -118,7 +154,12 @@ export async function fetchMessages(
       throw new Error(errorMessage);
     }
 
-    return data;
+    // Narrow the success response
+    if (!isSendOk<FetchMessagesResponse>(body)) {
+      throw new Error('Malformed response from server');
+    }
+
+    return body;
   } catch (error) {
     // Don't log authorization errors as they're expected
     if (error instanceof Error && error.message.includes('Not authorized')) {

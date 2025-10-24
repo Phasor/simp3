@@ -10,13 +10,16 @@ import { CreatorWelcomeModal } from './CreatorWelcomeModal';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types/database';
+import type { ConversationServer } from '@/lib/types/chat';
 
 interface ResponsiveChatLayoutProps {
   className?: string;
+  initialConversations?: ConversationServer[];
+  initialUserId?: string;
 }
 
-export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutProps) {
-  const { profile: currentProfile, loading: authLoading, signOut } = useAuth();
+export function ResponsiveChatLayout({ className = '', initialConversations = [], initialUserId }: ResponsiveChatLayoutProps) {
+  const { user, profile: currentProfile, loading: authLoading, resolved: authResolved, signOut } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -161,8 +164,9 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
   const selectedConversationId =
     selectedCreatorId && selectedFanId ? `${selectedCreatorId}|${selectedFanId}` : undefined;
 
-  // Keep the sign-in guard; it doesn't affect hook order because it's after all hooks have been declared
-  if (!authLoading && !currentProfile) {
+  // Improved auth guards
+  // If user doesn't exist and we've resolved, show sign in
+  if (!authLoading && authResolved && !user) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="text-center">
@@ -173,6 +177,18 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           >
             Sign In
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // If user exists but profile is still being hydrated, show loading
+  if (user && (!authResolved || !currentProfile)) {
+    return (
+      <div className={`flex items-center justify-center h-full ${className}`}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your chat…</p>
         </div>
       </div>
     );
@@ -196,10 +212,10 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
           {isMobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-40">
               <nav className="px-6 py-4 space-y-4" onClick={closeMobileMenu}>
-                <a href="/" className="flex items-center gap-3 text-sm">
+                <Link href="/" className="flex items-center gap-3 text-sm">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
-                </a>
+                </Link>
                 <Link
                   href={profileHref}
                   prefetch={false}
@@ -219,7 +235,12 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
 
           <div className="h-full">
             {showInbox ? (
-              <ChatInbox selectedConversationId={selectedConversationId} onSelectConversation={handleSelectConversation} />
+              <ChatInbox 
+                selectedConversationId={selectedConversationId} 
+                onSelectConversation={handleSelectConversation}
+                initialConversations={initialConversations}
+                initialUserId={initialUserId}
+              />
             ) : (
               <ChatContainer
                 creatorId={selectedCreatorId || undefined}
@@ -242,14 +263,19 @@ export function ResponsiveChatLayout({ className = '' }: ResponsiveChatLayoutPro
       <div className={`h-screen w-screen flex ${className}`}>
         <aside className="w-80 min-w-72 border-r bg-white flex flex-col">
           <div className="flex-1 overflow-hidden">
-            <ChatInbox selectedConversationId={selectedConversationId} onSelectConversation={handleSelectConversation} />
+            <ChatInbox 
+              selectedConversationId={selectedConversationId} 
+              onSelectConversation={handleSelectConversation}
+              initialConversations={initialConversations}
+              initialUserId={initialUserId}
+            />
           </div>
 
           <div className="border-t p-2">
             <div className="grid grid-cols-3 gap-2">
-              <a href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
+              <Link href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
                 <span className="typ-body-sm text-gray-700">Dashboard</span>
-              </a>
+              </Link>
               <Link
                 href={profileHref}
                 prefetch={false}

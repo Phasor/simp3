@@ -19,8 +19,8 @@ export interface PaymentResult {
 export interface PaymentProcessor {
   name: string;
   processPayment(request: PaymentRequest): Promise<PaymentResult>;
-  validateWebhook?(data: any): Promise<boolean>;
-  handleWebhook?(data: any): Promise<void>;
+  validateWebhook?(data: Record<string, unknown>): Promise<boolean>;
+  handleWebhook?(data: Record<string, unknown>): Promise<void>;
 }
 
 // Dummy payment processor for testing
@@ -73,12 +73,12 @@ export class CCBillProcessor implements PaymentProcessor {
     throw new Error('CCBill integration not yet implemented');
   }
 
-  async validateWebhook(data: any): Promise<boolean> {
+  async validateWebhook(data: Record<string, unknown>): Promise<boolean> {
     // TODO: Validate CCBill webhook signature
     return false;
   }
 
-  async handleWebhook(data: any): Promise<void> {
+  async handleWebhook(data: Record<string, unknown>): Promise<void> {
     // TODO: Process CCBill webhook data
   }
 }

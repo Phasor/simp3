@@ -37,15 +37,19 @@ export default async function RootLayout({
 }>) {
   let initialSession = null;
   
-  if (FLAGS.SERVER_AUTH_GATE) {
-    try {
-      const supabase = await getServerSupabase();
-      const { data: { session } } = await supabase.auth.getSession();
-      initialSession = session;
-    } catch (error) {
-      console.warn('Failed to get server session:', error);
-      // Continue with null session
-    }
+  // Always try to get session from server for better hydration
+  try {
+    const supabase = await getServerSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    initialSession = session;
+    console.log('[Layout] SSR session:', { 
+      hasSession: !!session, 
+      userId: session?.user?.id,
+      serverAuthGate: FLAGS.SERVER_AUTH_GATE 
+    });
+  } catch (error) {
+    console.warn('[Layout] Failed to get server session:', error);
+    // Continue with null session
   }
 
   return (

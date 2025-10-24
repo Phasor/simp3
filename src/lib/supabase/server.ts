@@ -1,7 +1,8 @@
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import type { SerializeOptions } from 'cookie'; // official type used by Next for cookie.set options
 
-type CookieSetOptions = Parameters<ReturnType<typeof cookies>['set']>[2];
+type CookieSetOptions = SerializeOptions;
 
 export async function getServerSupabase() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,36 +11,34 @@ export async function getServerSupabase() {
   if (!supabaseUrl) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
   if (!supabaseKey) throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY');
 
-  return createServerClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-      cookies: {
-        async get(name: string) {
-          return (await cookies()).get(name)?.value;
-        },
-        async set(name: string, value: string, options?: CookieSetOptions) {
-          try {
-            (await cookies()).set(name, value, options);
-          } catch {
-            // Called in an RSC render path; safe to ignore if middleware or
-            // subsequent requests refresh the auth cookies.
-          }
-        },
-        async remove(name: string, options?: CookieSetOptions) {
-          try {
-            // Next doesn't expose remove; emulate with expired cookie.
-            (await cookies()).set(name, '', { ...options, maxAge: 0, path: '/' });
-          } catch {
-            /* ignore in RSC */
-          }
-        },
+  // Next 15+: cookies() is async
+  const cookieStore = await cookies();
+
+  return createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options?: CookieSetOptions) {
+        try {
+          cookieStore.set(name, value, options);
+        } catch {
+          // Safe to ignore when called during RSC render paths
+        }
+      },
+      remove(name: string, options?: CookieSetOptions) {
+        try {
+          // Next doesn't expose delete; emulate remove with expired cookie.
+          cookieStore.set(name, '', { ...options, maxAge: 0, path: '/' });
+        } catch {
+          /* ignore in RSC */
+        }
+      },
+    },
+  });
 }
 
-// Legacy export for backward compatibility
+// Legacy/compat export if other code imports createClient()
 export async function createClient() {
   return getServerSupabase();
 }

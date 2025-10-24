@@ -90,7 +90,7 @@ export default {
         ui: ['0.9375rem', { lineHeight: '1.4', letterSpacing: '0.005em' }],
         label: ['0.875rem', { lineHeight: '1.4', letterSpacing: '0.01em' }],
         caption: ['0.8125rem', { lineHeight: '1.35' }],
-        overline: ['0.75rem', { lineHeight: '1.2', letterSpacing: '0.08em', textTransform: 'uppercase' }],
+        overline: ['0.75rem', { lineHeight: '1.2', letterSpacing: '0.08em', textTransform: 'uppercase' } as any],
       },
       fontWeight: {
         regular: '400',

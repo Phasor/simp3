@@ -154,7 +154,9 @@ function coerceStatusFromApi(raw: unknown): ChatAccessStatus {
     daysRemaining,
     hoursRemaining,
     minutesRemaining,
-    lastQualifyingPurchaseId: (raw as any)?.lastQualifyingPurchaseId ?? null,
+    lastQualifyingPurchaseId: typeof (raw as Record<string, unknown>)?.lastQualifyingPurchaseId === 'string' 
+      ? (raw as Record<string, unknown>).lastQualifyingPurchaseId as string
+      : null,
   };
 }
 
@@ -224,17 +226,17 @@ export async function getUserChatAccess(
   userType: 'CREATOR' | 'FAN',
   opts: { limit?: number; offset?: number; signal?: AbortSignal } = {}
 ) {
+  const startTime = performance.now();
   try {
     const { limit = 50, offset = 0, signal } = opts;
 
     if (userType === 'CREATOR') {
       // Get all fans with access to this creator
+      // Removed profile joins for better performance - caller already has profile data
+      console.log('🔍 getUserChatAccess: Querying for CREATOR:', userId);
       let q = supabase
         .from('chat_access')
-        .select(`
-          *,
-          fan:profiles!chat_access_fan_id_fkey(id, display_name, email, profile_picture_url)
-        `)
+        .select('*')
         .eq('creator_id', userId)
         .order('updated_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -242,21 +244,22 @@ export async function getUserChatAccess(
       if (signal) q = q.abortSignal(signal);
       
       const { data, error } = await q;
-
+      const duration = performance.now() - startTime;
+      
       if (error) {
-        console.error('Error fetching creator chat access:', error);
+        console.error(`❌ Error fetching creator chat access (${duration.toFixed(0)}ms):`, error);
         return { data: [], error: error.message };
       }
 
+      console.log(`✅ getUserChatAccess completed in ${duration.toFixed(0)}ms, found ${data?.length || 0} records`);
       return { data: data || [], error: null };
     } else {
       // Get all creators this fan has access to
+      // Removed profile joins for better performance - caller already has profile data
+      console.log('🔍 getUserChatAccess: Querying for FAN:', userId);
       let q = supabase
         .from('chat_access')
-        .select(`
-          *,
-          creator:profiles!chat_access_creator_id_fkey(id, display_name, email, profile_picture_url)
-        `)
+        .select('*')
         .eq('fan_id', userId)
         .order('updated_at', { ascending: false })
         .range(offset, offset + limit - 1);
@@ -264,16 +267,19 @@ export async function getUserChatAccess(
       if (signal) q = q.abortSignal(signal);
       
       const { data, error } = await q;
+      const duration = performance.now() - startTime;
 
       if (error) {
-        console.error('Error fetching fan chat access:', error);
+        console.error(`❌ Error fetching fan chat access (${duration.toFixed(0)}ms):`, error);
         return { data: [], error: error.message };
       }
 
+      console.log(`✅ getUserChatAccess completed in ${duration.toFixed(0)}ms, found ${data?.length || 0} records`);
       return { data: data || [], error: null };
     }
   } catch (error) {
-    console.error('Error in getUserChatAccess:', error);
+    const duration = performance.now() - startTime;
+    console.error(`❌ Error in getUserChatAccess (${duration.toFixed(0)}ms):`, error);
     return { data: [], error: 'Unexpected error fetching chat access' };
   }
 }

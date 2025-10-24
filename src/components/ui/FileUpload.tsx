@@ -28,12 +28,12 @@ export function FileUpload({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: Array<{ errors: ReadonlyArray<{ code: string }> }>) => {
     if (rejectedFiles.length > 0) {
       const rejection = rejectedFiles[0];
-      if (rejection.errors.some((e: any) => e.code === 'file-too-large')) {
+      if (rejection.errors.some((e: { code: string }) => e.code === 'file-too-large')) {
         toast.error(`File is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB`);
-      } else if (rejection.errors.some((e: any) => e.code === 'file-invalid-type')) {
+      } else if (rejection.errors.some((e: { code: string }) => e.code === 'file-invalid-type')) {
         toast.error('Invalid file type. Please select an image file.');
       } else {
         toast.error('File upload failed. Please try again.');

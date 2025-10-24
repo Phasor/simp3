@@ -9,371 +9,201 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { ChatAccessStatus } from '@/lib/utils/chatAccess';
 import { getUserChatAccess, calculateAccessStatus } from '@/lib/utils/chatAccess';
 import { formatConversationTitle } from '@/lib/utils/conversationUtils';
-
-// Timeout wrapper to prevent hanging promises
-function timeout<T>(p: Promise<T>, ms = 3000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error('CHAT_ACCESS_TIMEOUT')), ms);
-    p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
-  });
-}
 import { formatDistanceToNow } from 'date-fns';
 import type { Profile, ChatAccess, ChatMessage } from '@/lib/types/database';
+import type { ConversationItem, ConversationServer } from '@/lib/types/chat';
+import { toConversationItem } from '@/lib/types/chat';
 
+const INBOX_CACHE_KEY = 'chat:inbox:conversations-cache';
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG === '1';
-
-// Helper to throw AbortError so finally block always executes
-function throwIfAborted(ctrl: AbortController) {
-  // DOMException is what fetch uses; caught below as AbortError
-  if (ctrl.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-}
-
-interface ConversationItem {
-  id: string;
-  creatorId: string;
-  fanId: string;
-  creator: Profile;
-  fan: Profile;
-  lastMessage?: ChatMessage;
-  lastMessageAt: string;
-  unreadCount: number;
-  accessStatus?: ChatAccessStatus;
-}
 
 interface ChatInboxProps {
   onSelectConversation?: (creatorId: string, fanId: string, creatorProfile: Profile, fanProfile: Profile) => void;
   selectedConversationId?: string;
   className?: string;
+  initialConversations?: ConversationServer[];
+  initialUserId?: string;
 }
 
 export function ChatInbox({
   onSelectConversation,
   selectedConversationId,
-  className = ''
+  className = '',
+  initialConversations = [],
+  initialUserId,
 }: ChatInboxProps) {
-  const { profile: currentProfile, loading: authLoading, resolved: authResolved, supabase } = useAuth();
+  const { user, profile: currentProfile, loading: authLoading, resolved: authResolved, supabase } = useAuth();
+
+  // --- state ---
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeOpen, setActiveOpen] = useState(true);
   const [expiredOpen, setExpiredOpen] = useState(false);
-  
-  // Mounted ref to prevent state updates after unmount
-  const mountedRef = useRef(true);
-  
-  // AbortController and loading refs for race condition prevention
-  const inFlight = useRef<AbortController | null>(null);
-  const loadingRef = useRef(false);
-  
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false;
+
+  // --- refs ---
+  const mountedRef = useRef(false);
+  const requestIdRef = useRef(0);
+
+  // Map server row to ConversationItem with access status already included
+  const mapRowToItem = useCallback((row: any): ConversationItem => {
+    // Debug: log raw row to see what fields we have
+    if (DEBUG) {
+      console.log('[ChatInbox] Raw row:', {
+        id: row.id,
+        last_message_preview: row.last_message_preview,
+        last_message_at: row.last_message_at,
+        has_access: row.has_access,
+        seconds_remaining: row.seconds_remaining
+      });
+    }
+    
+    const item = toConversationItem(row);
+    
+    // If toConversationItem didn't find a lastMessage but we have last_message_preview, create one
+    if (!item.lastMessage && row.last_message_preview) {
+      item.lastMessage = {
+        id: row.last_message_id ?? '',
+        sender_id: '', // Not available in preview
+        content: row.last_message_preview,
+        created_at: row.last_message_at ?? row.created_at,
+        creator_id: row.creator_id,
+        fan_id: row.fan_id,
+        is_locked: false,
+        ppv_price_cents: null,
+        media_id: null,
+        comped_by_creator: null,
+      };
+    }
+    
+    const secondsRemaining = Math.max(Number(row.seconds_remaining ?? 0), 0);
+    const daysRemaining = Math.floor(secondsRemaining / 86400);
+    const hoursRemaining = Math.floor((secondsRemaining % 86400) / 3600);
+    const minutesRemaining = Math.floor((secondsRemaining % 3600) / 60);
+    
+    item.accessStatus = {
+      hasAccess: !!row.has_access,
+      accessUntil: row.access_until ?? null,
+      isExpired: !row.has_access,
+      timeRemaining: secondsRemaining,
+      daysRemaining,
+      hoursRemaining,
+      minutesRemaining,
+      lastQualifyingPurchaseId: null,
     };
+    return item;
   }, []);
 
-  // Debug logging for component mount and auth state
-  DEBUG && console.log('🏠 ChatInbox component rendered:', { 
-    authLoading, 
-    authResolved,
-    hasProfile: !!currentProfile, 
-    profileId: currentProfile?.id,
-    loading 
-  });
-
-  // Safety timeout to prevent infinite loading (non-destructive)
+  // 1) Mount tracking
   useEffect(() => {
-    if (!loading) return;
-    const timeout = setTimeout(() => {
-      if (loading && inFlight.current) {
-        console.warn('⚠️ UI timeout: showing partial state');
-        setError(prev => prev ?? 'Taking longer than usual…');
-        // End the spinner; safe because real request has an AbortController
-        if (inFlight.current) inFlight.current = null;
-        loadingRef.current = false;
-        setLoading(false);
-      }
-    }, 10000); // 10 second timeout
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
-    return () => clearTimeout(timeout);
-  }, [loading]);
+  // 2) Seed from SSR immediately (access status already included!)
+  useEffect(() => {
+    if (!authResolved || !currentProfile?.id) return;
+    if (conversations.length > 0) return; // Already seeded
 
-  // Load conversations
-  const loadConversations = useCallback(async (
-    profile?: typeof currentProfile,
-    isAuthLoadingOverride?: boolean
-  ) => {
-    // Cancel previous run
-    inFlight.current?.abort();
-    const controller = new AbortController();
-    inFlight.current = controller;
+    // Match by profile ID (initialUserId is now profileId from server)
+    if (initialConversations.length && initialUserId === currentProfile.id) {
+      console.log('[ChatInbox] 🌱 SSR seed - raw data sample:', initialConversations[0]);
+      const items = initialConversations.map(mapRowToItem);
+      
+      // Write to cache BEFORE setting state
+      try {
+        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: currentProfile.id, items }));
+      } catch {}
+      
+      setConversations(items);
+      setIsReady(true);
+      console.log('🪄 Seeded from SSR:', items.length, 'conversations');
+    }
+  }, [authResolved, currentProfile?.id, initialConversations, initialUserId, conversations.length, mapRowToItem]);
 
-    if (loadingRef.current) return; // no overlap
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
-
-    const finish = () => {
-      if (inFlight.current === controller) inFlight.current = null;
-      loadingRef.current = false;
-      setLoading(false);
-    };
+  // 3) Background revalidate with request deduplication
+  const loadConversations = useCallback(async () => {
+    if (!authResolved || !currentProfile?.id) return;
+    
+    const thisRequestId = ++requestIdRef.current;
+    DEBUG && console.log(`[ChatInbox] 🔄 Starting revalidate (request #${thisRequestId})`);
 
     try {
-      // Gate on auth - wait for both loading and resolution
-      const currentAuthLoading = isAuthLoadingOverride ?? authLoading;
-      const currentUserProfile = profile ?? currentProfile;
+      // Fetch from view - single query with access status!
+      const { data, error } = await supabase
+        .from('conversations_inbox')
+        .select(`*,
+          creator:profiles!conversations_creator_id_fkey(*),
+          fan:profiles!conversations_fan_id_fkey(*)
+        `)
+        .or(`creator_id.eq.${currentProfile.id},fan_id.eq.${currentProfile.id}`)
+        .order('created_at', { ascending: false });
 
-      DEBUG && console.log('🔄 loadConversations called:', {
-        profileId: currentUserProfile?.id,
-        authLoading: currentAuthLoading,
-        authResolved,
-        hasProfile: !!currentUserProfile
-      });
-
-      // Wait for auth to be both not loading AND resolved (important for client-side navigation)
-      if ((currentAuthLoading || !authResolved) && !isAuthLoadingOverride) {
-        DEBUG && console.log('⏳ Auth still loading or not resolved, skipping...', { authLoading: currentAuthLoading, authResolved });
-        finish(); 
-        return;
-      }
-      if (!currentUserProfile?.id) {
-        DEBUG && console.log('❌ No profile found, stopping loading');
-        setError('You are not signed in.');
-        finish(); 
+      // Ignore stale responses
+      if (requestIdRef.current !== thisRequestId) {
+        DEBUG && console.log(`[ChatInbox] ⏭️ Ignoring stale response (request #${thisRequestId})`);
         return;
       }
 
-      // Use supabase from context instead of creating new client
+      if (error) throw error;
+      if (!mountedRef.current) return;
 
-      // Conversations query (with abort) - try optimized view first, fallback to basic query
-      DEBUG && console.log('🔍 Fetching conversations for user:', currentUserProfile.id);
-      
-      let conversationsData, conversationsError;
-      
-      // Try the optimized view first
+      const rows = data ?? [];
+      const items = rows.map(mapRowToItem);
+
+      // Write cache BEFORE state
       try {
-        const result = await supabase
-          .from('conversations_with_last_message')
-          .select('*')
-          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-          .order('last_message_at', { ascending: false })
-          .abortSignal(controller.signal);
-        
-        conversationsData = result.data;
-        conversationsError = result.error;
-        console.log('✅ Optimized view worked:', { count: conversationsData?.length || 0 });
-      } catch (error) {
-        console.warn('⚠️ Optimized view failed, using basic query:', error);
-        
-        // Fallback to basic conversations query
-        const result = await supabase
-          .from('conversations')
-          .select(`
-            *,
-            creator:profiles!conversations_creator_id_fkey(*),
-            fan:profiles!conversations_fan_id_fkey(*)
-          `)
-          .or(`creator_id.eq.${currentUserProfile.id},fan_id.eq.${currentUserProfile.id}`)
-          .order('created_at', { ascending: false })
-          .abortSignal(controller.signal);
-        
-        conversationsData = result.data;
-        conversationsError = result.error;
-        console.log('✅ Basic query result:', { count: conversationsData?.length || 0 });
-      }
+        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: currentProfile.id, items }));
+      } catch {}
 
-      console.log('📊 Final conversations data:', { 
-        data: conversationsData, 
-        error: conversationsError,
-        count: conversationsData?.length || 0,
-        userId: currentUserProfile.id,
-        userType: currentUserProfile.user_type
-      });
-
-      throwIfAborted(controller);
-      if (conversationsError) throw conversationsError;
-
-      if (!conversationsData?.length) { 
-        console.log('❌ No conversations found for this user');
-        
-        // Quick debug: check if ANY conversations exist in the database
-        const { data: allConversations } = await supabase
-          .from('conversations')
-          .select('id, creator_id, fan_id')
-          .limit(5);
-        
-        console.log('🔍 Debug - Total conversations in DB:', allConversations?.length || 0, allConversations);
-        console.log('🔍 Debug - Looking for user:', currentUserProfile.id, 'as creator or fan');
-        
-        setConversations([]); 
-        finish();
-        return;
-      }
-
-      // Access lookup — non-blocking if slow
-      let withAccess = conversationsData;
-      try {
-        console.log('🔍 Fetching chat access records for user:', currentUserProfile.id);
-        const accessResult = await timeout(
-          getUserChatAccess(supabase, currentUserProfile.id, currentUserProfile.user_type, { signal: controller.signal }),
-          3000
-        );
-        throwIfAborted(controller);
-
-        const map = new Map(accessResult.data?.map(a => [`${a.creator_id}|${a.fan_id}`, a]));
-        withAccess = conversationsData.map(conv => {
-          const a = map.get(`${conv.creator_id}|${conv.fan_id}`);
-          return { 
-            ...conv, 
-            accessStatus: a ? calculateAccessStatus(a) : {
-              hasAccess: false, 
-              accessUntil: null, 
-              isExpired: true, 
-              timeRemaining: 0,
-              daysRemaining: 0, 
-              hoursRemaining: 0, 
-              minutesRemaining: 0, 
-              lastQualifyingPurchaseId: null
-            }
-          };
-        });
-        console.log('✅ Applied access status to', withAccess.length, 'conversations');
-      } catch (e) {
-        if ((e as any).name === 'AbortError') throw e; // fall through to finally/finish
-        // Non-fatal: use fallback status
-        console.warn('⚠️ Chat access lookup skipped:', (e as Error).message);
-        withAccess = conversationsData.map(conv => ({
-          ...conv,
-          accessStatus: {
-            hasAccess: false, 
-            accessUntil: null, 
-            isExpired: true, 
-            timeRemaining: 0,
-            daysRemaining: 0, 
-            hoursRemaining: 0, 
-            minutesRemaining: 0, 
-            lastQualifyingPurchaseId: null
-          }
-        }));
-      }
-
-      throwIfAborted(controller);
-
-      // Transform and set (your existing transform)
-      console.log('🔄 Transforming conversations data');
-      const conversationItems: ConversationItem[] = withAccess.map((conv: any) => {
-        // Check if this is from the optimized view (has creator_id_join) or fallback (has creator object)
-        const isOptimizedView = conv.creator_id_join !== undefined;
-        
-        return {
-          id: conv.id,
-          creatorId: conv.creator_id,
-          fanId: conv.fan_id,
-          creator: isOptimizedView ? {
-            id: conv.creator_id_join,
-            email: conv.creator_email,
-            display_name: conv.creator_display_name,
-            user_type: conv.creator_user_type,
-            profile_picture_url: conv.creator_ppu
-          } as Profile : conv.creator,
-          fan: isOptimizedView ? {
-            id: conv.fan_id_join,
-            email: conv.fan_email,
-            display_name: conv.fan_display_name,
-            user_type: conv.fan_user_type,
-            profile_picture_url: conv.fan_ppu
-          } as Profile : conv.fan,
-          lastMessage: (isOptimizedView && conv.last_message_id) ? {
-            id: conv.last_message_id,
-            sender_id: conv.last_message_sender_id,
-            content: conv.last_message_content,
-            created_at: conv.last_message_created_at,
-            creator_id: conv.creator_id,
-            fan_id: conv.fan_id
-          } as ChatMessage : undefined,
-          lastMessageAt: (isOptimizedView ? conv.last_message_at : null) || conv.created_at,
-          unreadCount: 0, // TODO: Implement unread count
-          accessStatus: conv.accessStatus
-        };
-      });
-      
-      console.log('✅ Transformed conversations:', conversationItems.length);
-
-      console.log('🎯 Final conversation items to set:', conversationItems.length, conversationItems);
-      
-      if (mountedRef.current) {
-        setConversations(conversationItems);
-        console.log('✅ Conversations set in state');
-      } else {
-        console.warn('⚠️ Component unmounted, skipping setConversations');
-      }
-
-    } catch (e) {
-      if ((e as any).name !== 'AbortError') {
-        console.error('Error loading conversations:', e);
-        setError(e instanceof Error ? e.message : 'Failed to load conversations');
-      }
-    } finally {
-      finish(); // 🔑 guarantees loading + flags reset on all paths
+      if (!mountedRef.current) return;
+      setConversations(items);
+      setIsReady(true);
+      DEBUG && console.log('✅ Revalidate complete:', items.length, 'conversations');
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      console.error('[ChatInbox] Revalidate error:', e);
+      setError(e?.message ?? 'Failed to load conversations');
+      setIsReady(true); // fail-open
     }
-  }, [authLoading, authResolved, currentProfile, supabase]); // include deps; no infinite loops because we gate usage
+  }, [authResolved, currentProfile?.id, supabase, mapRowToItem]);
 
-  // Load conversations only when auth state changes
+  // 4) Trigger background revalidate when ready
   useEffect(() => {
-    let active = true;
+    if (!authResolved || !currentProfile?.id) return;
     
-    console.log('🔄 useEffect triggered:', { 
-      authLoading, 
-      hasProfile: !!currentProfile, 
-      profileId: currentProfile?.id,
-      loading 
-    });
-    
-    (async () => {
-      if (!authLoading && currentProfile?.id) {
-        console.log('✅ Conditions met, calling loadConversations');
-        await loadConversations(currentProfile, authLoading);
-      } else if (!authLoading && !currentProfile?.id) {
-        console.log('⚠️ No profile found, stopping loading');
-        if (active) setLoading(false);
-      } else {
-        console.log('⏳ Waiting for auth or profile...', { authLoading, profileId: currentProfile?.id });
-      }
-    })();
-    
-    return () => { active = false; };
-  }, [authLoading, currentProfile?.id]); // Remove loadConversations from dependencies to prevent loops
+    DEBUG && console.log('[ChatInbox] Triggering background revalidate');
+    loadConversations();
+  }, [authResolved, currentProfile?.id, loadConversations]);
 
-  // Filter conversations based on search
+  // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery.trim()) return true;
-
     const query = searchQuery.toLowerCase();
     const otherProfile = currentProfile?.id === conv.creatorId ? conv.fan : conv.creator;
     const searchText = [
       otherProfile.display_name,
       otherProfile.email,
       conv.lastMessage?.content
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase();
-
+    ].filter(Boolean).join(' ').toLowerCase();
     return searchText.includes(query);
   });
 
-  // Group conversations by access status
-  const activeConversations = filteredConversations.filter(
-    (conv) => conv.accessStatus?.hasAccess
-  );
-  const expiredConversations = filteredConversations.filter(
-    (conv) => !conv.accessStatus?.hasAccess
-  );
+  // Group by access
+  const activeConversations = filteredConversations.filter(c => c.accessStatus?.hasAccess);
+  const expiredConversations = filteredConversations.filter(c => !c.accessStatus?.hasAccess);
 
-  // Show loading while auth is loading
-  if (authLoading) {
+  // 4) render branch: fail-open on conversations present
+  const ready = isReady || conversations.length > 0;
+  if (authLoading || !authResolved) {
+    return (
+      <div className={`flex items-center justify-center h-full ${className}`}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  if (!ready) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -381,14 +211,50 @@ export function ChatInbox({
     );
   }
 
-  if (!currentProfile) {
+  // Show error
+  if (error && conversations.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-full ${className}`}>
-        <p className="text-muted-foreground">Please sign in to view your conversations</p>
+      <div className={`flex flex-col items-center justify-center h-full ${className} p-4`}>
+        <p className="text-red-600 mb-2">Failed to load conversations</p>
+        <p className="text-gray-500 text-sm">{error}</p>
       </div>
     );
   }
 
+  // Show empty state
+  if (filteredConversations.length === 0) {
+    return (
+      <div className={`flex flex-col h-full bg-white ${className}`}>
+        <div className="p-3">
+          <input
+            type="search"
+            placeholder="Search chats or creators…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border px-3 py-2 typ-body-sm outline-none focus:ring-2 focus:ring-black/10"
+          />
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-sm p-4">
+            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="font-semibold mb-2">
+              {searchQuery ? 'No matching conversations' : 'No chats yet'}
+            </h3>
+            <p className="text-gray-500 typ-body-sm">
+              {searchQuery
+                ? 'Try adjusting your search terms'
+                : currentProfile?.user_type === 'CREATOR'
+                ? 'Conversations will appear here when fans with chat access message you.'
+                : 'You can start conversations with creators once you have chat access.'
+              }
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show conversations!
   return (
     <div className={`flex flex-col h-full bg-white ${className}`}>
       {/* Search */}
@@ -402,138 +268,84 @@ export function ChatInbox({
         />
       </div>
 
-      {/* Collapsible Sections */}
+      {/* Conversations */}
       <div className="flex-1 overflow-auto px-2 nice-scrollbar">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-          </div>
-        ) : error ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <p className="text-red-600 typ-body-sm mb-2">Failed to load conversations</p>
-              <p className="text-gray-500 typ-caption mb-4">{error}</p>
-              <button
-                onClick={() => {
-                  console.log('🔄 Try Again clicked:', { profileId: currentProfile?.id, authLoading });
-                  loadConversations(currentProfile, /* isAuthLoadingOverride */ false);
-                }}
-                className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          </div>
-        ) : filteredConversations.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center max-w-sm">
-              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="font-semibold mb-2">
-                {searchQuery ? 'No matching conversations' : 'No chats yet'}
-              </h3>
-              <p className="text-gray-500 typ-body-sm mb-4">
-                {searchQuery
-                  ? 'Try adjusting your search terms'
-                  : currentProfile.user_type === 'CREATOR'
-                  ? 'Conversations will appear here when fans with chat access message you.'
-                  : 'You can start conversations with creators once you have chat access.'
-                }
-              </p>
-              {!searchQuery && currentProfile.user_type === 'FAN' && (
-                <div className="space-y-2">
-                  <p className="typ-caption text-gray-500">
-                    To get chat access, you need to make qualifying purchases from creators.
-                  </p>
-                  <button
-                    onClick={() => window.location.href = '/'}
-                    className="px-4 py-2 typ-body-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
-                  >
-                    Browse Creators
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Active Chats */}
-            {activeConversations.length > 0 && (
-              <section className="border-b">
-                <button 
-                  className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
-                  onClick={() => setActiveOpen(!activeOpen)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="typ-ui font-semibold text-gray-900">Active Chats</span>
-                    <span className="typ-caption rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">{activeConversations.length}</span>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${activeOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {activeOpen && (
-                  <div className="pb-2">
-                    <ul className="space-y-1">
-                      {activeConversations.map((conversation) => (
-                        <li key={conversation.id}>
-                          <ConversationListItem
-                            conversation={conversation}
-                            currentProfile={currentProfile}
-                            isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
-                            onClick={() =>
-                              onSelectConversation?.(
-                                conversation.creatorId,
-                                conversation.fanId,
-                                conversation.creator,
-                                conversation.fan
-                              )
-                            }
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </section>
+        {/* Active Chats */}
+        {activeConversations.length > 0 && (
+          <section className="border-b">
+            <button 
+              className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
+              onClick={() => setActiveOpen(!activeOpen)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="typ-ui font-semibold text-gray-900">Active Chats</span>
+                <span className="typ-caption rounded-full bg-gray-100 px-2 py-0.5 text-gray-700">{activeConversations.length}</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${activeOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {activeOpen && (
+              <div className="pb-2">
+                <ul className="space-y-1">
+                  {activeConversations.map((conversation) => (
+                    <li key={conversation.id}>
+                      <ConversationListItem
+                        conversation={conversation}
+                        currentProfile={currentProfile!}
+                        isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
+                        onClick={() =>
+                          onSelectConversation?.(
+                            conversation.creatorId,
+                            conversation.fanId,
+                            conversation.creator,
+                            conversation.fan
+                          )
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
+          </section>
+        )}
 
-            {/* Expired Access */}
-            {expiredConversations.length > 0 && (
-              <section className="border-b">
-                <button 
-                  className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
-                  onClick={() => setExpiredOpen(!expiredOpen)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="typ-ui font-semibold text-gray-900">Expired Access</span>
-                    <span className="typ-caption rounded-full border px-2 py-0.5 text-gray-700">{expiredConversations.length}</span>
-                  </div>
-                  <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${expiredOpen ? 'rotate-180' : ''}`} />
-                </button>
-                {expiredOpen && (
-                  <div className="pb-2">
-                    <ul className="space-y-1">
-                      {expiredConversations.map((conversation) => (
-                        <li key={conversation.id}>
-                          <ConversationListItem
-                            conversation={conversation}
-                            currentProfile={currentProfile}
-                            isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
-                            onClick={() =>
-                              onSelectConversation?.(
-                                conversation.creatorId,
-                                conversation.fanId,
-                                conversation.creator,
-                                conversation.fan
-                              )
-                            }
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </section>
+        {/* Expired Access */}
+        {expiredConversations.length > 0 && (
+          <section className="border-b">
+            <button 
+              className="w-full flex items-center justify-between px-3 py-3 hover:bg-gray-50 text-left"
+              onClick={() => setExpiredOpen(!expiredOpen)}
+            >
+              <div className="flex items-center gap-2">
+                <span className="typ-ui font-semibold text-gray-900">Expired Access</span>
+                <span className="typ-caption rounded-full border px-2 py-0.5 text-gray-700">{expiredConversations.length}</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform text-gray-600 ${expiredOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {expiredOpen && (
+              <div className="pb-2">
+                <ul className="space-y-1">
+                  {expiredConversations.map((conversation) => (
+                    <li key={conversation.id}>
+                      <ConversationListItem
+                        conversation={conversation}
+                        currentProfile={currentProfile!}
+                        isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
+                        onClick={() =>
+                          onSelectConversation?.(
+                            conversation.creatorId,
+                            conversation.fanId,
+                            conversation.creator,
+                            conversation.fan
+                          )
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </>
+          </section>
         )}
       </div>
     </div>
@@ -587,7 +399,6 @@ function ConversationListItem({
             alt={otherProfile.display_name || otherProfile.email}
             className="h-8 w-8 rounded-full object-cover"
             onError={(e) => {
-              // Fallback to initials if image fails to load
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
               const parent = target.parentElement;

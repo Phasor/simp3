@@ -4,6 +4,8 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import ProfileClient from './ProfileClient';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function ProfilePage() {
   if (!FLAGS.SERVER_AUTH_GATE) {
