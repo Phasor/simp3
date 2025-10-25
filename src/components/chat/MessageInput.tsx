@@ -56,29 +56,29 @@ export const MessageInput = memo(function MessageInput({
   const canSend = message.trim().length > 0 && !sending && !disabled;
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-1.5 md:gap-2 ${className}`}>
       <button 
         type="button"
-        className="rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
+        className="rounded-xl border px-2 py-2 md:px-3 text-sm hover:bg-gray-50 flex-shrink-0"
         title="Add attachment"
       >
         <Plus className="h-4 w-4" />
       </button>
       
-      <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-2">
+      <form onSubmit={handleSubmit} className="flex-1 flex items-center gap-1.5 md:gap-2 min-w-0">
         <input
           type="text"
           value={message}
           onChange={handleChange}
           placeholder={disabled ? 'Chat access required to send messages' : placeholder}
           disabled={disabled || sending}
-          className="flex-1 rounded-xl border px-4 py-2 outline-none focus:ring-2 focus:ring-black/10"
+          className="flex-1 min-w-0 rounded-xl border px-3 py-2 md:px-4 text-sm outline-none focus:ring-2 focus:ring-black/10"
         />
         
         <button
           type="submit"
           disabled={!canSend}
-          className="rounded-xl bg-black text-white px-4 py-2 text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-xl bg-black text-white px-3 py-2 md:px-4 text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 whitespace-nowrap"
         >
           {sending ? '...' : 'Send'}
         </button>

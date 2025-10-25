@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
+import { FLAGS } from '@/lib/flags';
+import { getServerSupabase } from '@/lib/supabase/server';
 import { Toaster } from "react-hot-toast";
 import ConditionalNavigation from "@/components/ConditionalNavigation";
 import ConditionalFooter from "@/components/ConditionalFooter";
 import "./globals.css";
+
+export const runtime = 'nodejs';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,17 +30,34 @@ export const metadata: Metadata = {
   description: "Connect with creators through exclusive chat experiences",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let initialSession = null;
+  
+  // Always try to get session from server for better hydration
+  try {
+    const supabase = await getServerSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    initialSession = session;
+    console.log('[Layout] SSR session:', { 
+      hasSession: !!session, 
+      userId: session?.user?.id,
+      serverAuthGate: FLAGS.SERVER_AUTH_GATE 
+    });
+  } catch (error) {
+    console.warn('[Layout] Failed to get server session:', error);
+    // Continue with null session
+  }
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
-        <AuthProvider>
+        <AuthProvider initialSession={initialSession}>
           <ConditionalNavigation title="simp3" />
           <main className="flex-1">
             {children}

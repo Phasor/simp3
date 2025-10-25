@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Prepare update data
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     
     if (displayName !== undefined) {
       updateData.display_name = displayName.trim()

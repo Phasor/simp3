@@ -159,15 +159,15 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
           </div>
         </div>
 
-        {/* About section */}
-        {creator.about_text && (
+        {/* About section - Temporarily disabled until about_text field is added to database */}
+        {/* {creator.about_text && (
           <section className="mt-8 max-w-3xl mx-auto px-4">
             <h2 className="typ-h3 text-slate-900 mb-4 text-center">About</h2>
             <p className="typ-body-lg text-slate-700 leading-relaxed whitespace-pre-wrap text-justify">
               {creator.about_text}
             </p>
           </section>
-        )}
+        )} */}
 
         {/* Offer and CTA */}
         <section className="mt-8 bg-white border border-slate-200 rounded-2xl shadow p-6">
@@ -223,7 +223,7 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
             <strong>{creator.display_name || 'this creator'}</strong>
           </p>
           <p className="typ-caption text-slate-500 mt-2 italic">
-            "She replies fast and is super friendly!" — fan review
+            &quot;She replies fast and is super friendly!&quot; — fan review
           </p>
         </section>
       </main>

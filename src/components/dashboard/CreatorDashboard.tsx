@@ -86,7 +86,7 @@ export default function CreatorDashboard({ creatorHandle, displayName }: Creator
             Welcome back, {displayName}!
           </h1>
           <p className="typ-body text-slate-600">
-            Here's how your creator profile is performing
+            Here&apos;s how your creator profile is performing
           </p>
         </div>
 

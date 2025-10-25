@@ -1,15 +1,19 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/database'
+import { useWarmChatInbox } from '@/lib/hooks/useWarmChatInbox'
+
+const DEBUG = process.env.NEXT_PUBLIC_DEBUG === '1';
 
 interface AuthContextType {
   user: User | null
   session: Session | null
   profile: Profile | null
   loading: boolean
+  resolved: boolean
   supabase: ReturnType<typeof createClient>
   isCreator: boolean
   isFan: boolean
@@ -19,17 +23,47 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
+interface AuthProviderProps {
+  children: React.ReactNode
+  initialSession?: Session | null
+}
+
+export function AuthProvider({ children, initialSession = null }: AuthProviderProps) {
+  // 👇 derive from initialSession right away
+  const [session, setSession] = useState<Session | null>(initialSession)
+  const [user, setUser] = useState<User | null>(initialSession?.user ?? null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  
+  // If we already have a session from the server, we are NOT loading
+  const [loading, setLoading] = useState<boolean>(!initialSession)
+  const [resolved, setResolved] = useState<boolean>(!!initialSession)
   
   // Memoize the Supabase client to prevent multiple instances
   const supabase = useMemo(() => createClient(), [])
 
-  const fetchProfile = useMemo(() => async (userId: string) => {
-    console.log('🔍 Fetching profile for user:', userId);
+  // Instance tracking for debugging
+  const instanceId = useMemo(() => Math.random().toString(36).slice(2), []);
+  
+  // Warm chat inbox cache after user is authenticated
+  useWarmChatInbox(user?.id);
+  
+  useEffect(() => {
+    console.log('[AuthProvider] mounted instance', instanceId, { hasInitial: !!initialSession, loading, resolved });
+  }, [instanceId, initialSession, loading, resolved]);
+
+  // Watchdog: log state changes
+  useEffect(() => {
+    console.log('[AuthProvider] state change', { 
+      hasUser: !!user, 
+      profileId: profile?.id, 
+      loading, 
+      resolved,
+      instanceId 
+    });
+  }, [user, profile?.id, loading, resolved, instanceId]);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    DEBUG && console.log('🔍 Fetching profile for user:', userId);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -38,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (error) {
-        console.log('❌ Profile fetch error:', error);
+        DEBUG && console.log('❌ Profile fetch error:', error);
         // Don't log "not found" errors as they're expected during signup
         if (error.code !== 'PGRST116') {
           console.error('Error fetching profile:', error)
@@ -46,109 +80,129 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null
       }
 
-      console.log('✅ Profile fetched successfully:', data);
-      return data
+      DEBUG && console.log('✅ Profile fetched successfully:', data);
+      return data as Profile
     } catch (error) {
       console.error('Error fetching profile:', error)
       return null
     }
   }, [supabase])
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) return
     const profileData = await fetchProfile(user.id)
     setProfile(profileData)
-  }
+  }, [user, fetchProfile])
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    console.log('[AuthContext] 🚪 signOut called');
     try {
-      // Use the server-side signout route for proper session cleanup
-      const response = await fetch('/auth/signout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to sign out');
-      }
-      
-      // The server route will handle the redirect, but we can also clear local state
-      setUser(null);
+      console.log('[AuthContext] 🔑 Calling supabase.auth.signOut()...');
+      const result = await supabase.auth.signOut();
+      console.log('[AuthContext] 📋 signOut result:', result);
+      console.log('[AuthContext] ✅ Supabase signOut complete');
+      // Let RSC read the cleared cookies on next navigation/refresh
       setSession(null);
+      setUser(null);
       setProfile(null);
+      setResolved(true);
+      setLoading(false);
+      console.log('[AuthContext] 🏁 Redirecting to /login');
+      window.location.href = '/login';
     } catch (error) {
-      console.error('Error in signOut:', error);
+      console.error('[AuthContext] ❌ Error in signOut:', error);
       throw error;
     }
-  }
+  }, [supabase])
 
   useEffect(() => {
-    console.log('🔐 AuthContext initializing...');
+    DEBUG && console.log('🔐 AuthProvider initializing...', { hasInitialSession: !!initialSession, loading, resolved });
 
-    let isActive = true;
+    let active = true;
+    let watchdogTimer: NodeJS.Timeout | null = null;
 
-    const timeout = (ms: number) =>
-      new Promise<never>((_, rej) => setTimeout(() => rej(new Error('AUTH_INIT_TIMEOUT')), ms));
+    // Watchdog: force resolution after 2 seconds if still stuck
+    watchdogTimer = setTimeout(() => {
+      if (active && !resolved) {
+        console.warn('[AuthProvider] ⚠️ Watchdog forcing resolved after 2s timeout');
+        setResolved(true);
+        setLoading(false);
+      }
+    }, 2000);
 
     (async () => {
+      // Case A: server already hydrated us with a session
+      if (initialSession?.user) {
+        DEBUG && console.log('📋 Using initial session:', { userId: initialSession.user.id });
+        const p = await fetchProfile(initialSession.user.id);
+        if (!active) return;
+        setProfile(p);
+        DEBUG && console.log('👤 Initial profile set from server session:', p);
+        // we were already resolved = true and loading = false
+        if (watchdogTimer) clearTimeout(watchdogTimer);
+        return;
+      }
+
+      // Case B: no session yet → resolve it on the client once
       try {
-        // Race getSession with a 10s watchdog so UI never blocks forever
-        const { data: { session } } = await Promise.race([
-          supabase.auth.getSession(),
-          timeout(10000),
-        ]);
+        DEBUG && console.log('📋 Getting session from client...');
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!active) return;
 
-        if (!isActive) return;
-
-        console.log('📋 Initial session:', { hasSession: !!session, userId: session?.user?.id });
+        DEBUG && console.log('📋 Initial session from client:', { hasSession: !!session, userId: session?.user?.id });
         setSession(session ?? null);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          const profileData = await fetchProfile(session.user.id);
-          if (!isActive) return;
-          console.log('👤 Initial profile set:', profileData);
-          setProfile(profileData);
+          const p = await fetchProfile(session.user.id);
+          if (!active) return;
+          DEBUG && console.log('👤 Initial profile set:', p);
+          setProfile(p);
         }
       } catch (e) {
-        // If we timed out or errored, don't immediately clear auth state
-        // The onAuthStateChange listener will handle the actual auth state
-        console.warn('Auth init fallback (continuing without session):', (e as Error).message);
-        console.log('⏳ Waiting for onAuthStateChange to handle auth state...');
+        console.warn('Auth init error:', (e as Error).message);
       } finally {
-        if (isActive) setLoading(false);
-        console.log('✅ Auth loading complete');
+        if (active) {
+          setResolved(true);
+          setLoading(false);
+          if (watchdogTimer) clearTimeout(watchdogTimer);
+          DEBUG && console.log('✅ Auth loading complete');
+        }
       }
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!isActive) return;
-      console.log('🔄 Auth state changed:', { hasSession: !!session, userId: session?.user?.id });
+      if (!active) return;
+      DEBUG && console.log('🔄 Auth state changed:', { hasSession: !!session, userId: session?.user?.id });
       setSession(session ?? null);
       setUser(session?.user ?? null);
 
       if (session?.user) {
         const profileData = await fetchProfile(session.user.id);
-        if (!isActive) return;
-        console.log('👤 Profile updated:', profileData);
+        if (!active) return;
+        DEBUG && console.log('👤 Profile updated:', profileData);
         setProfile(profileData);
       } else {
         setProfile(null);
       }
       setLoading(false);
+      setResolved(true);
     });
 
     return () => {
-      isActive = false;
+      active = false;
+      if (watchdogTimer) clearTimeout(watchdogTimer);
       subscription.unsubscribe();
     };
-  }, [supabase.auth, fetchProfile])
+  }, [supabase.auth, fetchProfile, initialSession, resolved])
 
   const value = {
     user,
     session,
     profile,
     loading,
+    resolved,
     supabase,
     isCreator: profile?.user_type === 'CREATOR',
     isFan: profile?.user_type === 'FAN',

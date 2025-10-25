@@ -138,12 +138,15 @@ interface UseUserChatAccessReturn {
  * Hook for getting all chat access records for the current user
  */
 export function useUserChatAccess(): UseUserChatAccessReturn {
-  const { profile } = useAuth();
+  const { profile, supabase, resolved, loading: authLoading } = useAuth();
   const [chatAccess, setChatAccess] = useState<ChatAccess[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchChatAccess = useCallback(async () => {
+    // Gate on auth readiness; avoids firing during hydration
+    if (authLoading || !resolved) return;
+    
     if (!profile) {
       setLoading(false);
       return;
@@ -153,7 +156,7 @@ export function useUserChatAccess(): UseUserChatAccessReturn {
       setLoading(true);
       setError(null);
 
-      const result = await getUserChatAccess(profile.id, profile.user_type);
+      const result = await getUserChatAccess(supabase, profile.id, profile.user_type);
       
       if (result.error) {
         setError(result.error);
@@ -166,7 +169,7 @@ export function useUserChatAccess(): UseUserChatAccessReturn {
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [supabase, authLoading, resolved, profile]);
 
   const refreshChatAccess = useCallback(async () => {
     await fetchChatAccess();

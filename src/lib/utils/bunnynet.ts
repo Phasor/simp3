@@ -221,6 +221,10 @@ export async function uploadToBunnyStream(
   title: string
 ): Promise<{ success: boolean; videoId?: string; error?: string }> {
   try {
+    if (!BUNNY_STREAM_API_KEY) {
+      throw new Error('Missing BUNNY_STREAM_API_KEY');
+    }
+
     const headers = {
       'AccessKey': BUNNY_STREAM_API_KEY,
       'Content-Type': 'application/json',

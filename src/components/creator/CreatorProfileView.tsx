@@ -28,6 +28,25 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
   const { user, profile: currentProfile } = useAuth();
   const router = useRouter();
   
+  // Form state for editing - initialize before any conditional returns
+  const [loading, setLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [copiedLanding, setCopiedLanding] = useState(false);
+  
+  const [displayName, setDisplayName] = useState(creator.display_name || '');
+  const [email, setEmail] = useState(creator.email || '');
+  const [profilePictureUrl, setProfilePictureUrl] = useState(creator.profile_picture_url || '');
+  const [bannerImageUrl, setBannerImageUrl] = useState(creator.banner_image_url || '');
+  const [aboutText, setAboutText] = useState(''); // TODO: Add about_text field to database
+  const [minSpendCents, setMinSpendCents] = useState(chatRules?.min_spend_cents || 2000);
+  const [accessDays, setAccessDays] = useState(chatRules?.access_days || 30);
+
+  const minSpendAmount = minSpendCents / 100;
+  
+  // Generate landing page URL
+  const landingPageUrl = `https://simp3.app/creator/${creator.id}/landing`;
+  
   // CRITICAL SECURITY CHECK: Only allow creators to access their own profile settings
   if (!currentProfile || currentProfile.id !== creator.id || currentProfile.user_type !== 'CREATOR') {
     // Redirect unauthorized users to the public landing page instead
@@ -40,25 +59,6 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
       </div>
     );
   }
-  
-  const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [copiedLanding, setCopiedLanding] = useState(false);
-  
-  // Form state for editing
-  const [displayName, setDisplayName] = useState(creator.display_name || '');
-  const [email, setEmail] = useState(creator.email || '');
-  const [profilePictureUrl, setProfilePictureUrl] = useState(creator.profile_picture_url || '');
-  const [bannerImageUrl, setBannerImageUrl] = useState(creator.banner_image_url || '');
-  const [aboutText, setAboutText] = useState(creator.about_text || '');
-  const [minSpendCents, setMinSpendCents] = useState(chatRules?.min_spend_cents || 2000);
-  const [accessDays, setAccessDays] = useState(chatRules?.access_days || 30);
-
-  const minSpendAmount = minSpendCents / 100;
-  
-  // Generate landing page URL
-  const landingPageUrl = `https://simp3.app/creator/${creator.id}/landing`;
 
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,7 +199,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     setEmail(creator.email || '');
     setProfilePictureUrl(creator.profile_picture_url || '');
     setBannerImageUrl(creator.banner_image_url || '');
-    setAboutText(creator.about_text || '');
+    setAboutText(''); // TODO: Add about_text field to database
     setMinSpendCents(chatRules?.min_spend_cents || 2000);
     setAccessDays(chatRules?.access_days || 30);
   };

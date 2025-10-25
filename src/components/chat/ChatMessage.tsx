@@ -11,7 +11,7 @@ interface ChatMessageProps {
   className?: string;
 }
 
-export const ChatMessage = memo(function ChatMessage({
+export const ChatMessageComponent = memo(function ChatMessageComponent({
   message,
   sender,
   isCurrentUser,

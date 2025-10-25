@@ -1,6 +1,10 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getServerSupabase } from '@/lib/supabase/server';
+import { FLAGS } from '@/lib/flags';
 import { CreatorProfileView } from '@/components/creator/CreatorProfileView';
+
+export const runtime = 'nodejs';
 
 interface CreatorPageProps {
   params: Promise<{ id: string }>;
@@ -8,14 +12,28 @@ interface CreatorPageProps {
 
 export default async function CreatorPage({ params }: CreatorPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  // CRITICAL SECURITY CHECK: Verify the current user is the creator
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
   
-  if (!user || userError) {
-    // Redirect unauthenticated users to login
-    redirect('/login');
+  // Use flag-guarded server auth or fallback to existing logic
+  let supabase, user, userError;
+  
+  if (FLAGS.SERVER_AUTH_GATE) {
+    supabase = await getServerSupabase();
+    
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      redirect(`/login?next=/creator/${id}`);
+    }
+    user = session.user;
+    userError = null;
+  } else {
+    supabase = await createClient();
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+    userError = result.error;
+    
+    if (!user || userError) {
+      redirect('/login');
+    }
   }
 
   // Get current user's profile

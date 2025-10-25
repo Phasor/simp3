@@ -86,8 +86,20 @@ export default async function HomePage() {
     ?.map(creator => {
       const monthlyEarnings = creator.chat_access_creator
         ?.reduce((total, access) => {
-          if (access.purchases && new Date(access.purchases.created_at) >= thirtyDaysAgo) {
-            return total + (access.purchases.amount_cents || 0);
+          if (access.purchases && Array.isArray(access.purchases)) {
+            // Handle array case
+            return total + access.purchases.reduce((sum: number, p: { created_at: string; amount_cents: number }) => {
+              if (new Date(p.created_at) >= thirtyDaysAgo) {
+                return sum + (p.amount_cents || 0);
+              }
+              return sum;
+            }, 0);
+          } else if (access.purchases && typeof access.purchases === 'object') {
+            // Handle single object case
+            const purchase = access.purchases as { created_at: string; amount_cents: number };
+            if (new Date(purchase.created_at) >= thirtyDaysAgo) {
+              return total + (purchase.amount_cents || 0);
+            }
           }
           return total;
         }, 0) || 0;
@@ -140,7 +152,7 @@ export default async function HomePage() {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow p-8 text-center">
-              <p className="typ-body text-slate-500 mb-4">You don't have access to any Creators yet, check out trending Creators below!</p>
+              <p className="typ-body text-slate-500 mb-4">You don&apos;t have access to any Creators yet, check out trending Creators below!</p>
             </div>
           )}
         </section>
