@@ -72,11 +72,25 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
     setIsMobileMenuOpen(false);
+    
     try {
+      // Set flag to prevent other components from interfering
+      localStorage.setItem('isSigningOut', 'true');
+      
+      // Use AuthContext's signOut function - this handles both client and server cleanup
       await signOut();
+      
+      // Clear any localStorage items
+      localStorage.removeItem('selectedUserType');
+      localStorage.removeItem('isSigningOut');
+      
+      // Redirect to login page using window.location for a full page refresh
       window.location.href = '/login';
+      
     } catch (error) {
       console.error('Logout error:', error);
+      localStorage.removeItem('isSigningOut');
+      alert('Error logging out. Please try again.');
     } finally {
       setIsLoggingOut(false);
     }
