@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Menu, X, LayoutDashboard, User, LogOut, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
@@ -40,7 +40,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   const [isMobile, setIsMobile] = useState(false);
   const [showInbox, setShowInbox] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const selectedKey = useMemo(
@@ -71,7 +70,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   // Handle logout
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
-    setIsMobileMenuOpen(false);
     
     try {
       // Set flag to prevent other components from interfering
@@ -95,11 +93,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
       setIsLoggingOut(false);
     }
   }, [signOut]);
-
-  const toggleMobileMenu = useCallback(() => {
-    setIsMobileMenuOpen((prev) => !prev);
-  }, []);
-  const closeMobileMenu = useCallback(() => setIsMobileMenuOpen(false), []);
 
   // Load profiles
   const loadProfiles = useCallback(async (creatorId: string, fanId: string) => {
@@ -212,59 +205,23 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   if (isMobile) {
     return (
       <>
-        <div className={`h-full ${className} relative`}>
-          <div className="sticky top-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-end">
-            <button
-              onClick={toggleMobileMenu}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
-
-          {isMobileMenuOpen && (
-            <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-40">
-              <nav className="px-6 py-4 space-y-4" onClick={closeMobileMenu}>
-                <Link href="/" className="flex items-center gap-3 text-sm">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Link>
-                <Link
-                  href={profileHref}
-                  prefetch={false}
-                  className="flex items-center gap-3 text-sm"
-                  onClick={closeMobileMenu}
-                >
-                  <User className="h-4 w-4" />
-                  Profile
-                </Link>
-                <button onClick={handleLogout} disabled={isLoggingOut} className="flex items-center gap-3 text-sm text-rose-600">
-                  <LogOut className="h-4 w-4" />
-                  {isLoggingOut ? 'Logging out...' : 'Logout'}
-                </button>
-              </nav>
-            </div>
+        <div className={`h-full ${className}`}>
+          {showInbox ? (
+            <ChatInbox 
+              selectedConversationId={selectedConversationId} 
+              onSelectConversation={handleSelectConversation}
+              initialConversations={initialConversations}
+              initialUserId={initialUserId}
+            />
+          ) : (
+            <ChatContainer
+              creatorId={selectedCreatorId || undefined}
+              fanId={selectedFanId || undefined}
+              creatorProfile={creatorProfile || undefined}
+              fanProfile={fanProfile || undefined}
+              onBack={handleBackToInbox}
+            />
           )}
-
-          <div className="h-full">
-            {showInbox ? (
-              <ChatInbox 
-                selectedConversationId={selectedConversationId} 
-                onSelectConversation={handleSelectConversation}
-                initialConversations={initialConversations}
-                initialUserId={initialUserId}
-              />
-            ) : (
-              <ChatContainer
-                creatorId={selectedCreatorId || undefined}
-                fanId={selectedFanId || undefined}
-                creatorProfile={creatorProfile || undefined}
-                fanProfile={fanProfile || undefined}
-                onBack={handleBackToInbox}
-              />
-            )}
-          </div>
         </div>
 
         {showWelcome && <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />}

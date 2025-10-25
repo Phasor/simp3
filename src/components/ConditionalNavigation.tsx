@@ -76,9 +76,88 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
     router.push('/');
   };
 
-  // On chat page: don't show any navigation
+  // On chat page: show minimal navigation for mobile
   if (isOnChatPage) {
-    return null;
+    return (
+      <header className="md:hidden border-b bg-white relative">
+        <div className="px-4 py-3 flex items-center justify-between">
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+            onClick={handleLogoClick}
+          >
+            <div className="w-6 h-6 rounded-lg bg-black"></div>
+            <span className="font-semibold text-sm">{title}</span>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="p-2 rounded-lg hover:bg-gray-100"
+            onClick={toggleMobileMenu}
+            aria-label="Toggle menu"
+          >
+            {isMobileMenuOpen ? (
+              <X size={16} strokeWidth={2} />
+            ) : (
+              <Menu size={16} strokeWidth={2} />
+            )}
+          </button>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-full left-0 right-0 bg-white border-b shadow-lg z-50">
+            <nav className="px-6 py-4 space-y-4">
+              {user && (
+                <>
+                  <Link 
+                    href="/" 
+                    className="block text-sm hover:text-primary transition-colors"
+                    onClick={closeMobileMenu}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link 
+                    href="/chat"
+                    prefetch
+                    className="block text-sm hover:text-primary transition-colors"
+                    onClick={closeMobileMenu}
+                  >
+                    Chat
+                  </Link>
+                  <Link 
+                    href={profile?.user_type === 'CREATOR' && profile.id ? `/creator/${profile.id}` : '/profile'} 
+                    prefetch={false}
+                    className="block text-sm hover:text-primary transition-colors"
+                    onClick={closeMobileMenu}
+                  >
+                    Profile
+                  </Link>
+                  <button 
+                    className="block w-full text-left text-sm bg-gray-100 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                    onClick={() => {
+                      handleLogout();
+                      closeMobileMenu();
+                    }}
+                    disabled={isLoggingOut}
+                  >
+                    {isLoggingOut ? 'Logging out...' : 'Logout'}
+                  </button>
+                </>
+              )}
+              {!authLoading && !user && (
+                <Link 
+                  href="/signup" 
+                  className="block text-sm hover:text-primary transition-colors"
+                  onClick={closeMobileMenu}
+                >
+                  Sign Up Free
+                </Link>
+              )}
+            </nav>
+          </div>
+        )}
+      </header>
+    );
   }
 
   // On all other pages: show full navbar
