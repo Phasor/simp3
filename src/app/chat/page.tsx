@@ -65,7 +65,7 @@ export default async function ChatPage() {
   }
 
   return (
-    <div className="h-full bg-gray-50 dark:bg-gray-900">
+    <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
       <ChatApp initialConversations={initialConversations} initialUserId={profileId} />
       <ClientProbe />
     </div>

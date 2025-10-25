@@ -205,7 +205,7 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   if (isMobile) {
     return (
       <>
-        <div className={`h-full ${className}`}>
+        <div className={`flex flex-col h-full ${className}`}>
           {showInbox ? (
             <ChatInbox 
               selectedConversationId={selectedConversationId} 

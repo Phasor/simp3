@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { MessageList } from './ChatMessage';
 import { MessageInput } from './MessageInput';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
-import { TypingIndicator, OnlineIndicator, PresenceAvatar } from './TypingIndicator';
+import { TypingIndicator } from './TypingIndicator';
 import { useChatAccess } from '@/lib/hooks/useChatAccess';
 import { useRealtimeChat } from '@/lib/hooks/useRealtimeChat';
 import { useTypingIndicator } from '@/lib/hooks/useTypingIndicator';
@@ -40,58 +40,83 @@ export function ChatThread({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sendingMessage, setSendingMessage] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const didInitialScrollRef = useRef(false);
   const isBackfillingRef = useRef(true);
+  const [stickToBottom, setStickToBottom] = useState(true);
+
+  // NEW: measure footer so we can pad the scroll area correctly
+  const footerRef = useRef<HTMLDivElement>(null);
+  const [footerH, setFooterH] = useState(0);
 
   // Determine which profile to show in header
   const otherProfile = currentProfile?.id === creatorId ? fanProfile : creatorProfile;
   const isCreator = currentProfile?.user_type === 'CREATOR';
-  
-  // Use database-generated conversation ID (will be set after first message)
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  
-  // Auth readiness guard
-  const authReady = !!currentProfile?.id;
-  
-  // Fallback to deterministic naming for initial connection
 
-  // Scroll to bottom function - container-based to prevent window scrolling
-  const scrollToBottom = useCallback(() => {
-    const el = messagesContainerRef.current;
-    if (!el) return;
-    // ensure we run after layout paints
-    requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const authReady = !!currentProfile?.id;
+
+  // Robust scroll to bottom: use both container math and sentinel for iOS quirks
+  const scrollToBottom = useCallback((smooth: boolean = true) => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const target = container.scrollHeight - container.clientHeight;
+      if (smooth) {
+        container.scrollTo({ top: target + 1, behavior: 'smooth' });
+      } else {
+        container.scrollTop = target + 1;
+      }
+    }
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? 'smooth' : 'auto',
+      block: 'end',
     });
   }, []);
 
-  // Realtime integration with improved features
+  // Track if the user is near the bottom (allow for footer height)
+  const isNearBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    const threshold = Math.max(80, footerH); // include footer in tolerance
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+  }, [footerH]);
+
+  const handleScroll = useCallback(() => {
+    setStickToBottom(isNearBottom());
+  }, [isNearBottom]);
+
+  // Measure footer height (and react to keyboard/viewport changes)
+  useEffect(() => {
+    const el = footerRef.current;
+    if (!el) return;
+    const setH = () => setFooterH(el.getBoundingClientRect().height || 0);
+    setH();
+    const ro = new ResizeObserver(setH);
+    ro.observe(el);
+    window.addEventListener('resize', setH);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', setH);
+    };
+  }, []);
+
+  // Realtime integration
   const { error: realtimeError, reconnect } = useRealtimeChat({
     creatorId,
     fanId,
     currentUserId: currentProfile?.id || '',
     accessStatus,
-    conversationId: conversationId || undefined, // Only use real conversation ID
-    // Use postgres_changes for secure, durable message delivery (Option A - public channels)
+    conversationId: conversationId || undefined,
     usePostgresChanges: true,
     onNewMessage: useCallback((newMessage: ChatMessage) => {
-      console.log('📨 New message received in chat');
-      
-      // Generate conversation_id from the message if we don't have it yet
       if (!conversationId) {
         const messageConversationId = `${newMessage.creator_id}|${newMessage.fan_id}`;
         setConversationId(messageConversationId);
       }
-      
       setMessages(prev => {
-        // Check if message already exists (avoid duplicates)
-        const exists = prev.some(msg => msg.id === newMessage.id);
-        if (exists) return prev;
-        
-        // Add new message with optimized sorting
+        if (prev.some(msg => msg.id === newMessage.id)) return prev;
         const last = prev[prev.length - 1];
         if (!last || new Date(newMessage.created_at) >= new Date(last.created_at)) {
           return [...prev, newMessage];
@@ -103,38 +128,25 @@ export function ChatThread({
       });
     }, [conversationId]),
     onConnectionChange: useCallback((isConnected: boolean) => {
-      console.log('🔗 Chat connection status:', isConnected ? 'connected' : 'disconnected');
-      
-      // Only backfill on initial connection, not on every reconnection
-      // This prevents excessive API calls from unstable connections
       if (isConnected && messages.length === 0) {
-        console.log('🔄 Initial connection - fetching recent messages');
-        fetchMessages(creatorId, fanId, { 
-          limit: 20
-        }).then(response => {
-          if (response.messages.length > 0) {
-            setMessages(prev => {
-              const newMessages = response.messages.filter(
-                newMsg => !prev.some(existingMsg => existingMsg.id === newMsg.id)
-              );
-              return [...prev, ...newMessages].sort(
-                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-              );
-            });
-          }
-        }).catch(error => {
-          console.error('Failed to backfill messages:', error);
-        });
+        fetchMessages(creatorId, fanId, { limit: 20 })
+          .then(response => {
+            if (response.messages.length > 0) {
+              setMessages(prev => {
+                const newMessages = response.messages.filter(
+                  m => !prev.some(p => p.id === m.id)
+                );
+                return [...prev, ...newMessages].sort(
+                  (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                );
+              });
+            }
+          })
+          .catch(err => console.error('Failed to backfill messages:', err));
       }
     }, [creatorId, fanId, messages.length]),
-    onAccessExpired: useCallback(() => {
-      console.log('⚠️ Chat access expired, refreshing access status');
-      // Could show a toast notification here
-      // The useChatAccess hook will automatically refresh and detect the change
-    }, [])
+    onAccessExpired: useCallback(() => {}, [])
   });
-
-  // Typing and presence guards
 
   // Typing indicators
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator({
@@ -143,13 +155,11 @@ export function ChatThread({
     enabled: !!conversationId
   });
 
-  // Offline sync and online status
+  // Online status
   const { isOnline: connectionOnline } = useOfflineSync({
     conversationId: conversationId || `${creatorId}|${fanId}`,
     enabled: !!conversationId
   });
-
-  // Connection health monitoring
 
   // Profiles lookup
   const profiles: Record<string, Profile> = {
@@ -157,20 +167,16 @@ export function ChatThread({
     [fanId]: fanProfile
   };
 
-  // Load messages from API
+  // Load messages
   const loadMessages = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
       const response = await fetchMessages(creatorId, fanId, { limit: 50 });
       setMessages(response.messages);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load messages';
-      
-      // Handle authorization errors more gracefully (don't log as errors since they're expected)
       if (errorMessage.includes('Not authorized') || errorMessage.includes('authorized')) {
-        console.log('🔒 Message access denied (expected for unauthorized users)');
         setError('unauthorized');
       } else {
         console.error('Error loading messages:', err);
@@ -181,19 +187,14 @@ export function ChatThread({
     }
   }, [creatorId, fanId]);
 
-  // Load messages on component mount
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
 
-  // Mark when initial loading is complete
   useEffect(() => {
-    if (!loading) {
-      isBackfillingRef.current = false;
-    }
+    if (!loading) isBackfillingRef.current = false;
   }, [loading]);
 
-  // Set conversationId from existing messages after initial load
   useEffect(() => {
     if (!conversationId && messages.length > 0) {
       const firstMessage = messages[0];
@@ -204,79 +205,79 @@ export function ChatThread({
     }
   }, [messages, conversationId]);
 
-  // Poll for conversationId when it's missing (for realtime bootstrap)
   useEffect(() => {
-    // Since chat_messages table doesn't have conversation_id, don't poll for it
-    // Use the deterministic conversation ID instead
     if (!conversationId && authReady) {
-      const deterministicId = generateConversationId(creatorId, fanId);
-      console.log('🔗 Using deterministic conversation ID:', deterministicId);
-      setConversationId(deterministicId);
+      setConversationId(generateConversationId(creatorId, fanId));
     }
   }, [conversationId, creatorId, fanId, authReady]);
 
-  // Scroll to bottom when messages change
-  // - First load/backfill: jump instantly (no smooth) so there's no window scroll
-  // - New realtime/own message: smooth scroll
-  useEffect(() => {
-    if (!messages.length) return;
-
-    didInitialScrollRef.current = true;
-    scrollToBottom();
+  // FIRST PAINT: double rAF to ensure layout is settled (prevents short-scroll under footer)
+  useLayoutEffect(() => {
+    if (!didInitialScrollRef.current && messages.length > 0) {
+      didInitialScrollRef.current = true;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom(false);
+        });
+      });
+    }
   }, [messages.length, scrollToBottom]);
 
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!currentProfile || !accessStatus?.hasAccess) {
-      console.error('No access to send messages');
-      return;
+  // NEW MESSAGES: stay pinned only if user is near bottom
+  useEffect(() => {
+    if (!messages.length) return;
+    if (stickToBottom) {
+      requestAnimationFrame(() => scrollToBottom(true));
     }
+  }, [messages[messages.length - 1]?.id, stickToBottom, scrollToBottom]);
+
+  // CONTENT HEIGHT CHANGES: keep pinned when images/typing affect height
+  useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (stickToBottom) {
+        requestAnimationFrame(() => scrollToBottom(false));
+      }
+    });
+    const content = el.firstElementChild as HTMLElement | null;
+    if (content) ro.observe(content);
+    return () => ro.disconnect();
+  }, [stickToBottom, scrollToBottom]);
+
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!currentProfile || !accessStatus?.hasAccess) return;
+    setStickToBottom(true); // sending implies we want to be pinned
 
     let optimisticMessage: ChatMessage | null = null;
 
     try {
       setSendingMessage(true);
-
-      // Create optimistic message
       optimisticMessage = createOptimisticMessage({
         senderId: currentProfile.id,
         creatorId,
         fanId,
         content
       });
-
-      // Add optimistic message immediately
       setMessages(prev => [...prev, optimisticMessage!]);
 
-      // Send message to API
-      const result = await sendMessage({
-        creatorId,
-        fanId,
-        content
-      });
+      const result = await sendMessage({ creatorId, fanId, content });
 
       if (result.success && result.message) {
-        // Generate conversation_id from the response if we don't have it yet
         if (!conversationId) {
           const messageConversationId = `${result.message.creator_id}|${result.message.fan_id}`;
           setConversationId(messageConversationId);
         }
-        
-        // Replace optimistic message with real message using reference equality
-        // Also dedupe in case realtime insert arrived before API response
         setMessages(prev => {
           const withoutServerDupes = prev.filter(m => m.id !== result.message!.id);
-          return withoutServerDupes.map(m =>
-            m === optimisticMessage ? result.message! : m
-          );
+          return withoutServerDupes.map(m => (m === optimisticMessage ? result.message! : m));
         });
       } else {
-        // Remove optimistic message and show error using reference equality
         setMessages(prev => prev.filter(msg => msg !== optimisticMessage));
         console.error('Failed to send message:', result.error);
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      // Remove the optimistic message if it was added using reference equality
       if (optimisticMessage) {
         setMessages(prev => prev.filter(msg => msg !== optimisticMessage));
       }
@@ -288,7 +289,6 @@ export function ChatThread({
   const canSendMessages = accessStatus?.hasAccess && !accessLoading && authReady;
   const showAccessWarning = !accessLoading && !accessStatus?.hasAccess;
 
-  // Don't render until auth is ready
   if (!authReady) {
     return (
       <div className={`flex flex-col h-full bg-background ${className}`}>
@@ -299,68 +299,38 @@ export function ChatThread({
     );
   }
 
-  // Handle unauthorized access gracefully
   if (error === 'unauthorized') {
     return (
       <div className={`flex flex-col h-full bg-background ${className}`}>
-        {/* Header with back button */}
         <div className="mobile-sticky-header sticky top-0 z-10 flex items-center gap-3 px-4 py-2 border-b border-border bg-card/95 backdrop-blur-sm">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="p-1 hover:bg-accent rounded-md transition-colors"
-            >
+            <button onClick={onBack} className="p-1 hover:bg-accent rounded-md transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
           <h2 className="font-semibold text-sm">Conversation Not Available</h2>
         </div>
-
-        {/* Unauthorized message */}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle className="w-8 h-8 text-red-600" />
             </div>
-            
             <h2 className="text-xl font-semibold mb-2 text-foreground">Access Denied</h2>
             <p className="text-muted-foreground mb-6 leading-relaxed">
-              You don&apos;t have permission to view this conversation. This may be because:
+              You don&apos;t have permission to view this conversation.
             </p>
-            
-            <ul className="text-sm text-muted-foreground mb-6 space-y-2 text-left">
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full mt-2 flex-shrink-0"></span>
-                <span>You&apos;re not a participant in this conversation</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full mt-2 flex-shrink-0"></span>
-                <span>You don&apos;t have the required chat access</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full mt-2 flex-shrink-0"></span>
-                <span>The conversation link is invalid or expired</span>
-              </li>
-            </ul>
-
             <div className="space-y-3">
               <button
                 onClick={() => {
-                  const dashboardUrl = currentProfile?.user_type === 'CREATOR' 
-                    ? '/creator/dashboard' 
-                    : '/fan/dashboard';
+                  const dashboardUrl = currentProfile?.user_type === 'CREATOR' ? '/creator/dashboard' : '/fan/dashboard';
                   window.location.href = dashboardUrl;
                 }}
                 className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
               >
                 Go to Dashboard
               </button>
-              
               {onBack && (
-                <button
-                  onClick={onBack}
-                  className="w-full px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors"
-                >
+                <button onClick={onBack} className="w-full px-4 py-2 border border-border rounded-md hover:bg-accent transition-colors">
                   Back to Messages
                 </button>
               )}
@@ -372,19 +342,15 @@ export function ChatThread({
   }
 
   return (
-    <div className={`flex flex-col h-full bg-white overflow-hidden ${className}`}>
+    <div className={`flex flex-col h-full bg-white ${className}`}>
       {/* Header */}
-      <header className="h-14 border-b flex items-center justify-between px-6">
+      <header className="sticky top-0 z-20 h-14 border-b flex items-center justify-between px-4 md:px-6 bg-white flex-shrink-0">
         <div className="flex items-center gap-3">
           {onBack && (
-            <button
-              onClick={onBack}
-              className="p-1 hover:bg-gray-100 rounded-md transition-colors md:hidden"
-            >
+            <button onClick={onBack} className="p-1 hover:bg-gray-100 rounded-md transition-colors md:hidden">
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          
           <div className="h-8 w-8 rounded-full bg-gray-200 flex-shrink-0">
             {otherProfile.profile_picture_url && (
               <img
@@ -392,7 +358,6 @@ export function ChatThread({
                 alt={otherProfile.display_name || otherProfile.email}
                 className="h-8 w-8 rounded-full object-cover"
                 onError={(e) => {
-                  // Fallback to initials if image fails to load
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
                   const parent = target.parentElement;
@@ -403,36 +368,25 @@ export function ChatThread({
               />
             )}
           </div>
-          
-          <div>
-            <div className="font-medium leading-4">
-              {otherProfile.display_name || otherProfile.email}
-            </div>
-            <div className="text-xs text-gray-500 leading-4">
-              {connectionOnline ? 'Online' : 'Offline'}
-            </div>
+          <div className="min-w-0">
+            <div className="font-medium leading-4 truncate">{otherProfile.display_name || otherProfile.email}</div>
+            <div className="text-xs text-gray-500 leading-4">{connectionOnline ? 'Online' : 'Offline'}</div>
           </div>
         </div>
-        
-        <div className="text-xs text-gray-500">
-          {accessStatus && (
-            <ChatAccessStatusBadge status={accessStatus} />
-          )}
+        <div className="text-xs text-gray-500 flex-shrink-0">
+          {accessStatus && <ChatAccessStatusBadge status={accessStatus} />}
         </div>
       </header>
 
       {/* Access Warning */}
       {showAccessWarning && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2">
+        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 flex-shrink-0">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
               <p className="font-medium text-yellow-800">Chat access required</p>
               <p className="text-yellow-700">
-                {isCreator 
-                  ? 'This fan needs to make a qualifying purchase to send messages.'
-                  : 'Make a qualifying purchase to unlock messaging with this creator.'
-                }
+                {isCreator ? 'This fan needs to make a qualifying purchase to send messages.' : 'Make a qualifying purchase to unlock messaging with this creator.'}
               </p>
             </div>
           </div>
@@ -441,7 +395,7 @@ export function ChatThread({
 
       {/* Realtime Error Warning */}
       {realtimeError && accessStatus?.hasAccess && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-2">
+        <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex-shrink-0">
           <div className="flex items-start gap-2">
             <WifiOff className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm flex-1">
@@ -461,43 +415,45 @@ export function ChatThread({
       )}
 
       {/* Messages */}
-      <section 
+      <section
         ref={messagesContainerRef}
-        className="flex-1 overflow-auto p-8 bg-gray-50"
-        style={{ scrollBehavior: 'smooth' }}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 bg-gray-50"
       >
         <div className="max-w-3xl mx-auto space-y-4">
           <MessageList
             messages={messages}
-            profiles={profiles}
+            profiles={{ [creatorId]: creatorProfile, [fanId]: fanProfile }}
             currentUserId={currentProfile?.id || ''}
             loading={loading}
             error={error}
           />
-          <div ref={messagesEndRef} />
+          {/* Sentinel: add scroll margin so it clears the footer when scrolled into view */}
+          <div
+            ref={messagesEndRef}
+            aria-hidden
+            style={{ height: 1, scrollMarginBottom: footerH + 12 }}
+          />
+          {/* Dynamic spacer instead of hard-coded value */}
+          <div style={{ height: footerH + 8 }} />
         </div>
       </section>
 
       {/* Typing Indicators */}
-      <TypingIndicator 
-        typingUsers={typingUsers.filter(user => user.userId !== currentProfile?.id)}
-      />
+      <TypingIndicator typingUsers={typingUsers.filter(user => user.userId !== currentProfile?.id)} />
 
-      {/* Message Input Footer */}
-      <footer className="border-t px-6 py-3">
-        <div className="max-w-3xl mx-auto">
-          <MessageInput
-            onSendMessage={handleSendMessage}
-            disabled={!canSendMessages || sendingMessage}
-            placeholder={
-              !canSendMessages 
-                ? 'Chat access required to send messages'
-                : 'Type your message...'
-            }
-            onStartTyping={startTyping}
-            onStopTyping={stopTyping}
-          />
-        </div>
+      {/* Footer */}
+      <footer
+        ref={footerRef}
+        className="fixed md:relative bottom-0 left-0 right-0 border-t px-3 py-3 md:px-6 bg-white z-10 flex-shrink-0"
+      >
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          disabled={!canSendMessages || sendingMessage}
+          placeholder={!canSendMessages ? 'Chat access required to send messages' : 'Type your message...'}
+          onStartTyping={startTyping}
+          onStopTyping={stopTyping}
+        />
       </footer>
     </div>
   );

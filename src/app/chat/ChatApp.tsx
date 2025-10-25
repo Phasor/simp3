@@ -10,10 +10,12 @@ interface ChatAppProps {
 
 export default function ChatApp({ initialConversations, initialUserId }: ChatAppProps) {
   return (
-    <ResponsiveChatLayout 
-      initialConversations={initialConversations}
-      initialUserId={initialUserId}
-    />
+    <div className="flex-1 min-h-0">
+      <ResponsiveChatLayout 
+        initialConversations={initialConversations}
+        initialUserId={initialUserId}
+      />
+    </div>
   );
 }
 

@@ -79,7 +79,7 @@ export default function ConditionalNavigation({ title }: ConditionalNavigationPr
   // On chat page: show minimal navigation for mobile
   if (isOnChatPage) {
     return (
-      <header className="md:hidden border-b bg-white relative">
+      <header className="md:hidden sticky top-0 z-30 border-b bg-white">
         <div className="px-4 py-3 flex items-center justify-between">
           <div 
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
