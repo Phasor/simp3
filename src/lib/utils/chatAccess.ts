@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { ChatAccess, ChatRules } from '@/lib/types/database';
+import type { ChatAccess } from '@/lib/types/database';
+import type { ChatRules } from '@/lib/types/chat';
 
 export interface ChatAccessStatus {
   hasAccess: boolean;
@@ -384,6 +385,7 @@ function getDefaultChatRules(creatorId: string): ChatRules {
     access_window_days: 30,  // 30 days default
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    access_days: 30
+    access_days: 30,
+    time_unit: 'days'
   };
 }

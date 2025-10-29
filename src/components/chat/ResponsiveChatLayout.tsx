@@ -141,11 +141,24 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
     const urlCreator = searchParams.get('creator');
     const urlFan = searchParams.get('fan');
     const welcome = searchParams.get('welcome');
+    const newAccess = searchParams.get('newAccess');
 
     const urlKey = urlCreator && urlFan ? `${urlCreator}|${urlFan}` : null;
 
     if (urlKey && urlKey !== selectedKey) {
       handleSelectConversation(urlCreator!, urlFan!);
+      
+      // If coming from a fresh purchase, trigger a page reload after selection
+      // to ensure the conversation appears in the inbox
+      if (newAccess === 'true') {
+        // Clean up the URL parameter
+        const url = new URL(window.location.href);
+        url.searchParams.delete('newAccess');
+        window.history.replaceState({}, '', url.toString());
+        
+        // Force a router refresh to reload server data
+        router.refresh();
+      }
     } else if (
       urlCreator &&
       currentProfile?.user_type === 'FAN' &&
@@ -157,7 +170,7 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
     if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
       setShowWelcome(true);
     }
-  }, [searchParams, currentProfile?.user_type, currentProfile?.id, selectedKey, handleSelectConversation]);
+  }, [searchParams, currentProfile?.user_type, currentProfile?.id, selectedKey, handleSelectConversation, router]);
 
   const handleBackToInbox = () => {
     setSelectedCreatorId(null);

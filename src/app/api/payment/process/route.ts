@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { createPaymentService } from '@/lib/services/paymentService';
+import { addTimeToDate, formatAccessDuration, isValidTimeUnit, type TimeUnit } from '@/lib/utils/timeUnits';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +17,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate amount and days are positive numbers
+    // Validate amount and time value are positive numbers
     const amountNum = parseFloat(amount);
-    const daysNum = parseInt(days);
+    const timeValue = parseInt(days); // Still called "days" in API for backward compatibility
     
     if (isNaN(amountNum) || amountNum <= 0) {
       return NextResponse.json(
@@ -27,9 +28,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (isNaN(daysNum) || daysNum <= 0) {
+    if (isNaN(timeValue) || timeValue <= 0) {
       return NextResponse.json(
-        { error: 'Invalid days' },
+        { error: 'Invalid time value' },
         { status: 400 }
       );
     }
@@ -88,16 +89,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get creator's chat rules to validate the payment amount
+    // Get creator's chat rules to validate the payment amount and time settings
     const { data: chatRules, error: rulesError } = await supabase
       .from('chat_rules')
-      .select('min_spend_cents, access_days')
+      .select('min_spend_cents, access_days, time_unit')
       .eq('creator_id', creatorId)
       .single();
 
     // Use default values if no chat rules found
     const requiredAmountCents = chatRules?.min_spend_cents || 10000; // Default $100
-    const requiredDays = chatRules?.access_days || 30; // Default 30 days
+    const requiredTimeValue = chatRules?.access_days || 30; // Default 30
+    const timeUnit: TimeUnit = chatRules?.time_unit && isValidTimeUnit(chatRules.time_unit) 
+      ? chatRules.time_unit 
+      : 'days'; // Default to days
     
     // Validate that the payment amount matches the creator's required amount
     const providedAmountCents = Math.round(amountNum * 100);
@@ -112,13 +116,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate that the access days match the creator's settings
-    if (daysNum !== requiredDays) {
+    // Validate that the access duration matches the creator's settings
+    if (timeValue !== requiredTimeValue) {
+      const durationLabel = formatAccessDuration(requiredTimeValue, timeUnit);
+      const providedLabel = formatAccessDuration(timeValue, timeUnit);
       return NextResponse.json(
         { 
-          error: `Invalid access duration. Required: ${requiredDays} days, provided: ${daysNum} days`,
-          requiredDays,
-          providedDays: daysNum
+          error: `Invalid access duration. Required: ${durationLabel}, provided: ${providedLabel}`,
+          requiredDays: requiredTimeValue, // Keep field name for backward compatibility
+          providedDays: timeValue
         },
         { status: 400 }
       );
@@ -129,12 +135,14 @@ export async function POST(request: NextRequest) {
       process.env.NODE_ENV === 'production' ? 'production' : 'development'
     );
 
+    const durationLabel = formatAccessDuration(timeValue, timeUnit);
+
     const paymentResult = await paymentService.processPayment({
       creatorId,
       fanId: profile.id,
       amountCents: requiredAmountCents, // Use validated amount from creator's chat rules
-      accessDays: daysNum,
-      description: `Chat access to ${creator.display_name} for ${daysNum} days`
+      accessDays: timeValue, // API still uses "accessDays" field for backward compatibility
+      description: `Chat access to ${creator.display_name} for ${durationLabel}`
     });
 
     if (!paymentResult.success) {
@@ -251,9 +259,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate access expiry
-    const accessUntil = new Date();
-    accessUntil.setDate(accessUntil.getDate() + daysNum);
+    // Calculate access expiry using time unit-aware helper
+    const accessUntil = addTimeToDate(new Date(), timeValue, timeUnit);
 
     // Grant or update chat access
     const { error: accessError } = await supabaseAdmin
@@ -298,7 +305,7 @@ export async function POST(request: NextRequest) {
       console.warn('⚠️ Conversation record creation failed, but chat access was granted successfully');
     }
 
-    console.log(`✅ Payment successful: Fan ${profile.id} purchased ${daysNum} days access to creator ${creatorId}`);
+    console.log(`✅ Payment successful: Fan ${profile.id} purchased ${durationLabel} access to creator ${creatorId}`);
 
     return NextResponse.json({
       success: true,

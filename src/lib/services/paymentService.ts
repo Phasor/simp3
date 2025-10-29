@@ -34,21 +34,11 @@ export class DummyPaymentProcessor implements PaymentProcessor {
     // Generate a fake transaction ID (prefixed with DUMMY for identification)
     const transactionId = `DUMMY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // For testing, we can simulate different scenarios
-    // 90% success rate for realistic testing
-    const shouldSucceed = Math.random() > 0.1;
-
-    if (shouldSucceed) {
-      return {
-        success: true,
-        transactionId
-      };
-    } else {
-      return {
-        success: false,
-        error: 'Payment declined - insufficient funds (simulated failure)'
-      };
-    }
+    // For testing: always succeed
+    return {
+      success: true,
+      transactionId
+    };
   }
 }
 

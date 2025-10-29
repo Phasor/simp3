@@ -124,6 +124,7 @@ export interface Database {
           created_at: string
           updated_at: string
           access_days: number | null
+          time_unit: 'minutes' | 'hours' | 'days'
         }
         Insert: {
           creator_id: string
@@ -132,6 +133,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           access_days?: number | null
+          time_unit?: 'minutes' | 'hours' | 'days'
         }
         Update: {
           creator_id?: string
@@ -140,6 +142,7 @@ export interface Database {
           created_at?: string
           updated_at?: string
           access_days?: number | null
+          time_unit?: 'minutes' | 'hours' | 'days'
         }
       }
       conversations: {

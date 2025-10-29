@@ -47,16 +47,20 @@ export async function generateMetadata({ params }: CreatorLandingPageProps) {
   // Get chat rules for pricing info
   const { data: chatRules } = await supabase
     .from('chat_rules')
-    .select('min_spend_cents, access_days')
+    .select('min_spend_cents, access_days, time_unit')
     .eq('creator_id', id)
     .single();
 
   const creatorName = creator?.display_name || 'Creator';
   const price = chatRules ? `$${chatRules.min_spend_cents / 100}` : '$100';
   const accessDays = chatRules?.access_days || 30;
+  const timeUnit = chatRules?.time_unit || 'days';
+  
+  // Format access duration for description
+  const accessLabel = `${accessDays} ${timeUnit}`;
   
   const title = `Chat with ${creatorName} · simp3`;
-  const description = `Get exclusive one-on-one access to chat, photos, and updates directly from ${creatorName}. ${accessDays} days access for ${price}. Limited spots available.`;
+  const description = `Get exclusive one-on-one access to chat, photos, and updates directly from ${creatorName}. ${accessLabel} access for ${price}. Limited spots available.`;
   
   // Use banner image if available, otherwise generate dynamic OG image
   let imageUrl: string;

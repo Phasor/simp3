@@ -1,6 +1,18 @@
 // Shared types for chat functionality
 import type { ChatAccessStatus } from '@/lib/utils/chatAccess';
 import type * as DB from '@/lib/types/database';
+import type { TimeUnit } from '@/lib/utils/timeUnits';
+
+// Chat rules with time unit support
+export interface ChatRules {
+  creator_id: string;
+  min_spend_cents: number;
+  access_days: number; // Despite the name, this is the time value in the unit specified by time_unit
+  access_window_days: number;
+  time_unit: TimeUnit;
+  created_at: string;
+  updated_at: string;
+}
 
 // What your UI ultimately needs
 export interface ConversationItem {

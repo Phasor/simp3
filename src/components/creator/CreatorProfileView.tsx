@@ -8,6 +8,15 @@ import type { Profile } from '@/lib/types/database';
 import { getProfilePictureUrl, getBannerImageUrl } from '@/lib/utils/bunnynet';
 import { BannerUpload } from '@/components/ui/BannerUpload';
 import toast from 'react-hot-toast';
+import { 
+  type TimeUnit, 
+  getAllTimeUnits, 
+  getTimeUnitLabel, 
+  formatAccessDuration,
+  getRecommendedTimeValues,
+  getMinTimeValue,
+  getMaxTimeValue
+} from '@/lib/utils/timeUnits';
 
 interface ChatRules {
   id: string;
@@ -15,6 +24,7 @@ interface ChatRules {
   min_spend_cents: number;
   access_days: number;
   access_window_days: number;
+  time_unit: TimeUnit;
   created_at: string;
   updated_at: string;
 }
@@ -41,6 +51,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
   const [aboutText, setAboutText] = useState(''); // TODO: Add about_text field to database
   const [minSpendCents, setMinSpendCents] = useState(chatRules?.min_spend_cents || 2000);
   const [accessDays, setAccessDays] = useState(chatRules?.access_days || 30);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>(chatRules?.time_unit || 'days');
 
   const minSpendAmount = minSpendCents / 100;
   
@@ -174,6 +185,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
         body: JSON.stringify({
           minSpendCents,
           accessDays,
+          timeUnit,
         }),
       });
 
@@ -202,6 +214,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
     setAboutText(''); // TODO: Add about_text field to database
     setMinSpendCents(chatRules?.min_spend_cents || 2000);
     setAccessDays(chatRules?.access_days || 30);
+    setTimeUnit(chatRules?.time_unit || 'days');
   };
 
   const handleCopyLandingPage = async () => {
@@ -317,7 +330,7 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
               <h2 className="typ-label">Chat Access & Pricing</h2>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="typ-caption block text-slate-500 mb-1">Price (USD)</label>
                   <div className="flex rounded-lg border border-slate-300 overflow-hidden">
@@ -335,16 +348,61 @@ export function CreatorProfileView({ creator, chatRules }: CreatorProfileViewPro
                   <p className="typ-caption text-slate-500 mt-1">Minimum price may apply.</p>
                 </div>
                 <div>
-                  <label className="typ-caption block text-slate-500 mb-1">Access Term</label>
+                  <label className="typ-caption block text-slate-500 mb-1">Time Unit</label>
+                  <select
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                    value={timeUnit}
+                    onChange={(e) => setTimeUnit(e.target.value as TimeUnit)}
+                  >
+                    {getAllTimeUnits().map((unit) => (
+                      <option key={unit} value={unit}>
+                        {getTimeUnitLabel(unit, true).charAt(0).toUpperCase() + getTimeUnitLabel(unit, true).slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="typ-caption text-slate-500 mt-1">Choose your time period</p>
+                </div>
+                <div>
+                  <label className="typ-caption block text-slate-500 mb-1">Access Duration</label>
                   <input 
                     type="number" 
-                    min="1" 
-                    max="365"
+                    min={getMinTimeValue(timeUnit)} 
+                    max={getMaxTimeValue(timeUnit)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={accessDays}
                     onChange={(e) => setAccessDays(parseInt(e.target.value || '1'))}
                   />
-                  <p className="typ-caption text-slate-500 mt-1">Days (1-365)</p>
+                  <p className="typ-caption text-slate-500 mt-1">
+                    {getTimeUnitLabel(timeUnit, true).charAt(0).toUpperCase() + getTimeUnitLabel(timeUnit, true).slice(1)} ({getMinTimeValue(timeUnit)}-{getMaxTimeValue(timeUnit)})
+                  </p>
+                </div>
+              </div>
+              
+              {/* Show preview of what fans will see */}
+              <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3">
+                <p className="typ-caption text-blue-700">
+                  <strong>Preview:</strong> Fans will pay <strong>${minSpendAmount}</strong> for <strong>{formatAccessDuration(accessDays, timeUnit)}</strong> of chat access
+                </p>
+              </div>
+              
+              {/* Quick presets based on time unit */}
+              <div>
+                <label className="typ-caption block text-slate-500 mb-2">Quick Presets</label>
+                <div className="flex flex-wrap gap-2">
+                  {getRecommendedTimeValues(timeUnit).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setAccessDays(value)}
+                      className={`px-3 py-1 text-xs rounded-md border transition-colors ${
+                        accessDays === value
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-slate-700 border-slate-300 hover:border-blue-400'
+                      }`}
+                    >
+                      {formatAccessDuration(value, timeUnit)}
+                    </button>
+                  ))}
                 </div>
               </div>
               

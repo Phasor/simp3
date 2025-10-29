@@ -14,15 +14,38 @@ export function ChatAccessStatusBadge({
 }: ChatAccessStatusProps) {
   const getStatusColor = () => {
     if (!status.hasAccess) return 'bg-red-100 text-black border-red-200';
-    if (status.daysRemaining && status.daysRemaining > 7) return 'bg-green-100 text-black border-green-200';
-    if (status.daysRemaining && status.daysRemaining > 1) return 'bg-yellow-100 text-black border-yellow-200';
+    
+    // For minute/hour-based access, use more granular checks
+    if (status.daysRemaining !== null && status.daysRemaining > 7) {
+      return 'bg-green-100 text-black border-green-200';
+    }
+    
+    if (status.daysRemaining !== null && status.daysRemaining > 1) {
+      return 'bg-yellow-100 text-black border-yellow-200';
+    }
+    
+    // Less than 1 day remaining
+    if (status.hoursRemaining !== null && status.hoursRemaining > 12) {
+      return 'bg-yellow-100 text-black border-yellow-200';
+    }
+    
     return 'bg-orange-100 text-black border-orange-200';
   };
 
   const getStatusIcon = () => {
     if (!status.hasAccess) return <XCircle className="w-4 h-4" />;
-    if (status.daysRemaining && status.daysRemaining > 7) return <CheckCircle className="w-4 h-4" />;
-    if (status.daysRemaining && status.daysRemaining > 1) return <AlertTriangle className="w-4 h-4" />;
+    
+    // More than 7 days
+    if (status.daysRemaining && status.daysRemaining > 7) {
+      return <CheckCircle className="w-4 h-4" />;
+    }
+    
+    // More than 1 day
+    if (status.daysRemaining && status.daysRemaining > 1) {
+      return <AlertTriangle className="w-4 h-4" />;
+    }
+    
+    // Less than 1 day - show clock for urgency
     return <Clock className="w-4 h-4" />;
   };
 
@@ -59,7 +82,11 @@ export function ChatAccessCard({
   onUpgrade, 
   className = '' 
 }: ChatAccessCardProps) {
-  const isExpiringSoon = status.hasAccess && status.daysRemaining !== null && status.daysRemaining <= 3;
+  // Check if expiring soon - use hours and minutes for more granular warning
+  const isExpiringSoon = status.hasAccess && (
+    (status.daysRemaining !== null && status.daysRemaining === 0 && status.hoursRemaining !== null && status.hoursRemaining <= 24) ||
+    (status.daysRemaining !== null && status.daysRemaining <= 1)
+  );
   
   return (
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CreditCard, Shield, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { getProfilePictureUrl } from '@/lib/utils/bunnynet';
+import { formatAccessDuration, type TimeUnit } from '@/lib/utils/timeUnits';
 
 interface CreatorInfo {
   id: string;
@@ -12,6 +13,7 @@ interface CreatorInfo {
   profile_picture_url: string | null;
   min_spend_cents?: number;
   access_days?: number;
+  time_unit?: TimeUnit;
 }
 
 export default function PaymentClient() {
@@ -26,6 +28,7 @@ export default function PaymentClient() {
   const [creatorInfo, setCreatorInfo] = useState<CreatorInfo | null>(null);
   const [actualPrice, setActualPrice] = useState<number | null>(null);
   const [actualDays, setActualDays] = useState<number | null>(null);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>('days');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,9 +59,11 @@ export default function PaymentClient() {
           // Use actual chat rules or defaults
           const price = rulesData.min_spend_cents ? rulesData.min_spend_cents / 100 : 100;
           const accessDays = rulesData.access_days || 30;
+          const unit = rulesData.time_unit || 'days';
           
           setActualPrice(price);
           setActualDays(accessDays);
+          setTimeUnit(unit);
           setLoading(false);
         })
         .catch(err => {
@@ -98,9 +103,9 @@ export default function PaymentClient() {
 
       if (data.success) {
         setSuccess(true);
-        // Redirect to chat after a brief success message
+        // Redirect to chat with a flag to indicate fresh purchase
         setTimeout(() => {
-          router.push(`/chat?creator=${creatorId}&fan=${profile?.id}`);
+          router.push(`/chat?creator=${creatorId}&fan=${profile?.id}&newAccess=true`);
         }, 2000);
       } else {
         throw new Error(data.error || 'Payment failed');
@@ -130,9 +135,9 @@ export default function PaymentClient() {
             onClick={() => router.back()}
             className="p-2 hover:bg-gray-200 rounded-full transition-colors"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
-          <h1 className="typ-h2">Get Chat Access</h1>
+          <h1 className="typ-h2 text-gray-900">Get Chat Access</h1>
         </div>
 
         {/* Creator Info */}
@@ -159,7 +164,7 @@ export default function PaymentClient() {
           <div className="space-y-3 mb-6">
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Access Duration</span>
-              <span className="font-medium">{actualDays || days} days</span>
+              <span className="font-medium">{actualDays ? formatAccessDuration(actualDays, timeUnit) : `${days} days`}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Price</span>
@@ -191,17 +196,17 @@ export default function PaymentClient() {
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="typ-body-sm">{error}</span>
+            <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-600" />
+              <span className="typ-body-sm text-red-900 font-medium">{error}</span>
             </div>
           )}
 
           {/* Success Message */}
           {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700">
-              <CheckCircle className="w-4 h-4 flex-shrink-0" />
-              <span className="typ-body-sm">Payment successful! Redirecting to chat...</span>
+            <div className="mb-4 p-3 bg-green-50 border border-green-300 rounded-lg flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 flex-shrink-0 text-green-600" />
+              <span className="typ-body-sm text-green-900 font-medium">Payment successful! Redirecting to chat...</span>
             </div>
           )}
 

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isValidTimeUnit, getMinTimeValue, getMaxTimeValue, type TimeUnit } from '@/lib/utils/timeUnits'
 
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { minSpendCents, accessDays } = body
+    const { minSpendCents, accessDays, timeUnit } = body
 
     if (minSpendCents === undefined || accessDays === undefined) {
       return NextResponse.json(
@@ -12,6 +13,9 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    // Validate time unit
+    const validatedTimeUnit: TimeUnit = timeUnit && isValidTimeUnit(timeUnit) ? timeUnit : 'days';
 
     // Validate values
     if (minSpendCents < 100 || minSpendCents > 100000) { // $1 to $1000
@@ -21,9 +25,12 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (accessDays < 1 || accessDays > 365) { // 1 day to 1 year
+    const minTime = getMinTimeValue(validatedTimeUnit);
+    const maxTime = getMaxTimeValue(validatedTimeUnit);
+    
+    if (accessDays < minTime || accessDays > maxTime) {
       return NextResponse.json(
-        { error: 'Access days must be between 1 and 365' },
+        { error: `Access duration must be between ${minTime} and ${maxTime} ${validatedTimeUnit}` },
         { status: 400 }
       )
     }
@@ -65,6 +72,7 @@ export async function PUT(request: NextRequest) {
         min_spend_cents: minSpendCents,
         access_days: accessDays,
         access_window_days: accessDays, // Keep these the same for now
+        time_unit: validatedTimeUnit,
         updated_at: new Date().toISOString()
       })
       .eq('creator_id', currentProfile.id) // Extra security check for updates

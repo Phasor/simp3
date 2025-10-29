@@ -64,7 +64,7 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
   // Fetch chat rules for this creator
   const { data: chatRules } = await supabase
     .from('chat_rules')
-    .select('*')
+    .select('id, creator_id, min_spend_cents, access_days, access_window_days, time_unit, created_at, updated_at')
     .eq('creator_id', id)
     .single();
 

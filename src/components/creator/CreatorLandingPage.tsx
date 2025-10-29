@@ -7,6 +7,7 @@ import type { Profile } from '@/lib/types/database';
 import { getProfilePictureUrl, getBannerImageUrl } from '@/lib/utils/bunnynet';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useChatAccess } from '@/lib/hooks/useChatAccess';
+import { formatAccessDuration, type TimeUnit } from '@/lib/utils/timeUnits';
 
 interface ChatRules {
   id: string;
@@ -14,6 +15,7 @@ interface ChatRules {
   min_spend_cents: number;
   access_days: number;
   access_window_days: number;
+  time_unit: TimeUnit;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +32,8 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
   const minSpendAmount = chatRules ? chatRules.min_spend_cents / 100 : 100;
   const accessDays = chatRules ? chatRules.access_days : 30;
+  const timeUnit: TimeUnit = chatRules?.time_unit || 'days';
+  const accessDuration = formatAccessDuration(accessDays, timeUnit);
 
   // Check chat access if user is logged in as a fan
   const shouldCheckAccess = user && profile && profile.user_type === 'FAN';
@@ -180,11 +184,11 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
           <div className="mt-6 flex flex-col sm:flex-row justify-center gap-4">
             <div className="rounded-xl border border-slate-200 px-6 py-4 bg-gradient-to-br from-slate-50 to-white">
               <p className="typ-caption text-slate-500">Price</p>
-              <p className="typ-h2 mt-1">${minSpendAmount}</p>
+              <p className="typ-h2 mt-1 text-gray-900">${minSpendAmount}</p>
             </div>
             <div className="rounded-xl border border-slate-200 px-6 py-4 bg-gradient-to-br from-slate-50 to-white">
               <p className="typ-caption text-slate-500">Access</p>
-              <p className="typ-h2 mt-1">{accessDays} days</p>
+              <p className="typ-h2 mt-1 text-gray-900">{accessDuration}</p>
             </div>
           </div>
 

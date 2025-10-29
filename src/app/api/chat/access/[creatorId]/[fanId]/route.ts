@@ -103,7 +103,8 @@ export async function GET(
       access_window_days: 30,  // 30 days default
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      access_days: 30
+      access_days: 30,
+      time_unit: 'days'
     };
 
     // Calculate access status

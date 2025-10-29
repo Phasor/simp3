@@ -347,7 +347,8 @@ export default function SignupPage() {
                 creator_id: profile.id,
                 min_spend_cents: chatPriceCents,
                 access_days: chatAccessDays,
-                access_window_days: 30
+                access_window_days: 30,
+                time_unit: 'days'
               }, { onConflict: 'creator_id' });
             console.log('✅ Chat rules created successfully');
           }

@@ -23,7 +23,8 @@ export async function GET(
           creator_id: creatorId,
           min_spend_cents: 10000, // $100 default
           access_days: 30,
-          access_window_days: 30
+          access_window_days: 30,
+          time_unit: 'days'
         });
       }
       
