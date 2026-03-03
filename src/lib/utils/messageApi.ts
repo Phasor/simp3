@@ -201,20 +201,6 @@ export function validateMessageContent(content: string): { valid: boolean; error
 }
 
 /**
- * Sanitize message content for display
- */
-export function sanitizeMessageContent(content: string): string {
-  // Basic HTML escaping
-  return content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .trim();
-}
-
-/**
  * Create optimistic message for immediate UI updates
  */
 export function createOptimisticMessage({
@@ -245,78 +231,3 @@ export function createOptimisticMessage({
   };
 }
 
-/**
- * Check if a message is optimistic (not yet persisted)
- */
-export function isOptimisticMessage(message: ChatMessage): boolean {
-  return message.id.startsWith('optimistic-');
-}
-
-/**
- * Format message content for display (handle line breaks, etc.)
- */
-export function formatMessageContent(content: string): string {
-  // Prefer CSS: white-space: pre-wrap; in the message bubble.
-  return content;
-}
-
-/**
- * Group messages by sender and time proximity
- */
-export function groupMessages(
-  messages: ChatMessage[],
-  maxGapMinutes: number = 5
-): Array<{
-  senderId: string;
-  messages: ChatMessage[];
-  timestamp: string;
-}> {
-  if (messages.length === 0) return [];
-  
-  const msgs = [...messages].sort(
-    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  );
-
-  const groups: Array<{
-    senderId: string;
-    messages: ChatMessage[];
-    timestamp: string;
-  }> = [];
-
-  let currentGroup: ChatMessage[] = [msgs[0]];
-  let currentSenderId = msgs[0].sender_id;
-
-  for (let i = 1; i < msgs.length; i++) {
-    const message = msgs[i];
-    const prevMessage = msgs[i - 1];
-    
-    const timeDiff = new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime();
-    const minutesDiff = timeDiff / (1000 * 60);
-    
-    // Same sender and within time gap
-    if (message.sender_id === currentSenderId && minutesDiff <= maxGapMinutes) {
-      currentGroup.push(message);
-    } else {
-      // Finish current group and start new one
-      groups.push({
-        senderId: currentSenderId,
-        messages: [...currentGroup],
-        timestamp: currentGroup[0].created_at
-      });
-      
-      currentGroup = [message];
-      currentSenderId = message.sender_id;
-    }
-  }
-  
-  // Add the last group
-  if (currentGroup.length > 0) {
-    groups.push({
-      senderId: currentSenderId,
-      messages: currentGroup,
-      timestamp: currentGroup[0].created_at
-    });
-  }
-  
-  return groups;
-}

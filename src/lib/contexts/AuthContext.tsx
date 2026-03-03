@@ -48,17 +48,17 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
   useWarmChatInbox(user?.id);
   
   useEffect(() => {
-    console.log('[AuthProvider] mounted instance', instanceId, { hasInitial: !!initialSession, loading, resolved });
+    DEBUG && console.log('[AuthProvider] mounted instance', instanceId, { hasInitial: !!initialSession, loading, resolved });
   }, [instanceId, initialSession, loading, resolved]);
 
   // Watchdog: log state changes
   useEffect(() => {
-    console.log('[AuthProvider] state change', { 
-      hasUser: !!user, 
-      profileId: profile?.id, 
-      loading, 
+    DEBUG && console.log('[AuthProvider] state change', {
+      hasUser: !!user,
+      profileId: profile?.id,
+      loading,
       resolved,
-      instanceId 
+      instanceId
     });
   }, [user, profile?.id, loading, resolved, instanceId]);
 
