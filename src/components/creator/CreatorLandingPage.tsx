@@ -68,10 +68,16 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
   const handleChatClick = () => {
     setLoading(true);
-    
-    // If user is not logged in, redirect to signup
-    if (!user || !profile) {
+
+    // If user is not authenticated at all, redirect to signup
+    if (!user) {
       router.push(`/signup?ref=${creator.id}&intent=chat`);
+      return;
+    }
+
+    // User is authenticated but profile hasn't loaded yet — wait
+    if (!profile) {
+      setLoading(false);
       return;
     }
 
@@ -131,10 +137,10 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
           {/* CTA Button above the fold */}
           <button
             onClick={handleChatClick}
-            disabled={loading || authLoading || accessLoading}
+            disabled={loading || authLoading || (!!user && !profile) || (!!shouldCheckAccess && accessLoading)}
             className="mt-4 flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 typ-ui"
           >
-            {(loading || authLoading || accessLoading) ? (
+            {(loading || authLoading || (!!user && !profile) || (!!shouldCheckAccess && accessLoading)) ? (
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
             ) : (
               <>
@@ -194,10 +200,10 @@ export function CreatorLandingPage({ creator, chatRules }: CreatorLandingPagePro
 
           <button 
             onClick={handleChatClick}
-            disabled={loading || authLoading || accessLoading}
+            disabled={loading || authLoading || (!!user && !profile) || (!!shouldCheckAccess && accessLoading)}
             className="mt-8 w-full sm:w-auto bg-indigo-600 text-white typ-body-lg px-10 py-3 rounded-full shadow hover:bg-indigo-500 active:scale-95 transition-transform disabled:opacity-50"
           >
-            {(loading || authLoading || accessLoading) ? (
+            {(loading || authLoading || (!!user && !profile) || (!!shouldCheckAccess && accessLoading)) ? (
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                 Loading...

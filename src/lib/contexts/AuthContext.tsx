@@ -95,25 +95,15 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
   }, [user, fetchProfile])
 
   const signOut = useCallback(async () => {
-    console.log('[AuthContext] 🚪 signOut called');
-    try {
-      console.log('[AuthContext] 🔑 Calling supabase.auth.signOut()...');
-      const result = await supabase.auth.signOut();
-      console.log('[AuthContext] 📋 signOut result:', result);
-      console.log('[AuthContext] ✅ Supabase signOut complete');
-      // Let RSC read the cleared cookies on next navigation/refresh
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setResolved(true);
-      setLoading(false);
-      console.log('[AuthContext] 🏁 Redirecting to /login');
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('[AuthContext] ❌ Error in signOut:', error);
-      throw error;
-    }
-  }, [supabase])
+    // Clear client state immediately for instant UI feedback
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setResolved(true);
+    setLoading(false);
+    // Navigate to server-side signout — it clears cookies properly then redirects to /login
+    window.location.href = '/auth/signout';
+  }, [])
 
   useEffect(() => {
     DEBUG && console.log('🔐 AuthProvider initializing...', { hasInitialSession: !!initialSession, loading, resolved });

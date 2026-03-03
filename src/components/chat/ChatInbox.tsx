@@ -1,16 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, MessageCircle, Crown, Heart, Clock, CheckCircle2, ChevronDown } from 'lucide-react';
+import { MessageCircle, ChevronDown } from 'lucide-react';
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
-import { OnlineIndicator, PresenceAvatar } from './TypingIndicator';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { ChatAccessStatus } from '@/lib/utils/chatAccess';
-import { getUserChatAccess, calculateAccessStatus } from '@/lib/utils/chatAccess';
 import { formatConversationTitle } from '@/lib/utils/conversationUtils';
-import { formatDistanceToNow } from 'date-fns';
-import type { Profile, ChatAccess, ChatMessage } from '@/lib/types/database';
+import type { Profile } from '@/lib/types/database';
 import type { ConversationItem, ConversationServer } from '@/lib/types/chat';
 import { toConversationItem } from '@/lib/types/chat';
 
@@ -32,7 +28,11 @@ export function ChatInbox({
   initialConversations = [],
   initialUserId,
 }: ChatInboxProps) {
-  const { user, profile: currentProfile, loading: authLoading, resolved: authResolved, supabase } = useAuth();
+  const { profile: currentProfile, loading: authLoading, resolved: authResolved, supabase } = useAuth();
+
+  // Use the server-provided profileId as an immediate fallback — avoids spinning
+  // while the async client-side profile fetch is in flight
+  const profileId = currentProfile?.id ?? initialUserId;
 
   // --- state ---
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -103,29 +103,29 @@ export function ChatInbox({
 
   // 2) Seed from SSR immediately (access status already included!)
   useEffect(() => {
-    if (!authResolved || !currentProfile?.id) return;
+    if (!authResolved || !profileId) return;
     if (conversations.length > 0) return; // Already seeded
 
-    // Match by profile ID (initialUserId is now profileId from server)
-    if (initialConversations.length && initialUserId === currentProfile.id) {
+    // initialConversations was fetched server-side for this user — seed immediately
+    if (initialConversations.length) {
       console.log('[ChatInbox] 🌱 SSR seed - raw data sample:', initialConversations[0]);
       const items = initialConversations.map(mapRowToItem);
-      
+
       // Write to cache BEFORE setting state
       try {
-        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: currentProfile.id, items }));
+        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: profileId, items }));
       } catch {}
-      
+
       setConversations(items);
       setIsReady(true);
       console.log('🪄 Seeded from SSR:', items.length, 'conversations');
     }
-  }, [authResolved, currentProfile?.id, initialConversations, initialUserId, conversations.length, mapRowToItem]);
+  }, [authResolved, profileId, initialConversations, conversations.length, mapRowToItem]);
 
   // 3) Background revalidate with request deduplication
   const loadConversations = useCallback(async () => {
-    if (!authResolved || !currentProfile?.id) return;
-    
+    if (!authResolved || !profileId) return;
+
     const thisRequestId = ++requestIdRef.current;
     DEBUG && console.log(`[ChatInbox] 🔄 Starting revalidate (request #${thisRequestId})`);
 
@@ -137,7 +137,7 @@ export function ChatInbox({
           creator:profiles!conversations_creator_id_fkey(*),
           fan:profiles!conversations_fan_id_fkey(*)
         `)
-        .or(`creator_id.eq.${currentProfile.id},fan_id.eq.${currentProfile.id}`)
+        .or(`creator_id.eq.${profileId},fan_id.eq.${profileId}`)
         .order('created_at', { ascending: false });
 
       // Ignore stale responses
@@ -154,7 +154,7 @@ export function ChatInbox({
 
       // Write cache BEFORE state
       try {
-        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: currentProfile.id, items }));
+        sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: profileId, items }));
       } catch {}
 
       if (!mountedRef.current) return;
@@ -167,21 +167,21 @@ export function ChatInbox({
       setError(e?.message ?? 'Failed to load conversations');
       setIsReady(true); // fail-open
     }
-  }, [authResolved, currentProfile?.id, supabase, mapRowToItem]);
+  }, [authResolved, profileId, supabase, mapRowToItem]);
 
   // 4) Trigger background revalidate when ready
   useEffect(() => {
-    if (!authResolved || !currentProfile?.id) return;
-    
+    if (!authResolved || !profileId) return;
+
     DEBUG && console.log('[ChatInbox] Triggering background revalidate');
     loadConversations();
-  }, [authResolved, currentProfile?.id, loadConversations]);
+  }, [authResolved, profileId, loadConversations]);
 
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
-    const otherProfile = currentProfile?.id === conv.creatorId ? conv.fan : conv.creator;
+    const otherProfile = profileId === conv.creatorId ? conv.fan : conv.creator;
     const searchText = [
       otherProfile.display_name,
       otherProfile.email,
@@ -290,7 +290,7 @@ export function ChatInbox({
                     <li key={conversation.id}>
                       <ConversationListItem
                         conversation={conversation}
-                        currentProfile={currentProfile!}
+                        currentProfileId={profileId ?? ''}
                         isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
                         onClick={() =>
                           onSelectConversation?.(
@@ -329,7 +329,7 @@ export function ChatInbox({
                     <li key={conversation.id}>
                       <ConversationListItem
                         conversation={conversation}
-                        currentProfile={currentProfile!}
+                        currentProfileId={profileId ?? ''}
                         isSelected={selectedConversationId === `${conversation.creatorId}|${conversation.fanId}`}
                         onClick={() =>
                           onSelectConversation?.(
@@ -354,23 +354,23 @@ export function ChatInbox({
 
 interface ConversationListItemProps {
   conversation: ConversationItem;
-  currentProfile: Profile;
+  currentProfileId: string;
   isSelected: boolean;
   onClick: () => void;
 }
 
 function ConversationListItem({
   conversation,
-  currentProfile,
+  currentProfileId,
   isSelected,
   onClick
 }: ConversationListItemProps) {
-  const otherProfile = currentProfile.id === conversation.creatorId 
-    ? conversation.fan 
+  const otherProfile = currentProfileId === conversation.creatorId
+    ? conversation.fan
     : conversation.creator;
 
   const conversationTitle = formatConversationTitle(
-    currentProfile.id,
+    currentProfileId,
     {
       id: conversation.creator.id,
       display_name: conversation.creator.display_name || undefined,
@@ -425,7 +425,7 @@ function ConversationListItem({
         </div>
         {conversation.lastMessage ? (
           <p className="truncate typ-caption text-gray-500">
-            {conversation.lastMessage.sender_id === currentProfile.id ? 'You: ' : ''}
+            {conversation.lastMessage.sender_id === currentProfileId ? 'You: ' : ''}
             {conversation.lastMessage.content}
           </p>
         ) : (

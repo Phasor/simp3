@@ -19,12 +19,12 @@ interface CreatorInfo {
 export default function PaymentClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, profile } = useAuth();
-  
+  const { user, profile, loading: authLoading } = useAuth();
+
   const creatorId = searchParams.get('creator');
   const amount = searchParams.get('amount');
   const days = searchParams.get('days');
-  
+
   const [creatorInfo, setCreatorInfo] = useState<CreatorInfo | null>(null);
   const [actualPrice, setActualPrice] = useState<number | null>(null);
   const [actualDays, setActualDays] = useState<number | null>(null);
@@ -35,6 +35,9 @@ export default function PaymentClient() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    // Wait for auth to resolve before redirecting
+    if (authLoading) return;
+
     // Redirect if not logged in
     if (!user || !profile) {
       router.push('/login');
@@ -71,7 +74,7 @@ export default function PaymentClient() {
           setLoading(false);
         });
     }
-  }, [user, profile, creatorId, router]);
+  }, [user, profile, authLoading, creatorId, router]);
 
   const handlePayment = async () => {
     if (!creatorId || actualPrice === null || actualDays === null) {

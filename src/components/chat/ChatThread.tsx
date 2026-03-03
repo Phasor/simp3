@@ -21,6 +21,7 @@ interface ChatThreadProps {
   fanId: string;
   creatorProfile: Profile;
   fanProfile: Profile;
+  currentProfileId?: string;
   onBack?: () => void;
   className?: string;
 }
@@ -30,10 +31,15 @@ export function ChatThread({
   fanId,
   creatorProfile,
   fanProfile,
+  currentProfileId: currentProfileIdProp,
   onBack,
   className = ''
 }: ChatThreadProps) {
   const { profile: currentProfile } = useAuth();
+
+  // Use context profile ID, falling back to the server-provided ID while profile loads
+  const currentProfileId = currentProfile?.id ?? currentProfileIdProp ?? '';
+
   const { accessStatus, loading: accessLoading } = useChatAccess({ creatorId, fanId });
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -52,11 +58,11 @@ export function ChatThread({
   const [footerH, setFooterH] = useState(0);
 
   // Determine which profile to show in header
-  const otherProfile = currentProfile?.id === creatorId ? fanProfile : creatorProfile;
+  const otherProfile = currentProfileId === creatorId ? fanProfile : creatorProfile;
   const isCreator = currentProfile?.user_type === 'CREATOR';
 
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const authReady = !!currentProfile?.id;
+  const authReady = !!currentProfileId;
 
   // Robust scroll to bottom: use both container math and sentinel for iOS quirks
   const scrollToBottom = useCallback((smooth: boolean = true) => {
@@ -106,7 +112,7 @@ export function ChatThread({
   const { error: realtimeError, reconnect } = useRealtimeChat({
     creatorId,
     fanId,
-    currentUserId: currentProfile?.id || '',
+    currentUserId: currentProfileId,
     accessStatus,
     conversationId: conversationId || undefined,
     usePostgresChanges: true,
@@ -151,7 +157,7 @@ export function ChatThread({
   // Typing indicators
   const { typingUsers, startTyping, stopTyping } = useTypingIndicator({
     conversationId: conversationId || `${creatorId}|${fanId}`,
-    currentUserId: currentProfile?.id || '',
+    currentUserId: currentProfileId,
     enabled: !!conversationId
   });
 
@@ -161,11 +167,6 @@ export function ChatThread({
     enabled: !!conversationId
   });
 
-  // Profiles lookup
-  const profiles: Record<string, Profile> = {
-    [creatorId]: creatorProfile,
-    [fanId]: fanProfile
-  };
 
   // Load messages
   const loadMessages = useCallback(async () => {
@@ -246,7 +247,7 @@ export function ChatThread({
   }, [stickToBottom, scrollToBottom]);
 
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!currentProfile || !accessStatus?.hasAccess) return;
+    if (!currentProfileId || !accessStatus?.hasAccess) return;
     setStickToBottom(true); // sending implies we want to be pinned
 
     let optimisticMessage: ChatMessage | null = null;
@@ -254,7 +255,7 @@ export function ChatThread({
     try {
       setSendingMessage(true);
       optimisticMessage = createOptimisticMessage({
-        senderId: currentProfile.id,
+        senderId: currentProfileId,
         creatorId,
         fanId,
         content
@@ -424,7 +425,7 @@ export function ChatThread({
           <MessageList
             messages={messages}
             profiles={{ [creatorId]: creatorProfile, [fanId]: fanProfile }}
-            currentUserId={currentProfile?.id || ''}
+            currentUserId={currentProfileId}
             loading={loading}
             error={error}
           />
@@ -440,7 +441,7 @@ export function ChatThread({
       </section>
 
       {/* Typing Indicators */}
-      <TypingIndicator typingUsers={typingUsers.filter(user => user.userId !== currentProfile?.id)} />
+      <TypingIndicator typingUsers={typingUsers.filter(user => user.userId !== currentProfileId)} />
 
       {/* Footer */}
       <footer

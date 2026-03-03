@@ -30,7 +30,7 @@ export function useChatAccess({
 }: UseChatAccessOptions): UseChatAccessReturn {
   const [accessStatus, setAccessStatus] = useState<ChatAccessStatus | null>(null);
   const [rules, setRules] = useState<ChatAccessValidationResult['rules']>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!(creatorId && fanId));
   const [error, setError] = useState<string | null>(null);
   const [timeUntilRefresh, setTimeUntilRefresh] = useState<number | null>(null);
   
@@ -110,12 +110,15 @@ export function useChatAccess({
     };
   }, [autoRefresh, refreshInterval, checkAccess, creatorId, fanId]);
 
-  // Initial check when IDs change
+  // Initial check when IDs change; reset loading when IDs not provided
   useEffect(() => {
     if (creatorId && fanId) {
       checkAccess();
+    } else {
+      setLoading(false);
+      setAccessStatus(null);
     }
-  }, [checkAccess]);
+  }, [checkAccess, creatorId, fanId]);
 
   return {
     accessStatus,

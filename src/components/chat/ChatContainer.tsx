@@ -9,6 +9,7 @@ interface ChatContainerProps {
   fanId?: string;
   creatorProfile?: Profile;
   fanProfile?: Profile;
+  currentProfileId?: string;
   onBack?: () => void;
   className?: string;
 }
@@ -18,6 +19,7 @@ export function ChatContainer({
   fanId,
   creatorProfile,
   fanProfile,
+  currentProfileId,
   onBack,
   className = ''
 }: ChatContainerProps) {
@@ -38,6 +40,7 @@ export function ChatContainer({
         fanId={fanId}
         creatorProfile={creatorProfile}
         fanProfile={fanProfile}
+        currentProfileId={currentProfileId}
         onBack={onBack}
       />
     </div>

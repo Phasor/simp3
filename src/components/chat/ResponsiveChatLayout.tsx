@@ -70,28 +70,8 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   // Handle logout
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
-    
-    try {
-      // Set flag to prevent other components from interfering
-      localStorage.setItem('isSigningOut', 'true');
-      
-      // Use AuthContext's signOut function - this handles both client and server cleanup
-      await signOut();
-      
-      // Clear any localStorage items
-      localStorage.removeItem('selectedUserType');
-      localStorage.removeItem('isSigningOut');
-      
-      // Redirect to login page using window.location for a full page refresh
-      window.location.href = '/login';
-      
-    } catch (error) {
-      console.error('Logout error:', error);
-      localStorage.removeItem('isSigningOut');
-      alert('Error logging out. Please try again.');
-    } finally {
-      setIsLoggingOut(false);
-    }
+    localStorage.removeItem('selectedUserType');
+    await signOut(); // navigates to /auth/signout which redirects to /login
   }, [signOut]);
 
   // Load profiles
@@ -147,17 +127,10 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
 
     if (urlKey && urlKey !== selectedKey) {
       handleSelectConversation(urlCreator!, urlFan!);
-      
-      // If coming from a fresh purchase, trigger a page reload after selection
-      // to ensure the conversation appears in the inbox
+
+      // If coming from a fresh purchase, clean up the URL without disrupting state
       if (newAccess === 'true') {
-        // Clean up the URL parameter
-        const url = new URL(window.location.href);
-        url.searchParams.delete('newAccess');
-        window.history.replaceState({}, '', url.toString());
-        
-        // Force a router refresh to reload server data
-        router.refresh();
+        router.replace(`/chat?creator=${urlCreator}&fan=${urlFan}`);
       }
     } else if (
       urlCreator &&
@@ -184,9 +157,20 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   const selectedConversationId =
     selectedCreatorId && selectedFanId ? `${selectedCreatorId}|${selectedFanId}` : undefined;
 
-  // Improved auth guards
-  // If user doesn't exist and we've resolved, show sign in
-  if (!authLoading && authResolved && !user) {
+  // Auth hasn't resolved yet — wait before rendering anything
+  if (!authResolved) {
+    return (
+      <div className={`flex items-center justify-center h-full ${className}`}>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your chat…</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth resolved but no user — show sign-in prompt
+  if (!user) {
     return (
       <div className={`flex items-center justify-center h-full ${className}`}>
         <div className="text-center">
@@ -197,18 +181,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
           >
             Sign In
           </button>
-        </div>
-      </div>
-    );
-  }
-
-  // If user exists but profile is still being hydrated, show loading
-  if (user && (!authResolved || !currentProfile)) {
-    return (
-      <div className={`flex items-center justify-center h-full ${className}`}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading your chat…</p>
         </div>
       </div>
     );
@@ -232,6 +204,7 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
               fanId={selectedFanId || undefined}
               creatorProfile={creatorProfile || undefined}
               fanProfile={fanProfile || undefined}
+              currentProfileId={initialUserId}
               onBack={handleBackToInbox}
             />
           )}
@@ -289,6 +262,7 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
             fanId={selectedFanId || undefined}
             creatorProfile={creatorProfile || undefined}
             fanProfile={fanProfile || undefined}
+            currentProfileId={initialUserId}
           />
         </main>
       </div>
