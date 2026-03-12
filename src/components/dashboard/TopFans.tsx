@@ -17,7 +17,7 @@ export default function TopFans({ fans }: TopFansProps) {
   return (
     <div className="rounded-2xl bg-white border border-slate-200 shadow">
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Top Fans (This Month)</h2>
+        <h2 className="text-sm font-semibold">Top Subs (This Month)</h2>
         <a href="#" className="text-xs text-primary-600 hover:underline">View all</a>
       </div>
       <ul className="px-3 py-2 divide-y divide-slate-100">

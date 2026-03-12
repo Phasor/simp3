@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { checkChatAccess, getUserChatAccess, type ChatAccessValidationResult, type ChatAccessStatus } from '@/lib/utils/chatAccess';
+import { checkChatAccess, getUserChatAccess, type ChatAccessStatus } from '@/lib/utils/chatAccess';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import type { ChatAccess } from '@/lib/types/database';
 
@@ -12,7 +12,6 @@ interface UseChatAccessOptions {
 
 interface UseChatAccessReturn {
   accessStatus: ChatAccessStatus | null;
-  rules: ChatAccessValidationResult['rules'];
   loading: boolean;
   error: string | null;
   refreshAccess: () => Promise<void>;
@@ -29,7 +28,6 @@ export function useChatAccess({
   refreshInterval = 60 * 60 * 1000 // 1 hour default (like real apps)
 }: UseChatAccessOptions): UseChatAccessReturn {
   const [accessStatus, setAccessStatus] = useState<ChatAccessStatus | null>(null);
-  const [rules, setRules] = useState<ChatAccessValidationResult['rules']>(null);
   const [loading, setLoading] = useState(!!(creatorId && fanId));
   const [error, setError] = useState<string | null>(null);
   const [timeUntilRefresh, setTimeUntilRefresh] = useState<number | null>(null);
@@ -53,15 +51,13 @@ export function useChatAccess({
         setError(result.error);
         // Still set the status even if there's an error (for unauthorized cases)
         setAccessStatus(result.status);
-        setRules(result.rules);
-        
+
         // Don't log authorization errors as they're expected
         if (result.error !== 'unauthorized') {
           console.error('Chat access check error:', result.error);
         }
       } else {
         setAccessStatus(result.status);
-        setRules(result.rules);
       }
     } catch (err) {
       console.error('Error checking chat access:', err);
@@ -122,7 +118,6 @@ export function useChatAccess({
 
   return {
     accessStatus,
-    rules,
     loading,
     error,
     refreshAccess,

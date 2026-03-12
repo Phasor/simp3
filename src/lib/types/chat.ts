@@ -1,18 +1,6 @@
 // Shared types for chat functionality
 import type { ChatAccessStatus } from '@/lib/utils/chatAccess';
 import type * as DB from '@/lib/types/database';
-import type { TimeUnit } from '@/lib/utils/timeUnits';
-
-// Chat rules with time unit support
-export interface ChatRules {
-  creator_id: string;
-  min_spend_cents: number;
-  access_days: number; // Despite the name, this is the time value in the unit specified by time_unit
-  access_window_days: number;
-  time_unit: TimeUnit;
-  created_at: string;
-  updated_at: string;
-}
 
 // What your UI ultimately needs
 export interface ConversationItem {
@@ -111,8 +99,9 @@ export function toConversationItem(conv: ConversationServer): ConversationItem {
         display_name: conv.creator_display_name,
         profile_picture_url: conv.creator_ppu,
         banner_image_url: null,
-        ccbill_merchant_id: null,
-        monetization_enabled: null,
+        about_text: null,
+        handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
+        tribute_alias: null, vip_cta_text: null, tagline: null, kyc_status: null,
       },
       fan: {
         id: conv.fan_id_join,
@@ -124,8 +113,9 @@ export function toConversationItem(conv: ConversationServer): ConversationItem {
         display_name: conv.fan_display_name,
         profile_picture_url: conv.fan_ppu,
         banner_image_url: null,
-        ccbill_merchant_id: null,
-        monetization_enabled: null,
+        about_text: null,
+        handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
+        tribute_alias: null, vip_cta_text: null, tagline: null, kyc_status: null,
       },
       lastMessage,
       lastMessageAt: (conv.last_message_at ?? conv.created_at),

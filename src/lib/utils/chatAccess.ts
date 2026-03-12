@@ -1,7 +1,5 @@
-import { createClient } from '@/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ChatAccess } from '@/lib/types/database';
-import type { ChatRules } from '@/lib/types/chat';
 
 export interface ChatAccessStatus {
   hasAccess: boolean;
@@ -16,7 +14,6 @@ export interface ChatAccessStatus {
 
 export interface ChatAccessValidationResult {
   status: ChatAccessStatus;
-  rules: ChatRules | null;
   error?: string;
 }
 
@@ -46,7 +43,6 @@ export async function checkChatAccess(
     if (!uuidRx.test(creatorId) || !uuidRx.test(fanId)) {
       return {
         status: createEmptyAccessStatus(),
-        rules: null,
         error: 'Invalid IDs'
       };
     }
@@ -69,7 +65,7 @@ export async function checkChatAccess(
         console.log('🔒 Chat access denied (expected for unauthorized users)');
         return {
           status: createEmptyAccessStatus(),
-          rules: null,
+
           error: 'unauthorized'
         };
       }
@@ -86,7 +82,6 @@ export async function checkChatAccess(
       
       return {
         status: createEmptyAccessStatus(),
-        rules: null,
         error: errorData.error || 'Failed to check chat access'
       };
     }
@@ -95,7 +90,6 @@ export async function checkChatAccess(
     const status = coerceStatusFromApi(data.status);
     return {
       status,
-      rules: data.rules ?? null,
       error: data.error
     };
   } catch (error) {
@@ -104,7 +98,6 @@ export async function checkChatAccess(
       console.log('⏹️ Chat access request aborted (likely due to navigation)');
       return {
         status: createEmptyAccessStatus(),
-        rules: null,
         error: 'Request aborted'
       };
     }
@@ -120,7 +113,6 @@ export async function checkChatAccess(
     
     return {
       status: createEmptyAccessStatus(),
-      rules: null,
       error: 'Network error checking chat access'
     };
   }

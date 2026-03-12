@@ -47,6 +47,7 @@ export function ChatInbox({
   const requestIdRef = useRef(0);
 
   // Map server row to ConversationItem with access status already included
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRowToItem = useCallback((row: any): ConversationItem => {
     // Debug: log raw row to see what fields we have
     if (DEBUG) {
@@ -161,6 +162,7 @@ export function ChatInbox({
       setConversations(items);
       setIsReady(true);
       DEBUG && console.log('✅ Revalidate complete:', items.length, 'conversations');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       if (!mountedRef.current) return;
       console.error('[ChatInbox] Revalidate error:', e);
@@ -228,7 +230,7 @@ export function ChatInbox({
         <div className="p-3">
           <input
             type="search"
-            placeholder="Search chats or creators…"
+            placeholder="Search chats…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border px-3 py-2 typ-body-sm outline-none focus:ring-2 focus:ring-black/10"
@@ -244,8 +246,8 @@ export function ChatInbox({
               {searchQuery
                 ? 'Try adjusting your search terms'
                 : currentProfile?.user_type === 'CREATOR'
-                ? 'Conversations will appear here when fans with chat access message you.'
-                : 'You can start conversations with creators once you have chat access.'
+                ? 'Conversations will appear here when subs with chat access message you.'
+                : 'You can message doms once you have VIP access.'
               }
             </p>
           </div>

@@ -2,11 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { ChatInbox } from './ChatInbox';
 import { ChatContainer } from './ChatContainer';
-import { CreatorWelcomeModal } from './CreatorWelcomeModal';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { createClient } from '@/lib/supabase/client';
 import type { Profile } from '@/lib/types/database';
@@ -23,12 +21,8 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Stabilize profile href to prevent /creator/undefined prefetch
-  const profileHref = currentProfile
-    ? (currentProfile.user_type === 'CREATOR'
-        ? `/creator/${currentProfile.id}`
-        : '/profile')
-    : '/profile';
+  // Profile href: doms go to their dashboard, subs to profile
+  const profileHref = currentProfile?.user_type === 'CREATOR' ? '/dashboard' : '/profile';
 
   // --- STATE (no conditional hooks) ---
   const [selectedCreatorId, setSelectedCreatorId] = useState<string | null>(null);
@@ -39,7 +33,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
   // Do not read window during render; assume desktop initially
   const [isMobile, setIsMobile] = useState(false);
   const [showInbox, setShowInbox] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const selectedKey = useMemo(
@@ -140,9 +133,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
       handleSelectConversation(urlCreator, currentProfile.id);
     }
 
-    if (welcome === 'true' && currentProfile?.user_type === 'CREATOR') {
-      setShowWelcome(true);
-    }
   }, [searchParams, currentProfile?.user_type, currentProfile?.id, selectedKey, handleSelectConversation, router]);
 
   const handleBackToInbox = () => {
@@ -210,7 +200,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
           )}
         </div>
 
-        {showWelcome && <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />}
       </>
     );
   }
@@ -229,16 +218,15 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
           </div>
 
           <div className="border-t p-2">
-            <div className="grid grid-cols-3 gap-2">
-              <Link href="/" className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50">
-                <span className="typ-body-sm text-gray-700">Dashboard</span>
-              </Link>
+            <div className="grid grid-cols-2 gap-2">
               <Link
                 href={profileHref}
                 prefetch={false}
                 className="flex items-center justify-center rounded-lg border px-2 py-2 hover:bg-gray-50"
               >
-                <span className="typ-body-sm text-gray-700">Profile</span>
+                <span className="typ-body-sm text-gray-700">
+                  {currentProfile?.user_type === 'CREATOR' ? 'Dashboard' : 'Profile'}
+                </span>
               </Link>
               <button
                 onClick={handleLogout}
@@ -248,11 +236,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
                 <span className="typ-body-sm text-rose-600">Logout</span>
               </button>
             </div>
-
-            <a href="/chat/new" className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-black px-3 py-2 typ-body-sm text-white hover:opacity-90">
-              <Plus className="h-4 w-4" />
-              New Chat
-            </a>
           </div>
         </aside>
 
@@ -266,8 +249,6 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
           />
         </main>
       </div>
-
-      {showWelcome && <CreatorWelcomeModal onClose={() => setShowWelcome(false)} />}
     </>
   );
 }

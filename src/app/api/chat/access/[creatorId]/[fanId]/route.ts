@@ -21,12 +21,9 @@ export async function GET(
     // Get current user
     const supabase = await createClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     // Get user's profile
@@ -37,36 +34,21 @@ export async function GET(
       .single();
 
     if (profileError || !profile) {
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
 
     // Verify user is either the creator or fan in this conversation
     if (profile.id !== creatorId && profile.id !== fanId) {
-      return NextResponse.json(
-        { error: 'Not authorized to check this chat access' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Not authorized to check this chat access' }, { status: 403 });
     }
 
-    // Use service role to bypass RLS for access validation
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
+
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Missing required Supabase environment variables:', {
-        hasUrl: !!supabaseUrl,
-        hasServiceKey: !!supabaseServiceKey
-      });
-      return NextResponse.json(
-        { error: 'Server configuration error - missing Supabase credentials' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // Create admin client with service role key
     const supabaseAdmin = createSupabaseClient(supabaseUrl, supabaseServiceKey);
 
     // Get chat access record
@@ -75,96 +57,51 @@ export async function GET(
       .select('*')
       .eq('creator_id', creatorId)
       .eq('fan_id', fanId)
-      .maybeSingle(); // Use maybeSingle to avoid errors when no record exists
+      .maybeSingle();
 
     if (accessError) {
       console.error('Error fetching chat access record:', accessError);
-      return NextResponse.json(
-        { error: 'Failed to fetch chat access' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to fetch chat access' }, { status: 500 });
     }
-
-    // Get chat rules (with fallback to defaults)
-    let rules = null;
-    const { data: rulesData, error: rulesError } = await supabaseAdmin
-      .from('chat_rules')
-      .select('*')
-      .eq('creator_id', creatorId)
-      .maybeSingle(); // Use maybeSingle to avoid errors when no rules exist
-
-    if (rulesError) {
-      console.log('Using default chat rules due to error:', rulesError.message);
-    }
-
-    rules = rulesData || {
-      creator_id: creatorId,
-      min_spend_cents: 10000, // $100 default
-      access_window_days: 30,  // 30 days default
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      access_days: 30,
-      time_unit: 'days'
-    };
 
     // Calculate access status
-    let status: {
-      hasAccess: boolean;
-      accessUntil: Date | null;
-      isExpired: boolean;
-      timeRemaining: number | null;
-      daysRemaining: number | null;
-      hoursRemaining: number | null;
-      minutesRemaining: number | null;
-      lastQualifyingPurchaseId: string | null;
-    } = {
+    let status = {
       hasAccess: false,
-      accessUntil: null,
+      accessUntil: null as Date | null,
       isExpired: true,
-      timeRemaining: null,
-      daysRemaining: null,
-      hoursRemaining: null,
-      minutesRemaining: null,
-      lastQualifyingPurchaseId: null
+      timeRemaining: null as number | null,
+      daysRemaining: null as number | null,
+      hoursRemaining: null as number | null,
+      minutesRemaining: null as number | null,
+      lastQualifyingPurchaseId: null as string | null,
     };
 
     if (accessRecord && accessRecord.state === 'granted') {
       const accessUntil = new Date(accessRecord.access_until);
       const now = new Date();
       const isExpired = accessUntil < now;
-      
+
       if (!isExpired) {
         const timeDiff = accessUntil.getTime() - now.getTime();
-        const daysRemaining = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hoursRemaining = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutesRemaining = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        
         status = {
           hasAccess: true,
           accessUntil,
           isExpired: false,
           timeRemaining: timeDiff,
-          daysRemaining,
-          hoursRemaining,
-          minutesRemaining,
-          lastQualifyingPurchaseId: accessRecord.last_qualifying_purchase_id
+          daysRemaining: Math.floor(timeDiff / (1000 * 60 * 60 * 24)),
+          hoursRemaining: Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutesRemaining: Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)),
+          lastQualifyingPurchaseId: accessRecord.last_qualifying_purchase_id,
         };
       }
     }
 
-    return NextResponse.json({
-      status,
-      rules,
-      error: null
-    }, {
+    return NextResponse.json({ status, error: null }, {
       headers: { 'Cache-Control': 'no-store' }
     });
 
   } catch (error) {
     console.error('Error checking chat access:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

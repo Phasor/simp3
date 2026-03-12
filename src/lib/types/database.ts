@@ -13,8 +13,16 @@ export interface Database {
           display_name: string | null
           profile_picture_url: string | null
           banner_image_url: string | null
-          ccbill_merchant_id: string | null
-          monetization_enabled: boolean | null
+          about_text: string | null
+          // Tribute-specific columns
+          handle: string | null
+          wallet_address: string | null
+          age_verified: boolean | null
+          age_verified_at: string | null
+          tribute_alias: string | null
+          vip_cta_text: string | null
+          tagline: string | null
+          kyc_status: string | null
         }
         Insert: {
           id?: string
@@ -26,8 +34,15 @@ export interface Database {
           display_name?: string | null
           profile_picture_url?: string | null
           banner_image_url?: string | null
-          ccbill_merchant_id?: string | null
-          monetization_enabled?: boolean | null
+          about_text?: string | null
+          handle?: string | null
+          wallet_address?: string | null
+          age_verified?: boolean | null
+          age_verified_at?: string | null
+          tribute_alias?: string | null
+          vip_cta_text?: string | null
+          tagline?: string | null
+          kyc_status?: string | null
         }
         Update: {
           id?: string
@@ -39,8 +54,15 @@ export interface Database {
           display_name?: string | null
           profile_picture_url?: string | null
           banner_image_url?: string | null
-          ccbill_merchant_id?: string | null
-          monetization_enabled?: boolean | null
+          about_text?: string | null
+          handle?: string | null
+          wallet_address?: string | null
+          age_verified?: boolean | null
+          age_verified_at?: string | null
+          tribute_alias?: string | null
+          vip_cta_text?: string | null
+          tagline?: string | null
+          kyc_status?: string | null
         }
       }
       chat_messages: {
@@ -92,6 +114,8 @@ export interface Database {
           created_at: string
           updated_at: string
           status: string | null
+          tier: string | null
+          rank_at_grant: number | null
         }
         Insert: {
           id?: string
@@ -103,6 +127,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           status?: string | null
+          tier?: string | null
+          rank_at_grant?: number | null
         }
         Update: {
           id?: string
@@ -114,35 +140,8 @@ export interface Database {
           created_at?: string
           updated_at?: string
           status?: string | null
-        }
-      }
-      chat_rules: {
-        Row: {
-          creator_id: string
-          min_spend_cents: number
-          access_window_days: number
-          created_at: string
-          updated_at: string
-          access_days: number | null
-          time_unit: 'minutes' | 'hours' | 'days'
-        }
-        Insert: {
-          creator_id: string
-          min_spend_cents?: number
-          access_window_days?: number
-          created_at?: string
-          updated_at?: string
-          access_days?: number | null
-          time_unit?: 'minutes' | 'hours' | 'days'
-        }
-        Update: {
-          creator_id?: string
-          min_spend_cents?: number
-          access_window_days?: number
-          created_at?: string
-          updated_at?: string
-          access_days?: number | null
-          time_unit?: 'minutes' | 'hours' | 'days'
+          tier?: string | null
+          rank_at_grant?: number | null
         }
       }
       conversations: {
@@ -183,29 +182,316 @@ export interface Database {
       purchases: {
         Row: {
           id: string
-          profile_id: string
+          fan_id: string | null
           task_id: string
-          amount_cents: number
-          processor: 'CCBILL' | 'SEGPAY' | 'EPOCH'
-          processor_tx_id: string
+          usdc_tx_hash: string | null
+          amount_usdc: number | null
+          wallet_address: string | null
+          purchase_type: string | null
           created_at: string
         }
         Insert: {
           id?: string
-          profile_id: string
+          fan_id?: string | null
           task_id: string
-          amount_cents: number
-          processor: 'CCBILL' | 'SEGPAY' | 'EPOCH'
-          processor_tx_id: string
+          usdc_tx_hash?: string | null
+          amount_usdc?: number | null
+          wallet_address?: string | null
+          purchase_type?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          profile_id?: string
+          fan_id?: string | null
           task_id?: string
-          amount_cents?: number
-          processor?: 'CCBILL' | 'SEGPAY' | 'EPOCH'
-          processor_tx_id?: string
+          usdc_tx_hash?: string | null
+          amount_usdc?: number | null
+          wallet_address?: string | null
+          purchase_type?: string | null
+          created_at?: string
+        }
+      }
+      media_assets: {
+        Row: {
+          id: string
+          creator_id: string
+          type: 'IMAGE' | 'VIDEO'
+          title: string | null
+          playback_ref: string | null
+          thumbnail_url: string | null
+          file_size: number | null
+          mime_type: string | null
+          created_at: string
+          bunny_url: string | null
+          bunny_preview_url: string | null
+          price_usdc: number | null
+          is_on_wall: boolean | null
+        }
+        Insert: {
+          id?: string
+          creator_id: string
+          type?: 'IMAGE' | 'VIDEO'
+          title?: string | null
+          playback_ref?: string | null
+          thumbnail_url?: string | null
+          file_size?: number | null
+          mime_type?: string | null
+          created_at?: string
+          bunny_url?: string | null
+          bunny_preview_url?: string | null
+          price_usdc?: number | null
+          is_on_wall?: boolean | null
+        }
+        Update: {
+          id?: string
+          creator_id?: string
+          type?: 'IMAGE' | 'VIDEO'
+          title?: string | null
+          playback_ref?: string | null
+          thumbnail_url?: string | null
+          file_size?: number | null
+          mime_type?: string | null
+          created_at?: string
+          bunny_url?: string | null
+          bunny_preview_url?: string | null
+          price_usdc?: number | null
+          is_on_wall?: boolean | null
+        }
+      }
+      tasks: {
+        Row: {
+          id: string
+          creator_id: string
+          slug: string
+          title: string
+          description: string | null
+          price_cents: number
+          points: number
+          media_id: string | null
+          active: boolean
+          created_at: string
+          updated_at: string
+          task_type: 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT' | null
+          status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | null
+          price_usdc: number | null
+          instructions: string | null
+          repetition_phrase: string | null
+          required_repetitions: number | null
+        }
+        Insert: {
+          id?: string
+          creator_id: string
+          slug: string
+          title: string
+          description?: string | null
+          price_cents?: number
+          points?: number
+          media_id?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+          task_type?: 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT' | null
+          status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | null
+          price_usdc?: number | null
+          instructions?: string | null
+          repetition_phrase?: string | null
+          required_repetitions?: number | null
+        }
+        Update: {
+          id?: string
+          creator_id?: string
+          slug?: string
+          title?: string
+          description?: string | null
+          price_cents?: number
+          points?: number
+          media_id?: string | null
+          active?: boolean
+          created_at?: string
+          updated_at?: string
+          task_type?: 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT' | null
+          status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | null
+          price_usdc?: number | null
+          instructions?: string | null
+          repetition_phrase?: string | null
+          required_repetitions?: number | null
+        }
+      }
+      task_completions: {
+        Row: {
+          id: string
+          task_id: string
+          fan_id: string
+          status: 'ACCEPTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+          payment_tx_hash: string | null
+          amount_usdc: number | null
+          tribute_message: string
+          submission_text: string | null
+          evidence_url: string | null
+          repetition_count: number | null
+          dom_feedback: string | null
+          accepted_at: string | null
+          submitted_at: string | null
+          reviewed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          fan_id: string
+          status?: 'ACCEPTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+          payment_tx_hash?: string | null
+          amount_usdc?: number | null
+          tribute_message: string
+          submission_text?: string | null
+          evidence_url?: string | null
+          repetition_count?: number | null
+          dom_feedback?: string | null
+          accepted_at?: string | null
+          submitted_at?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          fan_id?: string
+          status?: 'ACCEPTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+          payment_tx_hash?: string | null
+          amount_usdc?: number | null
+          tribute_message?: string
+          submission_text?: string | null
+          evidence_url?: string | null
+          repetition_count?: number | null
+          dom_feedback?: string | null
+          accepted_at?: string | null
+          submitted_at?: string | null
+          reviewed_at?: string | null
+          created_at?: string
+        }
+      }
+      content_unlocks: {
+        Row: {
+          id: string
+          fan_id: string
+          media_id: string
+          payment_tx_hash: string | null
+          amount_usdc: number | null
+          unlocked_at: string
+        }
+        Insert: {
+          id?: string
+          fan_id: string
+          media_id: string
+          payment_tx_hash?: string | null
+          amount_usdc?: number | null
+          unlocked_at?: string
+        }
+        Update: {
+          id?: string
+          fan_id?: string
+          media_id?: string
+          payment_tx_hash?: string | null
+          amount_usdc?: number | null
+          unlocked_at?: string
+        }
+      }
+      tribute_scores: {
+        Row: {
+          id: string
+          fan_id: string
+          dom_id: string
+          total_score: number
+          spend_score: number
+          task_score: number
+          tenure_score: number
+          diversity_score: number
+          tier: string
+          month_year: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          fan_id: string
+          dom_id: string
+          total_score?: number
+          spend_score?: number
+          task_score?: number
+          tenure_score?: number
+          diversity_score?: number
+          tier?: string
+          month_year: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          fan_id?: string
+          dom_id?: string
+          total_score?: number
+          spend_score?: number
+          task_score?: number
+          tenure_score?: number
+          diversity_score?: number
+          tier?: string
+          month_year?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      vip_tiers: {
+        Row: {
+          id: string
+          dom_id: string
+          tier_type: 'GROUP' | 'PRIVATE'
+          threshold_type: 'TOP_PERCENT' | 'TOP_N'
+          threshold_value: number
+          reset_day: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          dom_id: string
+          tier_type: 'GROUP' | 'PRIVATE'
+          threshold_type: 'TOP_PERCENT' | 'TOP_N'
+          threshold_value: number
+          reset_day?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          dom_id?: string
+          tier_type?: 'GROUP' | 'PRIVATE'
+          threshold_type?: 'TOP_PERCENT' | 'TOP_N'
+          threshold_value?: number
+          reset_day?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      vip_messages: {
+        Row: {
+          id: string
+          dom_id: string
+          sender_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          dom_id: string
+          sender_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          dom_id?: string
+          sender_id?: string
+          content?: string
           created_at?: string
         }
       }
@@ -218,19 +504,23 @@ export interface Database {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      update_chat_access: {
-        Args: {
-          p_creator: string
-          p_fan: string
-          p_purchase_id: string
-        }
+      recalculate_tribute_score: {
+        Args: { p_fan_id: string; p_dom_id: string }
+        Returns: void
+      }
+      recalculate_vip_access: {
+        Args: { p_dom_id: string }
         Returns: void
       }
     }
     Enums: {
       user_type: 'CREATOR' | 'FAN'
-      processor: 'CCBILL' | 'SEGPAY' | 'EPOCH'
       media_type: 'IMAGE' | 'VIDEO'
+      task_type: 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT'
+      task_status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+      completion_status: 'ACCEPTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
+      vip_tier_type: 'GROUP' | 'PRIVATE'
+      threshold_type: 'TOP_PERCENT' | 'TOP_N'
     }
   }
 }
@@ -242,6 +532,12 @@ export type Tables<T extends keyof Database['public']['Tables']> = Database['pub
 export type Profile = Tables<'profiles'>
 export type ChatMessage = Tables<'chat_messages'>
 export type ChatAccess = Tables<'chat_access'>
-export type ChatRules = Tables<'chat_rules'>
 export type Conversation = Tables<'conversations'>
 export type Purchase = Tables<'purchases'>
+export type MediaAsset = Tables<'media_assets'>
+export type Task = Tables<'tasks'>
+export type TaskCompletion = Tables<'task_completions'>
+export type ContentUnlock = Tables<'content_unlocks'>
+export type TributeScore = Tables<'tribute_scores'>
+export type VipTier = Tables<'vip_tiers'>
+export type VipMessage = Tables<'vip_messages'>

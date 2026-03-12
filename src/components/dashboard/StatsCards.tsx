@@ -44,7 +44,7 @@ export default function StatsCards({
       </article>
       
       <article className="rounded-2xl bg-white border border-slate-200 p-4 shadow">
-        <p className="typ-overline text-slate-500">Active Fans</p>
+        <p className="typ-overline text-slate-500">Active Subs</p>
         <div className="mt-2 text-2xl font-extrabold text-slate-900">{activeFans}</div>
         <p className="typ-caption text-slate-500 mt-1">{returningFans} returning · {newFans} new</p>
       </article>

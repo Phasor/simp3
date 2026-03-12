@@ -71,16 +71,14 @@ interface ChatAccessCardProps {
   status: ChatAccessStatus;
   creatorName?: string;
   fanName?: string;
-  onUpgrade?: () => void;
   className?: string;
 }
 
-export function ChatAccessCard({ 
-  status, 
-  creatorName, 
-  fanName, 
-  onUpgrade, 
-  className = '' 
+export function ChatAccessCard({
+  status,
+  creatorName,
+  fanName,
+  className = ''
 }: ChatAccessCardProps) {
   // Check if expiring soon - use hours and minutes for more granular warning
   const isExpiringSoon = status.hasAccess && (
@@ -122,8 +120,7 @@ export function ChatAccessCard({
                 <div className="text-sm">
                   <p className="font-medium text-yellow-800">Access expiring soon!</p>
                   <p className="text-yellow-700">
-                    Your chat access will expire in {formatTimeRemaining(status).toLowerCase()}. 
-                    Make another qualifying purchase to extend access.
+                    Your VIP access will expire in {formatTimeRemaining(status).toLowerCase()}.
                   </p>
                 </div>
               </div>
@@ -140,17 +137,9 @@ export function ChatAccessCard({
           </div>
 
           <div className="bg-muted rounded-md p-3">
-            <p className="text-sm text-muted-foreground mb-2">
-              To unlock chat access, make a qualifying purchase that meets the creator&apos;s minimum spend requirement.
+            <p className="text-sm text-muted-foreground">
+              Complete tasks and earn devotion to unlock VIP access.
             </p>
-            {onUpgrade && (
-              <button
-                onClick={onUpgrade}
-                className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded-md hover:bg-primary/90 transition-colors"
-              >
-                Browse Content
-              </button>
-            )}
           </div>
         </div>
       )}

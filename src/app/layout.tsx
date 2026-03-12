@@ -4,8 +4,6 @@ import { AuthProvider } from "@/lib/contexts/AuthContext";
 import { FLAGS } from '@/lib/flags';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { Toaster } from "react-hot-toast";
-import ConditionalNavigation from "@/components/ConditionalNavigation";
-import ConditionalFooter from "@/components/ConditionalFooter";
 import "./globals.css";
 
 export const runtime = 'nodejs';
@@ -26,8 +24,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "simp3",
-  description: "Connect with creators through exclusive chat experiences",
+  title: "Tribute",
+  description: "A devotion platform for doms and subs",
 };
 
 export default async function RootLayout({
@@ -58,11 +56,10 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
         <AuthProvider initialSession={initialSession}>
-          <ConditionalNavigation title="simp3" />
+          {/* Nav will be added in Phase 3 */}
           <main className="flex-1">
             {children}
           </main>
-          <ConditionalFooter />
           <Toaster
             position="top-right"
             toastOptions={{
