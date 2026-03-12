@@ -188,7 +188,7 @@ export function getBunnyStorageUrl(path: string): string {
     cleanPath = cleanPath.substring(1);
   }
 
-  const validPrefixes = ['profile-pictures/', 'banner-images/', 'ppv-images/', 'ppv-videos/', 'uploads/'];
+  const validPrefixes = ['profile-pictures/', 'banner-images/', 'ppv-images/', 'ppv-videos/', 'uploads/', 'wall-images/', 'wall-videos/', 'evidence/'];
   const hasValidPrefix = validPrefixes.some(prefix => cleanPath.startsWith(prefix));
 
   if (!hasValidPrefix) {

@@ -152,7 +152,7 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
   function handleClick() {
     if (!resolved) return
     if (!profile) { onClickGuest(); return }
-    router.push(`/content/${asset.id}`)
+    router.push(`/content/${asset.id}/unlock`)
   }
 
   const previewSrc = asset.bunny_preview_url ?? asset.thumbnail_url
