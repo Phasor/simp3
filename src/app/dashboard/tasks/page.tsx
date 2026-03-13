@@ -60,9 +60,9 @@ export default function DashboardTasksPage() {
   const [feedbackText, setFeedbackText] = useState('')
   const [reviewing, setReviewing] = useState(false)
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showSpinner = false) => {
     const sb = supabase()
-    setLoading(true)
+    if (showSpinner) setLoading(true)
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
@@ -97,7 +97,7 @@ export default function DashboardTasksPage() {
     setLoading(false)
   }, [router])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchData(true) }, [fetchData])
 
   async function handleReview(completionId: string, action: 'approve' | 'reject') {
     setReviewing(true)
