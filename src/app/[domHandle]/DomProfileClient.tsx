@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/AuthContext'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DomProfile {
@@ -202,6 +203,11 @@ interface Props {
 export default function DomProfileClient({ dom, tasks, wallAssets, groupTier }: Props) {
   const [activeTab, setActiveTab] = useState<'tasks' | 'content'>('tasks')
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
+  const [bannerLoaded, setBannerLoaded] = useState(false)
+  const bannerRef = useRef<HTMLImageElement>(null)
+  useEffect(() => {
+    if (bannerRef.current?.complete) setBannerLoaded(true)
+  }, [])
 
   const displayName = dom.display_name ?? dom.handle ?? 'Tribute Dom'
 
@@ -223,12 +229,20 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier }: 
       {/* Hero */}
       <div className="relative w-full bg-gray-950" style={{ height: '40vh', minHeight: 220, maxHeight: 400 }}>
         {dom.banner_image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={dom.banner_image_url}
-            alt={displayName}
-            className="w-full h-full object-cover"
-          />
+          <>
+            {!bannerLoaded && (
+              <div className="absolute inset-0 bg-gray-900 animate-pulse" />
+            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              ref={bannerRef}
+              src={dom.banner_image_url.startsWith('http') ? dom.banner_image_url : getBunnyStorageUrl(dom.banner_image_url)}
+              alt={displayName}
+              className="w-full h-full object-cover"
+              onLoad={() => setBannerLoaded(true)}
+              style={{ opacity: bannerLoaded ? 1 : 0, transition: 'opacity 0.3s ease' }}
+            />
+          </>
         ) : (
           <div className="w-full h-full bg-gradient-to-b from-gray-900 to-black" />
         )}

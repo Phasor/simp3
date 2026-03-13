@@ -40,6 +40,8 @@ export default function DashboardSettingsPage() {
   const [tagline, setTagline] = useState('')
   const [ctaText, setCtaText] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [uploadingBanner, setUploadingBanner] = useState(false)
 
   // Preview: live sub counts
   const [subCount, setSubCount] = useState<number | null>(null)
@@ -51,7 +53,7 @@ export default function DashboardSettingsPage() {
 
     const { data: profile } = await sb
       .from('profiles')
-      .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address')
+      .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address, banner_image_url')
       .eq('auth_user_id', user.id)
       .single()
 
@@ -61,6 +63,7 @@ export default function DashboardSettingsPage() {
     setTagline(profile.tagline ?? '')
     setCtaText(profile.vip_cta_text ?? '')
     setWalletAddress(profile.wallet_address ?? '')
+    setBannerUrl(profile.banner_image_url ?? null)
 
     const [{ data: tiers }, { count }] = await Promise.all([
       sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
@@ -99,7 +102,26 @@ export default function DashboardSettingsPage() {
     return res.ok
   }
 
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingBanner(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/upload/banner-image', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Upload failed'); return }
+      setBannerUrl(json.url)
+      toast.success('Banner updated')
+    } finally {
+      setUploadingBanner(false)
+      e.target.value = ''
+    }
+  }
+
   async function handleSave() {
+    const sb = supabase()
     setSaving(true)
     try {
       const { data: { user } } = await sb.auth.getUser()
@@ -182,6 +204,19 @@ export default function DashboardSettingsPage() {
 
         {/* ── Profile ── */}
         <Section title="Profile">
+          <Field label="Banner image">
+            <div className="space-y-2">
+              {bannerUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={bannerUrl} alt="Banner" className="w-full h-24 object-cover rounded-lg border border-gray-800" />
+              )}
+              <label className={`flex items-center gap-2 px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-sm cursor-pointer hover:border-gray-600 transition-colors ${uploadingBanner ? 'opacity-50 pointer-events-none' : ''}`}>
+                <span className="text-gray-400">{uploadingBanner ? 'Uploading…' : bannerUrl ? 'Replace banner' : 'Upload banner image'}</span>
+                <span className="ml-auto text-xs text-gray-600">1500 × 500 px · max 10 MB</span>
+                <input type="file" accept="image/*" className="sr-only" onChange={handleBannerUpload} disabled={uploadingBanner} />
+              </label>
+            </div>
+          </Field>
           <Field label="Display name">
             <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
               maxLength={60} placeholder="Your display name"

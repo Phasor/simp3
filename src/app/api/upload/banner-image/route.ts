@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToBunnyStorage } from '@/lib/utils/bunnynet';
 
+// BUNNY_CDN_HOSTNAME should be the public CDN hostname e.g. "simp2.b-cdn.net"
+// The storage API hostname (uk.storage.bunnycdn.com) is NOT the CDN — don't use it here
+const BUNNY_STORAGE_ZONE = process.env.BUNNY_STORAGE_ZONE || 'simp2';
+const BUNNY_CDN_HOSTNAME = `${BUNNY_STORAGE_ZONE}.b-cdn.net`;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -63,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Update profile with new banner image URL
     const { error: updateError } = await supabase
       .from('profiles')
-      .update({ banner_image_url: uploadResult.url })
+      .update({ banner_image_url: `https://${BUNNY_CDN_HOSTNAME}${uploadResult.url}` })
       .eq('id', profile.id);
 
     if (updateError) {
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      url: uploadResult.url,
+      url: `https://${BUNNY_CDN_HOSTNAME}${uploadResult.url}`,
       message: 'Banner image uploaded successfully' 
     });
 
