@@ -12,25 +12,28 @@ export default function LoginPage() {
   const params = useSearchParams()
   const error = params.get('error') ?? ''
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [sending, setSending] = useState(false)
+  const [usePassword, setUsePassword] = useState(false)
 
-  async function sendMagicLink(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSending(true)
-    const redirectTo = `${window.location.origin}/auth/callback?next=/`
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: redirectTo },
-    })
-    setSending(false)
-    if (error) { 
-      toast.error(error.message);
-      return;
+    if (usePassword) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      setSending(false)
+      if (error) { toast.error(error.message); return }
+      router.push('/')
+    } else {
+      const redirectTo = `${window.location.origin}/auth/callback?next=/`
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo },
+      })
+      setSending(false)
+      if (error) { toast.error(error.message); return }
+      toast.success('Magic link sent! Check your email.', { icon: '✨', duration: 5000 })
     }
-    toast.success('Magic link sent! Check your email.', {
-      icon: '✨',
-      duration: 5000,
-    });
   }
 
   async function signInWithGoogle() {
@@ -49,8 +52,7 @@ export default function LoginPage() {
 
         {error ? <p className="typ-body-sm text-red-600">Error: {error}</p> : null}
 
-        <form onSubmit={sendMagicLink} className="space-y-3">
-          <label className="typ-label block">Email (Magic Link)</label>
+        <form onSubmit={handleSubmit} className="space-y-3">
           <input
             className="w-full border rounded p-2"
             type="email"
@@ -59,8 +61,21 @@ export default function LoginPage() {
             onChange={(e)=>setEmail(e.target.value)}
             required
           />
+          {usePassword && (
+            <input
+              className="w-full border rounded p-2"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e)=>setPassword(e.target.value)}
+              required
+            />
+          )}
           <button type="submit" disabled={sending} className="w-full rounded bg-black text-white py-2 typ-ui">
-            {sending ? 'Sending…' : 'Send Magic Link'}
+            {sending ? '…' : usePassword ? 'Sign in' : 'Send Magic Link'}
+          </button>
+          <button type="button" onClick={() => setUsePassword(!usePassword)} className="w-full text-sm text-gray-500 hover:text-gray-700 underline">
+            {usePassword ? 'Use magic link instead' : 'Sign in with password instead'}
           </button>
         </form>
 

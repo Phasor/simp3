@@ -22,7 +22,6 @@ function supabase() {
 
 export default function DashboardEarningsPage() {
   const router = useRouter()
-  const sb = supabase()
 
   const [loading, setLoading] = useState(true)
   const [txns, setTxns] = useState<Txn[]>([])
@@ -34,6 +33,7 @@ export default function DashboardEarningsPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
+    const sb = supabase()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
@@ -83,7 +83,7 @@ export default function DashboardEarningsPage() {
     setTxns(rows)
     setBalance(rows.reduce((s, t) => s + t.amountUsdc, 0))
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 

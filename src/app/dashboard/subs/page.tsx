@@ -40,11 +40,11 @@ function supabase() {
 
 export default function DashboardSubsPage() {
   const router = useRouter()
-  const sb = supabase()
   const [subs, setSubs] = useState<SubRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
+    const sb = supabase()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
@@ -88,7 +88,7 @@ export default function DashboardSubsPage() {
       tier: scoreTier(s.total_score),
     })))
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 

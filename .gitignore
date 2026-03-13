@@ -43,3 +43,5 @@ next-env.d.ts
 
 # supabase local temp files
 supabase/.temp/
+
+.mcp.json

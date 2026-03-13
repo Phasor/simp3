@@ -60,9 +60,8 @@ export default function DashboardTasksPage() {
   const [feedbackText, setFeedbackText] = useState('')
   const [reviewing, setReviewing] = useState(false)
 
-  const sb = supabase()
-
   const fetchData = useCallback(async () => {
+    const sb = supabase()
     setLoading(true)
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
@@ -96,7 +95,7 @@ export default function DashboardTasksPage() {
     setTasks(tasksData ?? [])
     setCompletions(completionsData as unknown as Completion[] ?? [])
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 

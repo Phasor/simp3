@@ -111,6 +111,10 @@ export default function OnboardingPage() {
         } else {
           setStep('role')
         }
+      } else {
+        // Session exists but no profile row — new user who clicked a magic link
+        setEmail(session.user.email ?? '')
+        setStep('role')
       }
     })()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -121,7 +125,10 @@ export default function OnboardingPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/onboarding`,
+      },
     })
     setLoading(false)
     if (error) { toast.error(error.message); return }
@@ -335,7 +342,7 @@ export default function OnboardingPage() {
             />
             <button
               type="submit"
-              disabled={loading || !email}
+              disabled={loading}
               className="w-full py-3 rounded-lg font-semibold bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Sending…' : 'Continue'}
@@ -364,7 +371,7 @@ export default function OnboardingPage() {
             />
             <button
               type="submit"
-              disabled={loading || otpCode.length < 6}
+              disabled={loading || otpCode.trim().length < 6}
               className="w-full py-3 rounded-lg font-semibold bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Verifying…' : 'Verify code'}

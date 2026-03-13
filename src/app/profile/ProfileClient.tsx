@@ -41,6 +41,19 @@ export default function ProfileClient({ initialProfile }: ProfileClientProps) {
     }
   }, [profile, router])
 
+  // Redirect to onboarding if no profile exists (e.g. after magic link login with no profile row)
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!profile) {
+        // Give context a moment to load, then redirect if still no profile
+        setTimeout(() => {
+          if (!contextProfile) router.replace('/onboarding')
+        }, 2000)
+      }
+    }
+    checkAuth()
+  }, [profile, contextProfile, router])
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({

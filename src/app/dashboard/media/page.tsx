@@ -26,7 +26,6 @@ function supabase() {
 
 export default function DashboardMediaPage() {
   const router = useRouter()
-  const sb = supabase()
   const [assets, setAssets] = useState<MediaAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -35,6 +34,7 @@ export default function DashboardMediaPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const fetchAssets = useCallback(async () => {
+    const sb = supabase()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
@@ -54,7 +54,7 @@ export default function DashboardMediaPage() {
 
     setAssets(data as MediaAsset[] ?? [])
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
 

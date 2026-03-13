@@ -21,7 +21,6 @@ function supabase() {
 
 export default function DashboardSettingsPage() {
   const router = useRouter()
-  const sb = supabase()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -40,17 +39,19 @@ export default function DashboardSettingsPage() {
   const [displayName, setDisplayName] = useState('')
   const [tagline, setTagline] = useState('')
   const [ctaText, setCtaText] = useState('')
+  const [walletAddress, setWalletAddress] = useState('')
 
   // Preview: live sub counts
   const [subCount, setSubCount] = useState<number | null>(null)
 
   const fetchData = useCallback(async () => {
+    const sb = supabase()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
     const { data: profile } = await sb
       .from('profiles')
-      .select('id, user_type, display_name, tagline, vip_cta_text')
+      .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address')
       .eq('auth_user_id', user.id)
       .single()
 
@@ -59,6 +60,7 @@ export default function DashboardSettingsPage() {
     setDisplayName(profile.display_name ?? '')
     setTagline(profile.tagline ?? '')
     setCtaText(profile.vip_cta_text ?? '')
+    setWalletAddress(profile.wallet_address ?? '')
 
     const [{ data: tiers }, { count }] = await Promise.all([
       sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
@@ -82,7 +84,7 @@ export default function DashboardSettingsPage() {
     }
 
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -110,11 +112,18 @@ export default function DashboardSettingsPage() {
         .single()
       if (!profile) return
 
+      // Validate wallet address if provided
+      if (walletAddress && !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
+        toast.error('Payout wallet must be a valid Ethereum address (0x…)')
+        return
+      }
+
       // Save profile fields
       await sb.from('profiles').update({
         display_name: displayName || null,
         tagline: tagline || null,
         vip_cta_text: ctaText || null,
+        wallet_address: walletAddress || null,
       }).eq('id', profile.id)
 
       // Save tiers
@@ -188,6 +197,27 @@ export default function DashboardSettingsPage() {
               maxLength={40} placeholder="Submit Tribute"
               className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600" />
           </Field>
+        </Section>
+
+        {/* ── Payout wallet ── */}
+        <Section title="Payout wallet">
+          <p className="text-xs text-gray-500 -mt-1">
+            USDC payments from subs are sent directly to this address on Base. Required before subs can pay you.
+          </p>
+          <Field label="Wallet address (Base / Ethereum)">
+            <input
+              type="text"
+              value={walletAddress}
+              onChange={e => setWalletAddress(e.target.value.trim())}
+              placeholder="0x…"
+              maxLength={42}
+              spellCheck={false}
+              className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm font-mono placeholder-gray-600 focus:outline-none focus:border-gray-600"
+            />
+          </Field>
+          {walletAddress && !/^0x[0-9a-fA-F]{40}$/.test(walletAddress) && (
+            <p className="text-xs text-red-400">Must be a valid 0x Ethereum address</p>
+          )}
         </Section>
 
         {/* ── VIP Chat Tiers ── */}

@@ -34,6 +34,7 @@ export default function SendMomentClient({ task, fanId }: Props) {
   const [message, setMessage] = useState('')
   const [phase, setPhase] = useState<'form' | 'animating' | 'done'>('form')
   const [completionId, setCompletionId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const domName = task.dom.display_name || task.dom.handle || 'Your Dom'
   const ctaText = task.dom.vip_cta_text || 'Submit Tribute'
@@ -44,22 +45,25 @@ export default function SendMomentClient({ task, fanId }: Props) {
       return
     }
 
-    const res = await fetch('/api/task/accept', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ taskId: task.id, tributeMessage: message }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      toast.error(data.error ?? 'Failed to process')
-      return
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/task/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, tributeMessage: message }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? 'Payment failed — please try again')
+        return
+      }
+
+      setCompletionId(data.completionId)
+      setPhase('animating')
+      setTimeout(() => setPhase('done'), 3000)
+    } finally {
+      setSubmitting(false)
     }
-
-    setCompletionId(data.completionId)
-    setPhase('animating')
-
-    // Hold animation for 3s then transition
-    setTimeout(() => setPhase('done'), 3000)
   }
 
   function handleContinue() {
@@ -182,11 +186,12 @@ export default function SendMomentClient({ task, fanId }: Props) {
 
         <button
           onClick={handleSubmit}
-          disabled={!message.trim()}
+          disabled={!message.trim() || submitting}
           className="w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {ctaText}
-          {task.price_usdc ? ` · $${task.price_usdc} USDC` : ''}
+          {submitting
+            ? 'Processing payment…'
+            : `${ctaText}${task.price_usdc ? ` · $${task.price_usdc} USDC` : ''}`}
         </button>
 
         <p className="text-center text-xs text-gray-600 pb-4">

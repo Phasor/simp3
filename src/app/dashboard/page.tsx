@@ -16,7 +16,6 @@ interface MonthBucket { month: string; usdc: number }
 
 export default function DashboardOverview() {
   const router = useRouter()
-  const sb = supabase()
 
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -29,6 +28,7 @@ export default function DashboardOverview() {
   const [chartData, setChartData] = useState<MonthBucket[]>([])
 
   const fetchData = useCallback(async () => {
+    const sb = supabase()
     const { data: { user } } = await sb.auth.getUser()
     if (!user) { router.push('/login'); return }
 
@@ -102,7 +102,7 @@ export default function DashboardOverview() {
     })
     setChartData(chart)
     setLoading(false)
-  }, [sb, router])
+  }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
 
