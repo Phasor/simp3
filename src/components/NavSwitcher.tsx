@@ -10,7 +10,7 @@ import SubBottomNav from '@/components/SubBottomNav'
 // at root level is a domHandle and gets WordmarkOnly from its own layout.
 const KNOWN_STATIC_PREFIXES = [
   '/login', '/signup', '/onboarding', '/auth', '/chat', '/dashboard',
-  '/task', '/score', '/profile', '/settings', '/api', '/payment',
+  '/task', '/score', '/profile', '/settings', '/api', '/payment', '/home',
 ]
 
 function isDomHandleRoute(path: string) {

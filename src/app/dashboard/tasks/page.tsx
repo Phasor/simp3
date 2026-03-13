@@ -6,6 +6,7 @@ import { createBrowserClient } from '@supabase/ssr'
 import toast from 'react-hot-toast'
 import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 type TaskType = 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT'
 type TaskStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
@@ -255,9 +256,9 @@ export default function DashboardTasksPage() {
                   {c.evidence_url && (
                     <div>
                       <div className="text-xs text-gray-500 mb-2">Evidence</div>
-                      <a href={c.evidence_url} target="_blank" rel="noreferrer">
+                      <a href={getBunnyStorageUrl(c.evidence_url)} target="_blank" rel="noreferrer">
                         <Image
-                          src={c.evidence_url}
+                          src={getBunnyStorageUrl(c.evidence_url)}
                           alt="Evidence"
                           width={400}
                           height={300}

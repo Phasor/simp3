@@ -153,10 +153,9 @@ export async function POST(req: Request) {
   }
 
   // Determine initial completion status
-  // CONTENT and REPETITION auto-approve; SUBMISSION and EVIDENCE go to dom review
-  const initialStatus = (task.task_type === 'CONTENT' || task.task_type === 'REPETITION')
-    ? 'APPROVED'
-    : 'ACCEPTED'
+  // CONTENT auto-approves on payment (no completion step needed)
+  // REPETITION, SUBMISSION, EVIDENCE all start as ACCEPTED — sub must complete the task
+  const initialStatus = task.task_type === 'CONTENT' ? 'APPROVED' : 'ACCEPTED'
 
   const { data: completion, error: completionError } = await supabase
     .from('task_completions')

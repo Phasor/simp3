@@ -107,13 +107,10 @@ function AuthPromptModal({ onClose, domHandle }: { onClose: () => void; domHandl
 }
 
 // ── Task card ─────────────────────────────────────────────────────────────────
-function TaskCard({ task, onClickGuest }: { task: Task; onClickGuest: () => void }) {
-  const { profile, resolved } = useAuth()
+function TaskCard({ task }: { task: Task }) {
   const router = useRouter()
 
   function handleClick() {
-    if (!resolved) return
-    if (!profile) { onClickGuest(); return }
     router.push(`/task/${task.id}`)
   }
 
@@ -310,7 +307,6 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier }: 
                 <TaskCard
                   key={task.id}
                   task={task}
-                  onClickGuest={() => setShowAuthPrompt(true)}
                 />
               ))
             )}

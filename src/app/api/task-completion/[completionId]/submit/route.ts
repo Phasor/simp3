@@ -18,10 +18,10 @@ export async function PATCH(req: Request, { params }: Params) {
     .single()
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Verify the completion belongs to this fan
+  // Verify the completion belongs to this fan (join task_type for REPETITION auto-approve)
   const { data: completion } = await supabase
     .from('task_completions')
-    .select('id, fan_id, status, task_id')
+    .select('id, fan_id, status, task_id, tasks!inner(task_type)')
     .eq('id', completionId)
     .maybeSingle()
 
@@ -34,14 +34,19 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const { submissionText, evidenceUrl, repetitionCount } = await req.json()
 
+  // REPETITION tasks auto-approve on submit; others go to dom review
+  const task = completion.tasks as unknown as { task_type: string }
+  const newStatus = task.task_type === 'REPETITION' ? 'APPROVED' : 'SUBMITTED'
+
   const { error } = await supabase
     .from('task_completions')
     .update({
-      status: 'SUBMITTED',
+      status: newStatus,
       submission_text: submissionText ?? null,
       evidence_url: evidenceUrl ?? null,
       repetition_count: repetitionCount ?? null,
       submitted_at: new Date().toISOString(),
+      reviewed_at: task.task_type === 'REPETITION' ? new Date().toISOString() : null,
     })
     .eq('id', completionId)
 

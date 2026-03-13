@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -62,7 +62,6 @@ export default function TaskCompleteClient({ task, completionId }: Props) {
 // REPETITION
 // ============================================================
 function RepetitionUI({ task, completionId, backHref }: { task: Task; completionId: string; backHref: string }) {
-  const router = useRouter()
   const required = task.required_repetitions ?? 10
   const phrase = task.repetition_phrase ?? ''
   const [input, setInput] = useState('')
@@ -236,7 +235,6 @@ function SubmissionUI({ task, completionId, backHref }: { task: Task; completion
 // EVIDENCE
 // ============================================================
 function EvidenceUI({ task, completionId, backHref }: { task: Task; completionId: string; backHref: string }) {
-  const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)

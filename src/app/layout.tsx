@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import NavSwitcher from "@/components/NavSwitcher";
-import PrivyClientProvider from "@/components/PrivyClientProvider";
+import PrivyNoSSR from "@/components/PrivyNoSSR";
 import { FLAGS } from '@/lib/flags';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { Toaster } from "react-hot-toast";
@@ -57,7 +57,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
       >
-        <PrivyClientProvider>
+        <PrivyNoSSR>
           <AuthProvider initialSession={initialSession}>
             <NavSwitcher />
             <main className="flex-1">
@@ -90,7 +90,7 @@ export default async function RootLayout({
             }}
             />
           </AuthProvider>
-        </PrivyClientProvider>
+        </PrivyNoSSR>
       </body>
     </html>
   );

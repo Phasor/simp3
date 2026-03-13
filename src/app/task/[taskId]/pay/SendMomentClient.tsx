@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 interface DomProfile {
   id: string
@@ -38,6 +39,8 @@ export default function SendMomentClient({ task, fanId }: Props) {
 
   const domName = task.dom.display_name || task.dom.handle || 'Your Dom'
   const ctaText = task.dom.vip_cta_text || 'Submit Tribute'
+  const bannerUrl = task.dom.banner_image_url ? getBunnyStorageUrl(task.dom.banner_image_url) : null
+  const profilePicUrl = task.dom.profile_picture_url ? getBunnyStorageUrl(task.dom.profile_picture_url) : null
 
   async function handleSubmit() {
     if (!message.trim()) {
@@ -88,9 +91,9 @@ export default function SendMomentClient({ task, fanId }: Props) {
         </div>
 
         {/* Dom picture */}
-        {task.dom.profile_picture_url && (
+        {profilePicUrl && (
           <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-white/30 mb-8 z-10">
-            <Image src={task.dom.profile_picture_url} alt={domName} fill className="object-cover" />
+            <Image src={profilePicUrl} alt={domName} fill className="object-cover" />
           </div>
         )}
 
@@ -107,9 +110,9 @@ export default function SendMomentClient({ task, fanId }: Props) {
   if (phase === 'done') {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 px-6">
-        {task.dom.profile_picture_url && (
+        {profilePicUrl && (
           <div className="relative w-20 h-20 rounded-full overflow-hidden border border-white/20 mb-8">
-            <Image src={task.dom.profile_picture_url} alt={domName} fill className="object-cover" />
+            <Image src={profilePicUrl} alt={domName} fill className="object-cover" />
           </div>
         )}
         <p className="text-gray-400 text-sm mb-2">{domName}</p>
@@ -136,9 +139,9 @@ export default function SendMomentClient({ task, fanId }: Props) {
     <div className="fixed inset-0 bg-black overflow-y-auto">
       {/* Hero */}
       <div className="relative w-full" style={{ height: '60vh' }}>
-        {task.dom.banner_image_url ? (
+        {bannerUrl ? (
           <Image
-            src={task.dom.banner_image_url}
+            src={bannerUrl}
             alt={domName}
             fill
             className="object-cover"
