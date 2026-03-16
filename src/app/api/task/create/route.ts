@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     repetition_phrase,
     required_repetitions,
     media_id,
+    cover_image_url,
     status = 'PUBLISHED',
   } = body
 
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
       repetition_phrase: repetition_phrase || null,
       required_repetitions: required_repetitions ?? null,
       media_id: media_id || null,
+      cover_image_url: cover_image_url || null,
       status,
       active: status === 'PUBLISHED',
     })

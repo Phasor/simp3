@@ -46,12 +46,41 @@ export default async function DomProfilePage({ params }: Props) {
     .eq('tier_type', 'GROUP')
     .maybeSingle()
 
+  // Follower count
+  const { count: followerCount } = await supabase
+    .from('follows')
+    .select('id', { count: 'exact', head: true })
+    .eq('dom_id', dom.id)
+
+  // Is current viewer following this dom?
+  const { data: { user } } = await supabase.auth.getUser()
+  let isFollowing = false
+  if (user) {
+    const { data: fanProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .eq('user_type', 'FAN')
+      .maybeSingle()
+    if (fanProfile) {
+      const { data: follow } = await supabase
+        .from('follows')
+        .select('id')
+        .eq('fan_id', fanProfile.id)
+        .eq('dom_id', dom.id)
+        .maybeSingle()
+      isFollowing = !!follow
+    }
+  }
+
   return (
     <DomProfileClient
       dom={dom}
       tasks={tasks ?? []}
       wallAssets={wallAssets ?? []}
       groupTier={groupTier ?? null}
+      followerCount={followerCount ?? 0}
+      initialIsFollowing={isFollowing}
     />
   )
 }

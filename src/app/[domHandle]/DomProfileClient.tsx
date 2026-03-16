@@ -195,16 +195,44 @@ interface Props {
   tasks: Task[]
   wallAssets: WallAsset[]
   groupTier: GroupTier | null
+  followerCount: number
+  initialIsFollowing: boolean
 }
 
-export default function DomProfileClient({ dom, tasks, wallAssets, groupTier }: Props) {
+export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, followerCount, initialIsFollowing }: Props) {
+  const { profile, resolved } = useAuth()
   const [activeTab, setActiveTab] = useState<'tasks' | 'content'>('tasks')
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
   const [bannerLoaded, setBannerLoaded] = useState(false)
   const bannerRef = useRef<HTMLImageElement>(null)
+  const [isFollowing, setIsFollowing] = useState(initialIsFollowing)
+  const [followCount, setFollowCount] = useState(followerCount)
+  const [followLoading, setFollowLoading] = useState(false)
+
   useEffect(() => {
     if (bannerRef.current?.complete) setBannerLoaded(true)
   }, [])
+
+  const isSub = resolved && profile?.user_type === 'FAN'
+
+  async function handleFollow() {
+    if (!resolved) return
+    if (!profile) { setShowAuthPrompt(true); return }
+    setFollowLoading(true)
+    try {
+      const res = await fetch('/api/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domId: dom.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) return
+      setIsFollowing(data.following)
+      setFollowCount(c => data.following ? c + 1 : Math.max(0, c - 1))
+    } finally {
+      setFollowLoading(false)
+    }
+  }
 
   const displayName = dom.display_name ?? dom.handle ?? 'Tribute Dom'
 
@@ -262,10 +290,29 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier }: 
               {displayName[0].toUpperCase()}
             </div>
           )}
-          <div className="pb-1 min-w-0">
+          <div className="pb-1 min-w-0 flex-1">
             <h1 className="text-xl font-bold text-white leading-tight truncate">{displayName}</h1>
-            {dom.handle && <p className="text-gray-500 text-sm">@{dom.handle}</p>}
+            <div className="flex items-center gap-3 mt-0.5">
+              {dom.handle && <p className="text-gray-500 text-sm">@{dom.handle}</p>}
+              {followCount > 0 && (
+                <p className="text-gray-600 text-xs">{followCount.toLocaleString()} {followCount === 1 ? 'follower' : 'followers'}</p>
+              )}
+            </div>
           </div>
+          {/* Follow button — only for subs (or logged-out users) */}
+          {!resolved || isSub ? (
+            <button
+              onClick={handleFollow}
+              disabled={followLoading}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                isFollowing
+                  ? 'border border-gray-600 text-gray-300 hover:border-red-500 hover:text-red-400'
+                  : 'bg-white text-black hover:bg-gray-100'
+              }`}
+            >
+              {followLoading ? '…' : isFollowing ? 'Following' : 'Follow'}
+            </button>
+          ) : null}
         </div>
         {dom.tagline && (
           <p className="text-gray-300 text-sm leading-relaxed mb-4">{dom.tagline}</p>
