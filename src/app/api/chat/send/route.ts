@@ -150,9 +150,7 @@ export async function POST(request: Request) {
 
     console.log('✅ Message inserted successfully:', { id: message.id, sender_id: message.sender_id });
 
-    // Message delivery via postgres_changes (RLS-protected, durable)
-    // No server-side broadcast needed - clients subscribe to postgres_changes
-    console.log('✅ Message created', { id: message.id, sender_id: message.sender_id });
+    // Message delivery via postgres_changes (clients subscribe with RLS-compatible filters)
 
     return NextResponse.json({ success: true, message }, { 
       status: 201,

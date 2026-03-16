@@ -55,12 +55,12 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased min-h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased h-screen flex flex-col`}
       >
         <PrivyNoSSR>
           <AuthProvider initialSession={initialSession}>
             <NavSwitcher />
-            <main className="flex-1">
+            <main className="flex-1 overflow-hidden">
               {children}
             </main>
             <Toaster

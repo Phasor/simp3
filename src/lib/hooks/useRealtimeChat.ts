@@ -174,20 +174,25 @@ export function useRealtimeChat({
       });
 
       if (usePostgresChanges) {
-        // Use postgres_changes for durable message streaming
+        // Use postgres_changes for durable message streaming.
+        // No filter — RLS enforces per-event authorization (user only receives
+        // rows where creator_id or fan_id = current_profile_id()).
+        // Client-side conversation check below handles multi-conversation filtering.
+        // NOTE: Adding a column filter (e.g. fan_id=eq.X) causes CHANNEL_ERROR
+        // because Supabase Realtime can't validate filters against custom-function
+        // RLS policies (current_profile_id()).
+
         console.log('🔗 Setting up postgres_changes subscription:', {
           table: 'chat_messages',
-          filter: `creator_id=eq.${creatorId}`,
           creatorId,
           fanId
         });
-        
+
         newChannel
           .on('postgres_changes', {
             event: 'INSERT',
             schema: 'public',
             table: 'chat_messages',
-            filter: `creator_id=eq.${creatorId}`
           }, (payload) => {
             console.log('📨 Postgres_changes event received:', {
               event: payload.eventType,
