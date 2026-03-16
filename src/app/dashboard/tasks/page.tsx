@@ -64,38 +64,51 @@ export default function DashboardTasksPage() {
   const fetchData = useCallback(async (showSpinner = false) => {
     const sb = supabase()
     if (showSpinner) setLoading(true)
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    try {
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('id, user_type')
-      .eq('auth_user_id', user.id)
-      .single()
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('id, user_type')
+        .eq('auth_user_id', user.id)
+        .single()
 
-    if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
+      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
 
-    const [{ data: tasksData }, { data: completionsData }] = await Promise.all([
-      sb.from('tasks')
+      const { data: tasksData } = await sb
+        .from('tasks')
         .select('id, title, task_type, status, price_usdc, points, created_at')
         .eq('creator_id', profile.id)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
 
-      sb.from('task_completions')
-        .select(`
-          id, status, tribute_message, submission_text, evidence_url, repetition_count,
-          accepted_at, submitted_at,
-          tasks!inner ( title, task_type ),
-          fan_profile:profiles!fan_id ( tribute_alias, display_name )
-        `)
-        .eq('tasks.creator_id', profile.id)
-        .eq('status', 'SUBMITTED')
-        .order('submitted_at', { ascending: true }),
-    ])
+      const taskIds = (tasksData ?? []).map(t => t.id)
 
-    setTasks(tasksData ?? [])
-    setCompletions(completionsData as unknown as Completion[] ?? [])
-    setLoading(false)
+      let completionsData: Completion[] = []
+      if (taskIds.length > 0) {
+        const { data, error: completionsError } = await sb
+          .from('task_completions')
+          .select(`
+            id, status, tribute_message, submission_text, evidence_url, repetition_count,
+            accepted_at, submitted_at,
+            tasks ( title, task_type ),
+            fan_profile:profiles!fan_id ( tribute_alias, display_name )
+          `)
+          .in('task_id', taskIds)
+          .eq('status', 'SUBMITTED')
+          .order('submitted_at', { ascending: true })
+
+        if (completionsError) console.error('Completions query error:', completionsError)
+        completionsData = (data as unknown as Completion[]) ?? []
+      }
+
+      setTasks(tasksData ?? [])
+      setCompletions(completionsData)
+    } catch (err) {
+      console.error('fetchData error:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [router])
 
   useEffect(() => { fetchData(true) }, [fetchData])
