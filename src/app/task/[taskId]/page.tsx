@@ -13,6 +13,7 @@ interface TaskRow {
   title: string
   description: string | null
   task_type: string | null
+  status: string | null
   price_usdc: number | null
   points: number
   instructions: string | null
@@ -36,7 +37,7 @@ export default async function TaskDetailPage({ params }: Props) {
   const { data: task } = await supabase
     .from('tasks')
     .select(`
-      id, title, description, task_type, price_usdc, points, instructions,
+      id, title, description, task_type, status, price_usdc, points, instructions,
       repetition_phrase, required_repetitions,
       dom:profiles!creator_id (
         id, display_name, handle, tagline,
@@ -44,7 +45,6 @@ export default async function TaskDetailPage({ params }: Props) {
       )
     `)
     .eq('id', taskId)
-    .eq('status', 'PUBLISHED')
     .single()
 
   if (!task) notFound()
