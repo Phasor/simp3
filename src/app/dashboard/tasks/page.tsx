@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
@@ -375,7 +376,7 @@ function TaskSection({
               className={`flex items-center gap-4 p-4 rounded-xl border ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
             >
               <span className="text-xl">{TYPE_ICON[task.task_type]}</span>
-              <div className="flex-1 min-w-0">
+              <Link href={`/task/${task.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                 <div className={`font-medium text-sm truncate ${muted ? 'text-gray-500' : 'text-white'}`}>
                   {task.title}
                 </div>
@@ -384,7 +385,7 @@ function TaskSection({
                   {task.price_usdc ? ` · $${task.price_usdc} USDC` : ''}
                   {task.points ? ` · ${task.points} pts` : ''}
                 </div>
-              </div>
+              </Link>
               {task.status !== 'ARCHIVED' && (
                 <button
                   onClick={() => onArchive(task.id)}
