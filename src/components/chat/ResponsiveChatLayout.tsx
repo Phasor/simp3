@@ -206,7 +206,7 @@ export function ResponsiveChatLayout({ className = '', initialConversations = []
 
   return (
     <>
-      <div className={`h-screen w-screen flex ${className}`}>
+      <div className={`h-full w-full flex ${className}`}>
         <aside className="w-80 min-w-72 border-r bg-white flex flex-col">
           <div className="flex-1 overflow-hidden">
             <ChatInbox 

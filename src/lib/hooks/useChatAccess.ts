@@ -49,11 +49,16 @@ export function useChatAccess({
       
       if (result.error) {
         setError(result.error);
-        // Still set the status even if there's an error (for unauthorized cases)
-        setAccessStatus(result.status);
+        // Don't downgrade a valid hasAccess:true status due to a transient abort/network error
+        const isTransient = result.error === 'Request aborted' || result.error.includes('Network');
+        if (isTransient) {
+          setAccessStatus(prev => (prev?.hasAccess ? prev : result.status));
+        } else {
+          setAccessStatus(result.status);
+        }
 
         // Don't log authorization errors as they're expected
-        if (result.error !== 'unauthorized') {
+        if (result.error !== 'unauthorized' && !isTransient) {
           console.error('Chat access check error:', result.error);
         }
       } else {
@@ -106,15 +111,13 @@ export function useChatAccess({
     };
   }, [autoRefresh, refreshInterval, checkAccess, creatorId, fanId]);
 
-  // Initial check when IDs change; reset loading when IDs not provided
+  // Reset state when IDs are removed; auto-refresh effect handles the actual check
   useEffect(() => {
-    if (creatorId && fanId) {
-      checkAccess();
-    } else {
+    if (!creatorId || !fanId) {
       setLoading(false);
       setAccessStatus(null);
     }
-  }, [checkAccess, creatorId, fanId]);
+  }, [creatorId, fanId]);
 
   return {
     accessStatus,

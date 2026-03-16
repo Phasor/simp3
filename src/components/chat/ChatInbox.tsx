@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MessageCircle, ChevronDown } from 'lucide-react';
+import { MessageCircle, ChevronDown, Unlock } from 'lucide-react';
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet';
 import { ChatAccessStatusBadge } from './ChatAccessStatus';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -36,6 +36,8 @@ export function ChatInbox({
 
   // --- state ---
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [vipDoms, setVipDoms] = useState<Profile[]>([]);
+  const [startingDomId, setStartingDomId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,20 +109,18 @@ export function ChatInbox({
     if (!authResolved || !profileId) return;
     if (conversations.length > 0) return; // Already seeded
 
-    // initialConversations was fetched server-side for this user — seed immediately
     if (initialConversations.length) {
       console.log('[ChatInbox] 🌱 SSR seed - raw data sample:', initialConversations[0]);
       const items = initialConversations.map(mapRowToItem);
-
-      // Write to cache BEFORE setting state
       try {
         sessionStorage.setItem(INBOX_CACHE_KEY, JSON.stringify({ userId: profileId, items }));
       } catch {}
-
       setConversations(items);
-      setIsReady(true);
       console.log('🪄 Seeded from SSR:', items.length, 'conversations');
     }
+
+    // Always mark ready once auth resolves — background fetch will populate if needed
+    setIsReady(true);
   }, [authResolved, profileId, initialConversations, conversations.length, mapRowToItem]);
 
   // 3) Background revalidate with request deduplication
@@ -179,6 +179,50 @@ export function ChatInbox({
     loadConversations();
   }, [authResolved, profileId, loadConversations]);
 
+  // 5) Fetch VIP-accessible doms via API (service role — no RLS timing issues)
+  const loadVipDoms = useCallback(async () => {
+    if (!authResolved || !profileId) return;
+    try {
+      const res = await fetch('/api/chat/vip-doms');
+      const json = await res.json();
+      setVipDoms(json.doms ?? []);
+    } catch (err) {
+      console.error('[ChatInbox] loadVipDoms error:', err);
+    }
+  }, [authResolved, profileId]);
+
+  useEffect(() => {
+    loadVipDoms();
+  }, [loadVipDoms]);
+
+  // Start a conversation with a VIP-accessible dom
+  const handleStartChat = useCallback(async (dom: Profile) => {
+    setStartingDomId(dom.id);
+    try {
+      const res = await fetch('/api/chat/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domId: dom.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        console.error('[ChatInbox] handleStartChat API error:', json);
+        throw new Error(json.error ?? 'Failed to start conversation');
+      }
+
+      // Open the conversation — use currentProfile for fan (already loaded, no extra query)
+      onSelectConversation?.(dom.id, profileId!, dom, currentProfile ?? dom);
+    } catch (err) {
+      console.error('[ChatInbox] handleStartChat error:', err);
+    } finally {
+      setStartingDomId(null);
+    }
+  }, [profileId, supabase, onSelectConversation]);
+
+  // Derive VIP doms that don't yet have a conversation — computed at render time
+  const existingDomIds = new Set(conversations.map(c => c.creatorId));
+  const vipDomsWithoutConversation = vipDoms.filter(p => !existingDomIds.has(p.id));
+
   // Filter conversations
   const filteredConversations = conversations.filter((conv) => {
     if (!searchQuery.trim()) return true;
@@ -223,7 +267,7 @@ export function ChatInbox({
     );
   }
 
-  // Show empty state
+  // Show empty state (but may still have VIP doms to start conversations with)
   if (filteredConversations.length === 0) {
     return (
       <div className={`flex flex-col h-full bg-white ${className}`}>
@@ -236,22 +280,26 @@ export function ChatInbox({
             className="w-full rounded-lg border px-3 py-2 typ-body-sm outline-none focus:ring-2 focus:ring-black/10"
           />
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-sm p-4">
-            <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="font-semibold mb-2">
-              {searchQuery ? 'No matching conversations' : 'No chats yet'}
-            </h3>
-            <p className="text-gray-500 typ-body-sm">
-              {searchQuery
-                ? 'Try adjusting your search terms'
-                : currentProfile?.user_type === 'CREATOR'
-                ? 'Conversations will appear here when subs with chat access message you.'
-                : 'You can message doms once you have VIP access.'
-              }
-            </p>
+        {vipDomsWithoutConversation.length > 0 ? (
+          <VipDomsSection vipDoms={vipDomsWithoutConversation} startingDomId={startingDomId} onStart={handleStartChat} />
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center max-w-sm p-4">
+              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="font-semibold mb-2">
+                {searchQuery ? 'No matching conversations' : 'No chats yet'}
+              </h3>
+              <p className="text-gray-500 typ-body-sm">
+                {searchQuery
+                  ? 'Try adjusting your search terms'
+                  : currentProfile?.user_type === 'CREATOR'
+                  ? 'Conversations will appear here when subs with chat access message you.'
+                  : 'Complete tasks to earn VIP chat access.'
+                }
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
@@ -269,6 +317,11 @@ export function ChatInbox({
           className="w-full rounded-lg border px-3 py-2 typ-body-sm outline-none focus:ring-2 focus:ring-black/10"
         />
       </div>
+
+      {/* VIP doms without a conversation yet */}
+      {vipDomsWithoutConversation.length > 0 && (
+        <VipDomsSection vipDoms={vipDomsWithoutConversation} startingDomId={startingDomId} onStart={handleStartChat} />
+      )}
 
       {/* Conversations */}
       <div className="flex-1 overflow-auto px-2 nice-scrollbar">
@@ -353,6 +406,61 @@ export function ChatInbox({
     </div>
   );
 }
+
+// ---------- VIP Doms Section ----------
+
+interface VipDomsSectionProps {
+  vipDoms: Profile[];
+  startingDomId: string | null;
+  onStart: (dom: Profile) => void;
+}
+
+function VipDomsSection({ vipDoms, startingDomId, onStart }: VipDomsSectionProps) {
+  return (
+    <div className="border-b">
+      <div className="flex items-center gap-2 px-4 py-3">
+        <Unlock className="h-4 w-4 text-amber-500" />
+        <span className="typ-ui font-semibold text-gray-900">VIP Access</span>
+        <span className="typ-caption rounded-full bg-amber-100 text-amber-700 px-2 py-0.5">{vipDoms.length}</span>
+      </div>
+      <ul className="pb-2 space-y-1 px-2">
+        {vipDoms.map((dom) => {
+          const isStarting = startingDomId === dom.id;
+          return (
+            <li key={dom.id}>
+              <button
+                onClick={() => onStart(dom)}
+                disabled={isStarting}
+                className="flex items-center gap-3 rounded-xl px-2 py-2 w-full text-left hover:bg-amber-50 border-2 border-transparent hover:border-amber-200 transition-colors disabled:opacity-60"
+              >
+                <div className="relative h-8 w-8 rounded-full bg-amber-100 flex-shrink-0 flex items-center justify-center">
+                  {dom.profile_picture_url ? (
+                    <img
+                      src={getBunnyStorageUrl(dom.profile_picture_url)}
+                      alt={dom.display_name || dom.email}
+                      className="h-8 w-8 rounded-full object-cover"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span className="typ-body-sm text-amber-700 font-semibold">
+                      {(dom.display_name || dom.email)?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="typ-ui text-gray-900 leading-tight">{dom.display_name || dom.handle || dom.email}</p>
+                  <p className="typ-caption text-amber-600">{isStarting ? 'Opening…' : 'Tap to start chatting'}</p>
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ---------- Conversation List Item ----------
 
 interface ConversationListItemProps {
   conversation: ConversationItem;

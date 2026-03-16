@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+import { getServerSupabase } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,40 +65,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get current user
-    console.log('🔐 Getting current user...');
-    const supabase = await createClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('❌ Authentication failed:', userError);
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
+    // Get session from cookie (no network round-trip)
+    const supabase = await getServerSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
-    console.log('✅ User authenticated:', user.id);
+
+    // Use admin client for all DB queries — bypasses RLS, no auth timing issues
+    const admin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Get user's profile
-    console.log('👤 Getting user profile...');
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('id, user_type')
-      .eq('auth_user_id', user.id)
+      .eq('auth_user_id', session.user.id)
       .single();
 
     if (profileError || !profile) {
-      console.error('❌ Profile lookup failed:', profileError);
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
-    console.log('✅ Profile found:', { id: profile.id, user_type: profile.user_type });
 
     // Verify conversation exists and user is a participant (don't trust client IDs)
-    console.log('🔍 Verifying conversation membership...');
-    const { data: conversation, error: convError } = await supabase
+    const { data: conversation, error: convError } = await admin
       .from('conversations')
       .select('id, creator_id, fan_id')
       .eq('creator_id', creatorId)
@@ -122,7 +116,7 @@ export async function POST(request: Request) {
 
     // Insert message - derive sender_id from authenticated user, ignore client-sent values
     console.log('💬 Inserting message...');
-    const { data: message, error: messageError } = await supabase
+    const { data: message, error: messageError } = await admin
       .from('chat_messages')
       .insert({
         creator_id: conversation.creator_id,  // Use verified conversation data
