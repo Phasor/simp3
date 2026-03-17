@@ -31,13 +31,6 @@ function TrophyIcon({ active }: { active: boolean }) {
   )
 }
 
-function UserIcon({ active }: { active: boolean }) {
-  return (
-    <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.75}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-    </svg>
-  )
-}
 
 function LibraryIcon({ active }: { active: boolean }) {
   return (
@@ -86,7 +79,6 @@ export default function SubBottomNav() {
     { label: 'Chat',    href: '/chat',    Icon: ChatIcon,    active: pathname.startsWith('/chat') },
     { label: 'Library', href: '/library', Icon: LibraryIcon, active: pathname.startsWith('/library') },
     { label: 'Score',   href: scoreHref,  Icon: TrophyIcon,  active: pathname.startsWith('/score') },
-    { label: 'Profile', href: '/profile', Icon: UserIcon,    active: pathname === '/profile' },
   ]
 
   const hideBottomOnMobile = HIDE_BOTTOM_ON_MOBILE.some(r => pathname.startsWith(r))

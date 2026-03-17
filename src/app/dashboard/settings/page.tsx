@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useAuth } from '@/lib/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
@@ -13,15 +13,9 @@ interface VipTier {
   threshold_value: number
 }
 
-function supabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 export default function DashboardSettingsPage() {
   const router = useRouter()
+  const { profile, resolved, supabase: sb } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -50,19 +44,11 @@ export default function DashboardSettingsPage() {
   const [subCount, setSubCount] = useState<number | null>(null)
 
   const fetchData = useCallback(async () => {
+    if (!resolved) return
+    if (!profile) { router.push('/login'); return }
+    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
+
     try {
-      const sb = supabase()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address, banner_image_url, profile_picture_url')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
-
       setDisplayName(profile.display_name ?? '')
       setTagline(profile.tagline ?? '')
       setCtaText(profile.vip_cta_text ?? '')
@@ -95,7 +81,7 @@ export default function DashboardSettingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -141,10 +127,8 @@ export default function DashboardSettingsPage() {
       const url = json.url
       setAvatarUrl(url)
       // Save to DB immediately
-      const sb = supabase()
-      const { data: { user } } = await sb.auth.getUser()
-      if (user) {
-        await sb.from('profiles').update({ profile_picture_url: url }).eq('auth_user_id', user.id)
+      if (profile) {
+        await sb.from('profiles').update({ profile_picture_url: url }).eq('id', profile.id)
       }
       toast.success('Avatar updated')
     } finally {
@@ -154,19 +138,9 @@ export default function DashboardSettingsPage() {
   }
 
   async function handleSave() {
-    const sb = supabase()
+    if (!profile) return
     setSaving(true)
     try {
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) return
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single()
-      if (!profile) return
-
       // Validate wallet address if provided
       if (walletAddress && !/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
         toast.error('Payout wallet must be a valid Ethereum address (0x…)')

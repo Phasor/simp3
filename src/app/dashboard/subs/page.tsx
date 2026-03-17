@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useAuth } from '@/lib/contexts/AuthContext'
 
 interface SubRow {
   fan_id: string
@@ -31,39 +31,25 @@ function scoreTier(total: number) {
   return 'Unverified'
 }
 
-function supabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 export default function DashboardSubsPage() {
   const router = useRouter()
+  const { profile, resolved, supabase: sb } = useAuth()
   const [subs, setSubs] = useState<SubRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
+    if (!resolved) return
+    if (!profile) { router.push('/login'); return }
+    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
+
     try {
-      const sb = supabase()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('id, user_type')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
-
       const now = new Date()
       const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
       const { data: scores } = await sb
         .from('tribute_scores')
         .select('fan_id, total_score, spend_score, task_score')
-        .eq('dom_id', profile.id)
+        .eq('dom_id', profile!.id)
         .eq('month_year', monthYear)
         .order('total_score', { ascending: false })
 
@@ -93,7 +79,7 @@ export default function DashboardSubsPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 

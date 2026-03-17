@@ -58,7 +58,7 @@ export async function GET(
     if (blurSigma > 0) {
       // Sharp sigma: 0.3–1000. Map blur 1-100 → sigma 1-50 for visible range
       const sigma = Math.round(blurSigma * 0.5)
-      imageBuffer = await sharp(imageBuffer).blur(sigma).jpeg({ quality: 70 }).toBuffer()
+      imageBuffer = await sharp(imageBuffer).blur(sigma).jpeg({ quality: 70 }).toBuffer() as Buffer<ArrayBuffer>
     }
 
     // Determine content type from the original response or file extension

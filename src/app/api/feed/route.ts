@@ -22,8 +22,6 @@ export async function GET(req: Request) {
   const tab = searchParams.get('tab') ?? 'for-you'
   const LIMIT = 30
 
-  let taskIds: string[] | null = null
-
   if (tab === 'following') {
     // Get dom IDs this sub follows
     const { data: followRows } = await supabase

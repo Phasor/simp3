@@ -12,54 +12,39 @@ interface ProfileClientProps {
 export default function ProfileClient({ initialProfile }: ProfileClientProps) {
   const { profile: contextProfile, refreshProfile } = useAuth()
   const router = useRouter()
-  
-  // Use initialProfile if provided, otherwise fall back to context
-  const profile = initialProfile || contextProfile
-  
-  const [formData, setFormData] = useState({
-    displayName: '',
-    email: ''
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
-  // Initialize form with profile data
+  const profile = initialProfile || contextProfile
+
+  const [formData, setFormData] = useState({ displayName: '', email: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   useEffect(() => {
     if (profile) {
       setFormData({
         displayName: profile.display_name || '',
-        email: profile.email || ''
+        email: profile.email || '',
       })
     }
   }, [profile])
 
-  // Redirect if not a fan (server should handle auth, but this is a safety check)
   useEffect(() => {
     if (profile && profile.user_type !== 'FAN') {
       router.push('/')
-      return
     }
   }, [profile, router])
 
-  // Redirect to onboarding if no profile exists (e.g. after magic link login with no profile row)
   useEffect(() => {
-    const checkAuth = async () => {
-      if (!profile) {
-        // Give context a moment to load, then redirect if still no profile
-        setTimeout(() => {
-          if (!contextProfile) router.replace('/onboarding')
-        }, 2000)
-      }
+    if (!profile) {
+      setTimeout(() => {
+        if (!contextProfile) router.replace('/onboarding')
+      }, 2000)
     }
-    checkAuth()
   }, [profile, contextProfile, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }))
+    setFormData(prev => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,28 +55,22 @@ export default function ProfileClient({ initialProfile }: ProfileClientProps) {
     try {
       const response = await fetch('/api/profile/update', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           displayName: formData.displayName.trim(),
-          email: formData.email.trim()
-        })
+          email: formData.email.trim(),
+        }),
       })
 
       const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to update profile')
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update profile')
-      }
-
-      setMessage({ type: 'success', text: 'Profile updated successfully!' })
+      setMessage({ type: 'success', text: 'Changes saved.' })
       await refreshProfile()
     } catch (error) {
-      console.error('Profile update error:', error)
-      setMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to update profile' 
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Failed to update profile',
       })
     } finally {
       setIsSubmitting(false)
@@ -100,154 +79,81 @@ export default function ProfileClient({ initialProfile }: ProfileClientProps) {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 typ-body text-gray-600">Loading profile...</p>
-        </div>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
       </div>
     )
   }
 
+  const initials = (profile.display_name || profile.email || 'U')[0].toUpperCase()
+
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow-sm rounded-lg">
-          {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="typ-h2 text-gray-900">Fan Profile</h1>
-            <p className="mt-1 typ-body-sm text-gray-600">
-              Manage your profile information and settings
-            </p>
-          </div>
+    <div className="min-h-screen bg-black pb-24">
+      <div className="max-w-lg mx-auto px-4 pt-10">
 
-          {/* Profile Picture Section */}
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="h-20 w-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                {profile.profile_picture_url ? (
-                  <img 
-                    src={profile.profile_picture_url} 
-                    alt="Profile" 
-                    className="h-20 w-20 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-2xl font-bold text-white">
-                    {(profile.display_name || profile.email || 'U')[0].toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <div>
-                <h3 className="typ-h3 text-gray-900">Profile Picture</h3>
-                <p className="typ-body-sm text-gray-600">
-                  Your profile picture is automatically assigned based on your platform activity and spending level.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
-            {/* Display Name */}
-            <div>
-              <label htmlFor="displayName" className="typ-label block text-gray-700">
-                Display Name
-              </label>
-              <div className="mt-1">
-                <input
-                  type="text"
-                  id="displayName"
-                  name="displayName"
-                  value={formData.displayName}
-                  onChange={handleInputChange}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your display name"
-                />
-              </div>
-              <p className="mt-2 typ-body-sm text-gray-500">
-                This is how your name will appear to creators and other users.
-              </p>
-            </div>
-
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="typ-label block text-gray-700">
-                Email Address
-              </label>
-              <div className="mt-1">
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email address"
-                />
-              </div>
-              <p className="mt-2 typ-body-sm text-gray-500">
-                Used for account notifications and password recovery.
-              </p>
-            </div>
-
-            {/* Payment Details Placeholder */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <h3 className="typ-h3 text-gray-900 mb-2">Payment Details</h3>
-              <p className="typ-body-sm text-gray-600 mb-3">
-                Payment methods and billing information will be managed here in the future.
-              </p>
-              <button
-                type="button"
-                disabled
-                className="px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed typ-ui"
-              >
-                Coming Soon
-              </button>
-            </div>
-
-            {/* Message */}
-            {message && (
-              <div className={`rounded-md p-4 ${
-                message.type === 'success' 
-                  ? 'bg-green-50 border border-green-200' 
-                  : 'bg-red-50 border border-red-200'
-              }`}>
-                <p className={`typ-body-sm ${
-                  message.type === 'success' ? 'text-green-800' : 'text-red-800'
-                }`}>
-                  {message.text}
-                </p>
-              </div>
+        {/* Avatar */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center mb-3">
+            {profile.profile_picture_url ? (
+              <img
+                src={profile.profile_picture_url}
+                alt="Profile"
+                className="w-20 h-20 rounded-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-white">{initials}</span>
             )}
-
-            {/* Submit Button */}
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed typ-ui"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* Account Actions */}
-        <div className="mt-8 bg-white shadow-sm rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="typ-h3 text-gray-900">Account Actions</h2>
-          </div>
-          <div className="px-6 py-4">
-            <button
-              onClick={() => router.push('/')}
-              className="text-blue-600 hover:text-blue-700 typ-body-sm"
-            >
-              ← Back to Dashboard
-            </button>
           </div>
         </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="displayName" className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">
+              Display Name
+            </label>
+            <input
+              type="text"
+              id="displayName"
+              name="displayName"
+              value={formData.displayName}
+              onChange={handleInputChange}
+              placeholder="Your name"
+              className="w-full bg-gray-950 border border-gray-800 text-white rounded-lg px-4 py-3 text-sm placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">
+              Email Address
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              placeholder="you@example.com"
+              className="w-full bg-gray-950 border border-gray-800 text-white rounded-lg px-4 py-3 text-sm placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors"
+            />
+          </div>
+
+          {message && (
+            <p className={`text-sm ${message.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              {message.text}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-white text-black font-semibold text-sm rounded-lg py-3 hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity mt-2"
+          >
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
+          </button>
+        </form>
+
       </div>
     </div>
   )

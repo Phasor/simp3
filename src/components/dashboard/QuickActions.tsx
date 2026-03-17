@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface QuickActionsProps {
   creatorHandle: string;
@@ -92,12 +93,12 @@ export default function QuickActions({ creatorHandle }: QuickActionsProps) {
         </button>
         
         <div className="grid grid-cols-2 gap-3">
-          <a 
-            href="/chat" 
+          <Link
+            href="/chat"
             className="rounded-xl border border-slate-200 bg-white text-center text-slate-800 text-sm px-3 py-2 hover:bg-slate-50 transition-colors"
           >
             Open chat
-          </a>
+          </Link>
           <a 
             href={`/creator/${creatorHandle}/landing`}
             className="rounded-xl border border-slate-200 bg-white text-center text-slate-800 text-sm px-3 py-2 hover:bg-slate-50 transition-colors"

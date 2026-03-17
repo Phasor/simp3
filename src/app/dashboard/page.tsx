@@ -2,20 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useAuth } from '@/lib/contexts/AuthContext'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-
-function supabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
 
 interface MonthBucket { month: string; usdc: number }
 
 export default function DashboardOverview() {
   const router = useRouter()
+  const { profile, resolved, supabase: sb } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -28,19 +22,11 @@ export default function DashboardOverview() {
   const [chartData, setChartData] = useState<MonthBucket[]>([])
 
   const fetchData = useCallback(async () => {
+    if (!resolved) return
+    if (!profile) { router.push('/login'); return }
+    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
+
     try {
-      const sb = supabase()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('id, user_type, display_name')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
-
       const domId = profile.id
       const now = new Date()
       const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -107,7 +93,7 @@ export default function DashboardOverview() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 

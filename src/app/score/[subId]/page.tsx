@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getServerSupabase } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
-export const revalidate = 300 // 5 min cache
+export const revalidate = 300
 
 export const metadata: Metadata = {
   robots: 'noindex, nofollow',
@@ -13,38 +13,10 @@ interface Props {
   params: Promise<{ subId: string }>
 }
 
-// Score tier thresholds (intentionally broad — don't reveal exact values to subs)
-const TIERS = [
-  { label: 'Elite', min: 5000, color: 'text-yellow-400', bg: 'bg-yellow-400/10 border-yellow-400/30' },
-  { label: 'Dedicated', min: 1500, color: 'text-purple-400', bg: 'bg-purple-400/10 border-purple-400/30' },
-  { label: 'Devoted', min: 500, color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/30' },
-  { label: 'Verified Payer', min: 100, color: 'text-green-400', bg: 'bg-green-400/10 border-green-400/30' },
-  { label: 'Tribute Initiate', min: 1, color: 'text-gray-400', bg: 'bg-gray-400/10 border-gray-400/30' },
-  { label: 'Unverified', min: 0, color: 'text-gray-600', bg: 'bg-gray-900 border-gray-800' },
-] as const
-
-function getTier(total: number) {
-  return TIERS.find(t => total >= t.min) ?? TIERS[TIERS.length - 1]
-}
-
-// Spend bracket — show range, not exact
-function spendBracket(spendScore: number): string {
-  // spend_score = floor(usdc * 10), capped at 500
-  // So usdc ≈ spendScore / 10
-  const approx = spendScore / 10
-  if (approx < 5) return 'Under $5'
-  if (approx < 25) return '$5 – $25'
-  if (approx < 100) return '$25 – $100'
-  if (approx < 250) return '$100 – $250'
-  if (approx < 500) return '$250 – $500'
-  return '$500+'
-}
-
 export default async function SubScorePage({ params }: Props) {
   const { subId } = await params
   const supabase = await getServerSupabase()
 
-  // Fetch the sub's profile (minimal — no personal info)
   const { data: sub } = await supabase
     .from('profiles')
     .select('id, user_type, created_at, tribute_alias')
@@ -54,89 +26,164 @@ export default async function SubScorePage({ params }: Props) {
 
   if (!sub) notFound()
 
-  // Aggregate scores across all doms for the current month
   const now = new Date()
   const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-  const { data: scores } = await supabase
+  const { data: rawScores } = await supabase
     .from('tribute_scores')
-    .select('total_score, spend_score, task_score, tenure_score, diversity_score')
+    .select('dom_id, total_score, spend_score, task_score')
     .eq('fan_id', subId)
     .eq('month_year', monthYear)
 
-  // Aggregate across all doms
-  const totalScore = (scores ?? []).reduce((sum, s) => sum + (s.total_score ?? 0), 0)
-  const totalSpendScore = (scores ?? []).reduce((sum, s) => sum + (s.spend_score ?? 0), 0)
-  const totalTaskScore = (scores ?? []).reduce((sum, s) => sum + (s.task_score ?? 0), 0)
+  const domIds = (rawScores ?? []).map(s => s.dom_id)
 
-  // Task completions count (all time)
-  const { count: taskCount } = await supabase
-    .from('task_completions')
-    .select('id', { count: 'exact', head: true })
-    .eq('fan_id', subId)
-    .eq('status', 'APPROVED')
+  // Fetch dom profiles + VIP tier config in parallel
+  const [{ data: domProfiles }, { data: vipTiers }] = await Promise.all([
+    domIds.length
+      ? supabase.from('profiles').select('id, display_name, handle, profile_picture_url').in('id', domIds)
+      : Promise.resolve({ data: [] }),
+    domIds.length
+      ? supabase.from('vip_tiers').select('dom_id, tier_type, threshold_type, threshold_value').in('dom_id', domIds).eq('tier_type', 'GROUP')
+      : Promise.resolve({ data: [] }),
+  ])
 
-  const tier = getTier(totalScore)
-  const memberSince = new Date(sub.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-  const alias = sub.tribute_alias ?? 'Anonymous'
+  // For each dom: rank + total sub count
+  const domScores = await Promise.all(
+    (rawScores ?? []).map(async (s) => {
+      const [{ count: higherCount }, { count: totalCount }] = await Promise.all([
+        supabase
+          .from('tribute_scores')
+          .select('id', { count: 'exact', head: true })
+          .eq('dom_id', s.dom_id)
+          .eq('month_year', monthYear)
+          .gt('total_score', s.total_score),
+        supabase
+          .from('tribute_scores')
+          .select('id', { count: 'exact', head: true })
+          .eq('dom_id', s.dom_id)
+          .eq('month_year', monthYear),
+      ])
 
-  return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
-      {/* Wordmark */}
-      <div className="px-5 py-4">
-        <Link href="/" className="text-white font-bold text-lg tracking-tight">Tribute</Link>
-      </div>
+      const rank = (higherCount ?? 0) + 1
+      const total = totalCount ?? 0
 
-      <div className="flex-1 flex flex-col items-center justify-center px-5 pb-16">
-        <div className="w-full max-w-sm space-y-5">
+      // Resolve VIP cutoff for this dom
+      const tier = (vipTiers ?? []).find(t => t.dom_id === s.dom_id)
+      let vipCutoff: number | null = null
+      if (tier) {
+        if (tier.threshold_type === 'TOP_PERCENT') {
+          vipCutoff = Math.max(1, Math.floor(total * Number(tier.threshold_value) / 100))
+        } else {
+          vipCutoff = Number(tier.threshold_value)
+        }
+      }
 
-          {/* Tier badge */}
-          <div className={`rounded-2xl border px-5 py-4 text-center ${tier.bg}`}>
-            <div className={`text-xs font-semibold uppercase tracking-widest mb-1 ${tier.color}`}>
-              {tier.label}
-            </div>
-            <div className="text-3xl font-bold text-white tabular-nums">{totalScore.toLocaleString()}</div>
-            <div className="text-xs text-gray-500 mt-1">Tribute Score · {monthYear}</div>
-          </div>
+      const isVip = vipCutoff !== null && rank <= vipCutoff
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <StatCard label="Member since" value={memberSince} />
-            <StatCard label="Tasks completed" value={String(taskCount ?? 0)} />
-            <StatCard label="Spend (approx)" value={spendBracket(totalSpendScore)} />
-            <StatCard label="Task score" value={String(totalTaskScore)} />
-          </div>
+      // If not qualifying, fetch the score of the sub at the cutoff position
+      let pointsNeeded: number | null = null
+      if (!isVip && vipCutoff !== null) {
+        const { data: cutoffRow } = await supabase
+          .from('tribute_scores')
+          .select('total_score')
+          .eq('dom_id', s.dom_id)
+          .eq('month_year', monthYear)
+          .order('total_score', { ascending: false })
+          .range(vipCutoff - 1, vipCutoff - 1)
+          .maybeSingle()
 
-          {/* Verified stamp */}
-          <div className="border border-gray-800 rounded-2xl px-5 py-4 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white">Verified Tribute Member</div>
-              <div className="text-xs text-gray-500 mt-0.5">Identity verified · Age verified</div>
-            </div>
-          </div>
+        if (cutoffRow) {
+          pointsNeeded = Math.max(1, cutoffRow.total_score - (s.total_score ?? 0) + 1)
+        }
+      }
 
-          {/* Alias line */}
-          <p className="text-center text-xs text-gray-600">
-            Tribute alias: <span className="text-gray-400">{alias}</span>
-          </p>
-
-        </div>
-      </div>
-    </div>
+      const dom = (domProfiles ?? []).find(p => p.id === s.dom_id)
+      return {
+        domId: s.dom_id,
+        domName: dom?.display_name ?? 'Unknown',
+        domHandle: dom?.handle ?? null,
+        domAvatar: dom?.profile_picture_url ?? null,
+        totalScore: s.total_score ?? 0,
+        rank,
+        vipCutoff,
+        isVip,
+        pointsNeeded,
+      }
+    })
   )
-}
 
-function StatCard({ label, value }: { label: string; value: string }) {
+  domScores.sort((a, b) => b.totalScore - a.totalScore)
+
   return (
-    <div className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <div className="text-sm font-semibold text-white">{value}</div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="w-full md:w-[40vw] mx-auto px-5 pt-10 pb-24">
+
+        {domScores.length === 0 ? (
+          <p className="text-gray-600 text-sm text-center pt-16">No scores yet this month.</p>
+        ) : (
+          <div className="space-y-2">
+            <h2 className="text-xs font-medium text-gray-500 uppercase tracking-wider px-1 mb-3">
+              Your Doms this month
+            </h2>
+            {domScores.map(ds => {
+              const initials = ds.domName[0].toUpperCase()
+              const avatarSrc = ds.domAvatar ? `/api/image/${ds.domAvatar.replace(/^\//, '')}` : null
+              return (
+                <div
+                  key={ds.domId}
+                  className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 flex items-center gap-3"
+                >
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-gray-800 flex items-center justify-center">
+                    {avatarSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarSrc} alt={ds.domName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-gray-400">{initials}</span>
+                    )}
+                  </div>
+
+                  {/* Name + rank + VIP status */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">
+                      {ds.domHandle ? (
+                        <Link href={`/${ds.domHandle}`} className="hover:text-gray-300 transition-colors">
+                          {ds.domName}
+                        </Link>
+                      ) : ds.domName}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Rank <span className="text-white font-semibold">#{ds.rank}</span> this month
+                    </div>
+                    <div className={`text-xs mt-1 font-medium ${
+                      ds.vipCutoff === null
+                        ? 'text-gray-600'
+                        : ds.isVip
+                          ? 'text-emerald-400'
+                          : 'text-red-400'
+                    }`}>
+                      {ds.vipCutoff === null
+                        ? 'VIP not configured'
+                        : ds.isVip
+                          ? 'Currently DO qualify for next month\'s VIP group chat'
+                          : ds.pointsNeeded !== null
+                            ? `Currently DO NOT qualify — need ${ds.pointsNeeded.toLocaleString()} more pts at this rate`
+                            : 'Currently DO NOT qualify for next month\'s VIP group chat'}
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-bold text-white tabular-nums">{ds.totalScore.toLocaleString()}</div>
+                    <div className="text-xs text-gray-600">pts</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+      </div>
     </div>
   )
 }

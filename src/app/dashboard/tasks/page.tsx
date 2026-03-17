@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useAuth } from '@/lib/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
@@ -55,15 +55,9 @@ const TYPE_ICON: Record<TaskType, string> = {
   CONTENT: '🔒',
 }
 
-function supabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 export default function DashboardTasksPage() {
   const router = useRouter()
+  const { profile, resolved, supabase: sb } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<Completion[]>([])
   const [tab, setTab] = useState<'tasks' | 'inbox'>('tasks')
@@ -75,24 +69,16 @@ export default function DashboardTasksPage() {
   const [reviewing, setReviewing] = useState(false)
 
   const fetchData = useCallback(async (showSpinner = false) => {
+    if (!resolved) return
+    if (!profile) { router.push('/login'); return }
+    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
+
     if (showSpinner) setLoading(true)
     try {
-      const sb = supabase()
-      const { data: { user } } = await sb.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      const { data: profile } = await sb
-        .from('profiles')
-        .select('id, user_type')
-        .eq('auth_user_id', user.id)
-        .single()
-
-      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
-
       const { data: tasksData } = await sb
         .from('tasks')
         .select('id, title, task_type, status, price_usdc, points, cover_image_url, description, instructions, repetition_phrase, required_repetitions, created_at')
-        .eq('creator_id', profile.id)
+        .eq('creator_id', profile!.id)
         .order('created_at', { ascending: false })
 
       const taskIds = (tasksData ?? []).map(t => t.id)
@@ -122,7 +108,7 @@ export default function DashboardTasksPage() {
     } finally {
       setLoading(false)
     }
-  }, [router])
+  }, [profile, resolved, router, sb])
 
   useEffect(() => { fetchData(true) }, [fetchData])
 
@@ -400,20 +386,20 @@ function TaskSection({
               <div
                 key={task.id}
                 onClick={() => onEdit(task)}
-                className={`flex items-center rounded-xl border p-[8px] gap-3 hover:border-gray-600 transition-colors cursor-pointer ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
+                className={`flex items-center h-16 rounded-xl border px-2 gap-3 hover:border-gray-600 transition-colors cursor-pointer ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
               >
                 {isContentWithCover && (
-                  <div className="w-16 shrink-0 self-stretch rounded-lg overflow-hidden">
+                  <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden">
                     <Image
                       src={getBunnyStorageUrl(task.cover_image_url!)}
                       alt={task.title}
-                      width={64}
-                      height={80}
+                      width={48}
+                      height={48}
                       className="w-full h-full object-cover"
                     />
                   </div>
                 )}
-                <div className="flex flex-1 items-center gap-4 py-5 pr-3 min-w-0">
+                <div className="flex flex-1 items-center gap-4 pr-1 min-w-0">
                   {!isContentWithCover && <TaskIcon task={task} />}
                   <div className="flex-1 min-w-0">
                     <div className={`font-medium text-sm truncate ${muted ? 'text-gray-500' : 'text-white'}`}>

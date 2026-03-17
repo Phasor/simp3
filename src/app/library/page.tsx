@@ -56,8 +56,9 @@ export default function LibraryPage() {
 
       // Filter to CONTENT tasks only
       const contentItems = (data ?? []).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (r: any) => r.task?.media_asset != null
-      ) as LibraryItem[]
+      ) as unknown as LibraryItem[]
       setItems(contentItems)
     } finally {
       setLoading(false)
@@ -72,7 +73,7 @@ export default function LibraryPage() {
     <div className="min-h-screen bg-black text-white pb-24">
       <div className="max-w-2xl mx-auto px-4 pt-6">
         <h1 className="font-serif text-2xl font-light text-white mb-1">Your Collection</h1>
-        <p className="text-sm text-gray-500 mb-6">Content you've unlocked</p>
+        <p className="text-sm text-gray-500 mb-6">Content you&apos;ve unlocked</p>
 
         {(!resolved || loading) ? (
           <div className="flex justify-center py-16">

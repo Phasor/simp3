@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useAuth } from '@/lib/contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 interface Txn {
@@ -13,15 +13,9 @@ interface Txn {
   type: 'task' | 'content' | 'payout'
 }
 
-function supabase() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-}
-
 export default function DashboardEarningsPage() {
   const router = useRouter()
+  const { profile, resolved, supabase: sb } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [txns, setTxns] = useState<Txn[]>([])
@@ -33,32 +27,25 @@ export default function DashboardEarningsPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
-    const sb = supabase()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    if (!resolved) return
+    if (!profile) { router.push('/login'); return }
+    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
 
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('id, user_type, kyc_status, wallet_address')
-      .eq('auth_user_id', user.id)
-      .single()
-
-    if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
-
+    try {
     setKycStatus(profile.kyc_status ?? 'PENDING')
     setPayoutWallet(profile.wallet_address ?? '')
 
     const [{ data: completions }, { data: unlocks }] = await Promise.all([
       sb.from('task_completions')
         .select('id, amount_usdc, accepted_at, tasks!inner(title, creator_id)')
-        .eq('tasks.creator_id', profile.id)
+        .eq('tasks.creator_id', profile!.id)
         .eq('status', 'APPROVED')
         .order('accepted_at', { ascending: false })
         .limit(50),
 
       sb.from('content_unlocks')
         .select('id, amount_usdc, unlocked_at, media_assets!inner(title, creator_id)')
-        .eq('media_assets.creator_id', profile.id)
+        .eq('media_assets.creator_id', profile!.id)
         .order('unlocked_at', { ascending: false })
         .limit(50),
     ])
@@ -82,8 +69,12 @@ export default function DashboardEarningsPage() {
 
     setTxns(rows)
     setBalance(rows.reduce((s, t) => s + t.amountUsdc, 0))
-    setLoading(false)
-  }, [router])
+    } catch (err) {
+      console.error('Earnings fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 
