@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/lib/contexts/AuthContext'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -56,73 +58,58 @@ function FeedCard({ item }: { item: FeedItem }) {
   const coverUrl = item.cover_image_url ? getBunnyStorageUrl(item.cover_image_url) : null
 
   return (
-    <Link href={`/task/${item.id}`} className="block bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 transition-colors">
+    <Link href={`/task/${item.id}`} className="block bg-gray-950 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
       {/* Cover image — blurred to tease */}
-      {coverUrl && (
-        <div className="relative w-full overflow-hidden" style={{ height: 180 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={coverUrl}
-            alt={item.title}
-            className="w-full h-full object-cover filter blur-md scale-110"
-          />
-          <div className="absolute inset-0 bg-black/40" />
-          {/* Type badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs font-medium text-gray-300 border border-gray-700">
-            <span>{TYPE_ICON[item.task_type] ?? '📋'}</span>
-            {TYPE_LABEL[item.task_type] ?? item.task_type}
+      <div className="relative w-full overflow-hidden bg-gray-900" style={{ aspectRatio: '4/3' }}>
+        {coverUrl ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverUrl}
+              alt={item.title}
+              className="w-full h-full object-cover filter blur-md scale-110"
+            />
+            <div className="absolute inset-0 bg-black/40" />
+          </>
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-3xl">
+            {TYPE_ICON[item.task_type] ?? '📋'}
           </div>
-          {/* Price */}
-          {item.price_usdc != null && (
-            <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full text-sm font-bold text-white">
-              ${item.price_usdc} USDC
-            </div>
-          )}
+        )}
+        {/* Type badge — top left */}
+        <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-medium text-gray-300 border border-gray-700">
+          {TYPE_ICON[item.task_type] ?? '📋'} {TYPE_LABEL[item.task_type] ?? item.task_type}
         </div>
-      )}
+        {/* Price — bottom right */}
+        {item.price_usdc != null && (
+          <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-bold text-white">
+            ${item.price_usdc}
+          </div>
+        )}
+      </div>
 
       {/* Card body */}
-      <div className="p-4">
+      <div className="p-2.5">
         {/* Dom row */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt={domName} className="w-8 h-8 rounded-full object-cover shrink-0" />
+            <img src={avatarUrl} alt={domName} className="w-5 h-5 rounded-full object-cover shrink-0" />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0">
+            <div className="w-5 h-5 rounded-full bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0">
               {domName[0].toUpperCase()}
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            <span className="text-sm font-semibold text-white">{domName}</span>
-            {dom.handle && <span className="text-gray-500 text-xs ml-1.5">@{dom.handle}</span>}
-          </div>
-          <span className="text-gray-600 text-xs shrink-0">{timeAgo(item.created_at)}</span>
+          <span className="text-xs text-gray-400 truncate">{domName}</span>
+          <span className="text-gray-600 text-xs shrink-0 ml-auto">{timeAgo(item.created_at)}</span>
         </div>
 
-        {/* Task info */}
-        <p className="text-white font-semibold text-sm leading-snug mb-1">{item.title}</p>
-        {item.description && (
-          <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{item.description}</p>
-        )}
+        {/* Title */}
+        <p className="text-white font-semibold text-xs leading-snug line-clamp-2">{item.title}</p>
 
-        {/* Chips — shown when no cover image (price is on the cover otherwise) */}
-        {!coverUrl && (
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            {item.price_usdc != null && (
-              <span className="bg-gray-900 border border-gray-800 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
-                ${item.price_usdc} USDC
-              </span>
-            )}
-            {item.points > 0 && (
-              <span className="bg-gray-900 border border-gray-800 text-yellow-400 text-xs font-medium px-2.5 py-1 rounded-full">
-                +{item.points} pts
-              </span>
-            )}
-            <span className="bg-gray-900 border border-gray-800 text-gray-500 text-xs px-2.5 py-1 rounded-full ml-auto">
-              {TYPE_ICON[item.task_type]} {TYPE_LABEL[item.task_type]}
-            </span>
-          </div>
+        {/* Points chip */}
+        {item.points > 0 && (
+          <p className="text-yellow-400 text-xs mt-1">+{item.points} pts</p>
         )}
       </div>
     </Link>
@@ -131,9 +118,18 @@ function FeedCard({ item }: { item: FeedItem }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function HomePage() {
+  const router = useRouter()
+  const { profile, resolved } = useAuth()
   const [tab, setTab] = useState<'for-you' | 'following'>('for-you')
   const [items, setItems] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Doms should not see the sub feed — redirect to dashboard
+  useEffect(() => {
+    if (resolved && profile?.user_type === 'CREATOR') {
+      router.replace('/dashboard')
+    }
+  }, [resolved, profile, router])
 
   const fetchFeed = useCallback(async (t: 'for-you' | 'following') => {
     setLoading(true)
@@ -155,7 +151,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white pb-24">
       {/* Sticky tabs */}
       <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-sm border-b border-gray-900">
-        <div className="w-full md:w-[50vw] mx-auto flex">
+        <div className="max-w-4xl mx-auto flex">
           {(['for-you', 'following'] as const).map(t => (
             <button
               key={t}
@@ -174,7 +170,7 @@ export default function HomePage() {
       </div>
 
       {/* Feed */}
-      <div className="w-full md:w-[50vw] mx-auto px-4 pt-4 space-y-4">
+      <div className="max-w-4xl mx-auto px-3 pt-4">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -194,7 +190,9 @@ export default function HomePage() {
             </div>
           )
         ) : (
-          items.map(item => <FeedCard key={item.id} item={item} />)
+          <div className="grid grid-cols-3 gap-3">
+            {items.map(item => <FeedCard key={item.id} item={item} />)}
+          </div>
         )}
       </div>
     </div>

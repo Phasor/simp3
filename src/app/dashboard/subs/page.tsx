@@ -44,50 +44,55 @@ export default function DashboardSubsPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
-    const sb = supabase()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    try {
+      const sb = supabase()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('id, user_type')
-      .eq('auth_user_id', user.id)
-      .single()
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('id, user_type')
+        .eq('auth_user_id', user.id)
+        .single()
 
-    if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
+      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
 
-    const now = new Date()
-    const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const now = new Date()
+      const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    const { data: scores } = await sb
-      .from('tribute_scores')
-      .select('fan_id, total_score, spend_score, task_score')
-      .eq('dom_id', profile.id)
-      .eq('month_year', monthYear)
-      .order('total_score', { ascending: false })
+      const { data: scores } = await sb
+        .from('tribute_scores')
+        .select('fan_id, total_score, spend_score, task_score')
+        .eq('dom_id', profile.id)
+        .eq('month_year', monthYear)
+        .order('total_score', { ascending: false })
 
-    if (!scores || scores.length === 0) { setLoading(false); return }
+      if (!scores || scores.length === 0) return
 
-    // Fetch aliases for all fans
-    const fanIds = scores.map(s => s.fan_id)
-    const { data: profiles } = await sb
-      .from('profiles')
-      .select('id, tribute_alias, display_name')
-      .in('id', fanIds)
+      // Fetch aliases for all fans
+      const fanIds = scores.map(s => s.fan_id)
+      const { data: profiles } = await sb
+        .from('profiles')
+        .select('id, tribute_alias, display_name')
+        .in('id', fanIds)
 
-    const profileMap = Object.fromEntries(
-      (profiles ?? []).map(p => [p.id, p.tribute_alias ?? p.display_name ?? 'Anonymous'])
-    )
+      const profileMap = Object.fromEntries(
+        (profiles ?? []).map(p => [p.id, p.tribute_alias ?? p.display_name ?? 'Anonymous'])
+      )
 
-    setSubs(scores.map(s => ({
-      fan_id: s.fan_id,
-      total_score: s.total_score,
-      spend_score: s.spend_score,
-      task_score: s.task_score,
-      alias: profileMap[s.fan_id] ?? 'Anonymous',
-      tier: scoreTier(s.total_score),
-    })))
-    setLoading(false)
+      setSubs(scores.map(s => ({
+        fan_id: s.fan_id,
+        total_score: s.total_score,
+        spend_score: s.spend_score,
+        task_score: s.task_score,
+        alias: profileMap[s.fan_id] ?? 'Anonymous',
+        tier: scoreTier(s.total_score),
+      })))
+    } catch (err) {
+      console.error('Subs fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import toast from 'react-hot-toast'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 interface VipTier {
   id: string
@@ -42,51 +43,58 @@ export default function DashboardSettingsPage() {
   const [walletAddress, setWalletAddress] = useState('')
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
   const [uploadingBanner, setUploadingBanner] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   // Preview: live sub counts
   const [subCount, setSubCount] = useState<number | null>(null)
 
   const fetchData = useCallback(async () => {
-    const sb = supabase()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    try {
+      const sb = supabase()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address, banner_image_url')
-      .eq('auth_user_id', user.id)
-      .single()
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('id, user_type, display_name, tagline, vip_cta_text, wallet_address, banner_image_url, profile_picture_url')
+        .eq('auth_user_id', user.id)
+        .single()
 
-    if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
+      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
 
-    setDisplayName(profile.display_name ?? '')
-    setTagline(profile.tagline ?? '')
-    setCtaText(profile.vip_cta_text ?? '')
-    setWalletAddress(profile.wallet_address ?? '')
-    setBannerUrl(profile.banner_image_url ?? null)
+      setDisplayName(profile.display_name ?? '')
+      setTagline(profile.tagline ?? '')
+      setCtaText(profile.vip_cta_text ?? '')
+      setWalletAddress(profile.wallet_address ?? '')
+      setBannerUrl(profile.banner_image_url ?? null)
+      setAvatarUrl(profile.profile_picture_url ?? null)
 
-    const [{ data: tiers }, { count }] = await Promise.all([
-      sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
-      sb.from('tribute_scores')
-        .select('fan_id', { count: 'exact', head: true })
-        .eq('dom_id', profile.id),
-    ])
+      const [{ data: tiers }, { count }] = await Promise.all([
+        sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
+        sb.from('tribute_scores')
+          .select('fan_id', { count: 'exact', head: true })
+          .eq('dom_id', profile.id),
+      ])
 
-    setSubCount(count ?? 0)
+      setSubCount(count ?? 0)
 
-    for (const t of tiers ?? []) {
-      if (t.tier_type === 'GROUP') {
-        setGroupEnabled(true)
-        setGroupThresholdType(t.threshold_type)
-        setGroupValue(String(t.threshold_value))
+      for (const t of tiers ?? []) {
+        if (t.tier_type === 'GROUP') {
+          setGroupEnabled(true)
+          setGroupThresholdType(t.threshold_type)
+          setGroupValue(String(t.threshold_value))
+        }
+        if (t.tier_type === 'PRIVATE') {
+          setPrivateEnabled(true)
+          setPrivateValue(String(t.threshold_value))
+        }
       }
-      if (t.tier_type === 'PRIVATE') {
-        setPrivateEnabled(true)
-        setPrivateValue(String(t.threshold_value))
-      }
+    } catch (err) {
+      console.error('Settings fetch error:', err)
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])
@@ -116,6 +124,31 @@ export default function DashboardSettingsPage() {
       toast.success('Banner updated')
     } finally {
       setUploadingBanner(false)
+      e.target.value = ''
+    }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/upload/profile-picture', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? 'Upload failed'); return }
+      const url = json.url
+      setAvatarUrl(url)
+      // Save to DB immediately
+      const sb = supabase()
+      const { data: { user } } = await sb.auth.getUser()
+      if (user) {
+        await sb.from('profiles').update({ profile_picture_url: url }).eq('auth_user_id', user.id)
+      }
+      toast.success('Avatar updated')
+    } finally {
+      setUploadingAvatar(false)
       e.target.value = ''
     }
   }
@@ -198,24 +231,51 @@ export default function DashboardSettingsPage() {
   )
 
   return (
-    <div className="min-h-screen bg-black text-white pb-12">
-      <div className="max-w-lg mx-auto px-4 pt-6 space-y-8">
+    <div className="h-full flex flex-col bg-black text-white">
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-lg mx-auto px-4 pt-6 space-y-8 pb-6">
         <h1 className="text-xl font-semibold">Settings</h1>
 
         {/* ── Profile ── */}
         <Section title="Profile">
+          <Field label="Avatar">
+            <label className={`relative w-16 h-16 rounded-full block cursor-pointer group ${uploadingAvatar ? 'pointer-events-none' : ''}`}>
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-800 border border-gray-700 flex items-center justify-center">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={getBunnyStorageUrl(avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl text-gray-600">👤</span>
+                )}
+              </div>
+              {/* Pencil overlay */}
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploadingAvatar
+                  ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <PencilIcon />}
+              </div>
+              <input type="file" accept="image/*" className="sr-only" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+            </label>
+          </Field>
           <Field label="Banner image">
-            <div className="space-y-2">
-              {bannerUrl && (
+            <label className={`relative block rounded-lg overflow-hidden cursor-pointer group ${uploadingBanner ? 'pointer-events-none' : ''}`}>
+              {bannerUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bannerUrl} alt="Banner" className="w-full h-24 object-cover rounded-lg border border-gray-800" />
+                <img src={getBunnyStorageUrl(bannerUrl!)} alt="Banner" className="w-full h-24 object-cover" />
+              ) : (
+                <div className="w-full h-24 bg-gray-900 border border-gray-800 rounded-lg flex items-center justify-center text-gray-600 text-sm">
+                  No banner — click to upload
+                </div>
               )}
-              <label className={`flex items-center gap-2 px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-sm cursor-pointer hover:border-gray-600 transition-colors ${uploadingBanner ? 'opacity-50 pointer-events-none' : ''}`}>
-                <span className="text-gray-400">{uploadingBanner ? 'Uploading…' : bannerUrl ? 'Replace banner' : 'Upload banner image'}</span>
-                <span className="ml-auto text-xs text-gray-600">1500 × 500 px · max 10 MB</span>
-                <input type="file" accept="image/*" className="sr-only" onChange={handleBannerUpload} disabled={uploadingBanner} />
-              </label>
-            </div>
+              {/* Pencil overlay */}
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                {uploadingBanner
+                  ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  : <PencilIcon />}
+              </div>
+              <input type="file" accept="image/*" className="sr-only" onChange={handleBannerUpload} disabled={uploadingBanner} />
+            </label>
+            <p className="text-xs text-gray-600 mt-1">1500 × 500 px · max 10 MB</p>
           </Field>
           <Field label="Display name">
             <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
@@ -353,14 +413,20 @@ export default function DashboardSettingsPage() {
           <p className="text-xs text-gray-600">Access recalculates automatically on the 1st of each month.</p>
         </Section>
 
-        {/* Save */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-4 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Saving…' : 'Save settings'}
-        </button>
+      </div>
+      </div>
+
+      {/* Save — pinned to bottom of this flex column */}
+      <div className="shrink-0 border-t border-gray-900 bg-black px-4 py-3">
+        <div className="max-w-lg mx-auto">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3.5 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Save settings'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -384,6 +450,15 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </label>
       {children}
     </div>
+  )
+}
+
+function PencilIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
   )
 }
 

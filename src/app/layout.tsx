@@ -60,7 +60,7 @@ export default async function RootLayout({
         <PrivyNoSSR>
           <AuthProvider initialSession={initialSession}>
             <NavSwitcher />
-            <main className="flex-1 overflow-hidden">
+            <main className="flex-1 overflow-y-auto">
               {children}
             </main>
             <Toaster
