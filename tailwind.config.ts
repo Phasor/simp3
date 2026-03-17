@@ -68,7 +68,10 @@ export default {
           accent: '#0ea5e9',
           success: '#34d399',
           danger: '#f87171',
-        }
+        },
+        gold: {
+          DEFAULT: '#C9A84C',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -78,6 +81,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        serif: ['var(--font-cormorant)', 'Georgia', 'serif'],
       },
       fontSize: {
         display: ['clamp(2rem, 3vw + 1rem, 3rem)', { lineHeight: '1.15', letterSpacing: '-0.01em' }],
@@ -101,7 +105,21 @@ export default {
       },
       boxShadow: {
         soft: '0 4px 24px rgba(0,0,0,0.06)',
-      }
+      },
+      animation: {
+        'gold-pulse': 'gold-pulse 2s ease-in-out infinite',
+        'fade-up': 'fade-up 0.6s ease both',
+      },
+      keyframes: {
+        'gold-pulse': {
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(201,168,76,0)' },
+          '50%': { boxShadow: '0 0 24px 4px rgba(201,168,76,0.4)' },
+        },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
     },
   },
   plugins: [],

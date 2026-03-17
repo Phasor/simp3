@@ -35,29 +35,41 @@ async function extractVideoFrame(videoFile: File): Promise<File | null> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
     const objectUrl = URL.createObjectURL(videoFile)
-    video.src = objectUrl
-    video.muted = true
-    video.currentTime = 0
+    let settled = false
+
+    const cleanup = () => { URL.revokeObjectURL(objectUrl) }
+    const done = (result: File | null) => {
+      if (settled) return
+      settled = true
+      cleanup()
+      resolve(result)
+    }
+
+    // Safety timeout — if seeked/error never fires (e.g. unsupported codec), unblock after 5s
+    const timeout = setTimeout(() => done(null), 5000)
 
     video.addEventListener('seeked', () => {
+      clearTimeout(timeout)
       const canvas = document.createElement('canvas')
       canvas.width = video.videoWidth || 1280
       canvas.height = video.videoHeight || 720
       const ctx = canvas.getContext('2d')
-      if (!ctx) { URL.revokeObjectURL(objectUrl); resolve(null); return }
+      if (!ctx) { done(null); return }
       ctx.drawImage(video, 0, 0)
-      URL.revokeObjectURL(objectUrl)
       canvas.toBlob((blob) => {
-        resolve(blob ? new File([blob], 'cover.jpg', { type: 'image/jpeg' }) : null)
+        done(blob ? new File([blob], 'cover.jpg', { type: 'image/jpeg' }) : null)
       }, 'image/jpeg', 0.85)
     }, { once: true })
 
     video.addEventListener('error', () => {
-      URL.revokeObjectURL(objectUrl)
-      resolve(null)
+      clearTimeout(timeout)
+      done(null)
     }, { once: true })
 
+    video.muted = true
+    video.src = objectUrl
     video.load()
+    video.currentTime = 1 // seek to 1s — more reliable than 0 for triggering seeked
   })
 }
 

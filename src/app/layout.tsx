@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Cormorant_Garamond } from "next/font/google";
 import { AuthProvider } from "@/lib/contexts/AuthContext";
 import NavSwitcher from "@/components/NavSwitcher";
 import PrivyNoSSR from "@/components/PrivyNoSSR";
@@ -23,6 +23,14 @@ const geistMono = Geist_Mono({
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -55,7 +63,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased h-screen flex flex-col`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${cormorant.variable} antialiased h-screen flex flex-col`}
       >
         <PrivyNoSSR>
           <AuthProvider initialSession={initialSession}>

@@ -16,10 +16,64 @@ async function supabaseFromCookies() {
 }
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo', 'video/mpeg']
 const ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES]
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024  // 20 MB
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024 // 500 MB
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024   // 20 MB
+const MAX_VIDEO_BYTES = 500 * 1024 * 1024  // 500 MB
+
+async function uploadToBunnyStream(
+  buffer: Buffer,
+  title: string
+): Promise<{ success: boolean; videoId?: string; playbackUrl?: string; thumbnailUrl?: string; error?: string }> {
+  const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID || process.env.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID
+  const apiKey = process.env.BUNNY_STREAM_API_KEY || process.env.BUNNY_API_KEY || process.env.NEXT_PUBLIC_BUNNY_API_KEY_TEST
+
+  if (!libraryId || !apiKey) {
+    console.warn('⚠️  BUNNY_STREAM_LIBRARY_ID or BUNNY_STREAM_API_KEY not set — skipping Bunny Stream upload')
+    return { success: false, error: 'Bunny Stream not configured' }
+  }
+
+  // Step 1: create video placeholder
+  const createRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos`, {
+    method: 'POST',
+    headers: { 'AccessKey': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+  })
+  if (!createRes.ok) {
+    const text = await createRes.text().catch(() => '')
+    return { success: false, error: `Bunny Stream create failed: ${createRes.status} ${text}` }
+  }
+  const { guid } = await createRes.json() as { guid: string }
+
+  // Step 2: upload video bytes
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000) // 2 min for large uploads
+  try {
+    const uploadRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${guid}`, {
+      method: 'PUT',
+      headers: { 'AccessKey': apiKey, 'Content-Type': 'application/octet-stream' },
+      body: buffer as BodyInit,
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => '')
+      return { success: false, error: `Bunny Stream upload failed: ${uploadRes.status} ${text}` }
+    }
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err instanceof Error && err.name === 'AbortError') {
+      return { success: false, error: 'Upload timeout — try a smaller file' }
+    }
+    return { success: false, error: err instanceof Error ? err.message : 'Upload failed' }
+  }
+
+  const cdnHostname = process.env.BUNNY_STREAM_CDN_HOSTNAME || `${process.env.BUNNY_STREAM_PULL_ZONE || 'vz-stream'}.b-cdn.net`
+  const playbackUrl = `https://${cdnHostname}/${guid}/playlist.m3u8`
+  const thumbnailUrl = `https://${cdnHostname}/${guid}/thumbnail.jpg`
+
+  return { success: true, videoId: guid, playbackUrl, thumbnailUrl }
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await supabaseFromCookies()
@@ -51,39 +105,65 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `File too large (max ${isVideo ? '500' : '20'} MB)` }, { status: 400 })
   }
 
-  // TODO: Phase 11 — Hive moderation check
-  // const hiveResult = await checkHiveModeration(buffer)
-  // if (hiveResult.flagged) return NextResponse.json({ error: 'Content flagged' }, { status: 422 })
-
   const buffer = Buffer.from(await file.arrayBuffer())
-  const ext = file.name.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg')
-  const fileName = `${profile.id}-${Date.now()}.${ext}`
-  const folder = isVideo ? 'wall-videos' : 'wall-images'
+  const fileTitle = title || file.name.replace(/\.[^.]+$/, '')
 
-  const result = await uploadToBunnyStorage(buffer, fileName, folder)
-  if (!result.success || !result.url) {
-    return NextResponse.json({ error: result.error ?? 'Upload failed' }, { status: 500 })
+  if (isVideo) {
+    // Videos → Bunny Stream
+    const result = await uploadToBunnyStream(buffer, fileTitle)
+    if (!result.success || !result.videoId) {
+      return NextResponse.json({ error: result.error ?? 'Video upload failed' }, { status: 500 })
+    }
+
+    const { data: asset, error } = await supabase
+      .from('media_assets')
+      .insert({
+        creator_id: profile.id,
+        type: 'VIDEO',
+        title: fileTitle,
+        bunny_url: result.playbackUrl ?? null,
+        bunny_preview_url: result.thumbnailUrl ?? null,
+        thumbnail_url: result.thumbnailUrl ?? null,
+        playback_ref: result.videoId,
+        is_on_wall: false,
+        price_usdc: null,
+      })
+      .select('id')
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ id: asset.id, url: result.playbackUrl, thumbnailUrl: result.thumbnailUrl })
+  } else {
+    // Images → Bunny Storage
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const fileName = `${profile.id}-${Date.now()}.${ext}`
+
+    const result = await uploadToBunnyStorage(buffer, fileName, 'wall-images')
+    if (!result.success || !result.url) {
+      return NextResponse.json({ error: result.error ?? 'Upload failed' }, { status: 500 })
+    }
+
+    const cdnHostname = process.env.BUNNY_CDN_HOSTNAME || `${process.env.BUNNY_STORAGE_ZONE}.b-cdn.net`
+    const fullUrl = `https://${cdnHostname}/wall-images/${fileName}`
+
+    const { data: asset, error } = await supabase
+      .from('media_assets')
+      .insert({
+        creator_id: profile.id,
+        type: 'IMAGE',
+        title: fileTitle,
+        bunny_url: fullUrl,
+        bunny_preview_url: fullUrl,
+        thumbnail_url: fullUrl,
+        is_on_wall: false,
+        price_usdc: null,
+      })
+      .select('id')
+      .single()
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    return NextResponse.json({ id: asset.id, url: fullUrl })
   }
-
-  const cdnHostname = process.env.BUNNY_CDN_HOSTNAME || `${process.env.BUNNY_STORAGE_ZONE}.b-cdn.net`
-  const fullUrl = `https://${cdnHostname}/${folder}/${fileName}`
-
-  const { data: asset, error } = await supabase
-    .from('media_assets')
-    .insert({
-      creator_id: profile.id,
-      type: isVideo ? 'VIDEO' : 'IMAGE',
-      title: title || file.name.replace(/\.[^.]+$/, ''),
-      bunny_url: fullUrl,
-      bunny_preview_url: isVideo ? null : fullUrl, // for images preview = same URL
-      thumbnail_url: isVideo ? null : fullUrl,
-      is_on_wall: false,
-      price_usdc: null,
-    })
-    .select('id')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ id: asset.id, url: fullUrl })
 }

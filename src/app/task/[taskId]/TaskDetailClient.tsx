@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
+import { createClient } from '@/lib/supabase/client'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface DomProfile {
@@ -35,6 +36,8 @@ interface Task {
     type: string | null
     thumbnail_url: string | null
     bunny_preview_url: string | null
+    bunny_url: string | null
+    playback_ref: string | null
   } | null
   dom: DomProfile
 }
@@ -171,8 +174,21 @@ export default function TaskDetailClient({
 
   // ── Sub state ──
   const [showAuth, setShowAuth] = useState(false)
-  const [tributeMessage, setTributeMessage] = useState('')
-  const [payPhase, setPayPhase] = useState<'idle' | 'writing' | 'animating' | 'done'>('idle')
+  const [payPhase, setPayPhase] = useState<'idle' | 'animating' | 'done'>('idle')
+  const [isUnlocked, setIsUnlocked] = useState(false)
+
+  // Check if this sub has already unlocked this CONTENT task
+  useEffect(() => {
+    if (task.task_type !== 'CONTENT' || !profile?.id) return
+    const sb = createClient()
+    sb.from('task_completions')
+      .select('id')
+      .eq('task_id', task.id)
+      .eq('fan_id', profile.id)
+      .eq('status', 'APPROVED')
+      .maybeSingle()
+      .then(({ data }) => { if (data) setIsUnlocked(true) })
+  }, [task.id, task.task_type, profile?.id])
   const [completionId, setCompletionId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -209,7 +225,7 @@ export default function TaskDetailClient({
   function handleAccept() {
     if (!resolved) return
     if (!profile) { setShowAuth(true); return }
-    setPayPhase('writing')
+    handlePay()
   }
 
   async function handlePay() {
@@ -218,7 +234,7 @@ export default function TaskDetailClient({
       const res = await fetch('/api/task/accept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId: task.id, tributeMessage }),
+        body: JSON.stringify({ taskId: task.id, tributeMessage: '' }),
       })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Payment failed — please try again'); return }
@@ -232,9 +248,8 @@ export default function TaskDetailClient({
 
   function handleContinue() {
     setPayPhase('idle')
-    setTributeMessage('')
     if (task.task_type === 'CONTENT') {
-      router.push(task.dom.handle ? `/${task.dom.handle}` : '/')
+      setIsUnlocked(true) // show content immediately without a full page reload
     } else {
       router.push(`/task/${task.id}/complete?completion=${completionId}`)
     }
@@ -272,67 +287,7 @@ export default function TaskDetailClient({
     setEditing(false)
   }
 
-  // ── Phase: writing tribute message ─────────────────────────────────────────
-  if (payPhase === 'writing') {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-        <div className="w-full max-w-sm bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
-          {/* Header */}
-          <div className="px-5 pt-5 pb-4 border-b border-white/[0.06]">
-            <div className="flex items-center justify-between mb-1">
-              <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30">Your tribute</p>
-              <button
-                onClick={() => { setPayPhase('idle'); setTributeMessage('') }}
-                className="text-white/30 hover:text-white/60 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <p className="font-serif italic text-white/50 text-sm">
-              Write your message to {domName} before paying.
-            </p>
-          </div>
 
-          {/* Textarea */}
-          <div className="p-4">
-            <textarea
-              autoFocus
-              value={tributeMessage}
-              onChange={e => setTributeMessage(e.target.value)}
-              placeholder={`Tell ${domName} why you're submitting this tribute…`}
-              rows={5}
-              maxLength={500}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-[15px] font-sans placeholder-white/20 focus:outline-none focus:border-white/20 resize-none leading-relaxed"
-            />
-            <div className="flex items-center justify-between mt-2 mb-4">
-              <span className={`text-xs transition-colors ${tributeMessage.trim() ? 'text-gold/70' : 'text-white/20'}`}>
-                {tributeMessage.trim() ? '✓ Ready' : 'Required'}
-              </span>
-              <span className="text-xs text-white/20">{tributeMessage.length}/500</span>
-            </div>
-            <button
-              onClick={() => { if (tributeMessage.trim()) handlePay() }}
-              disabled={!tributeMessage.trim() || submitting}
-              className={`w-full py-4 rounded-xl font-sans font-semibold text-base transition-all ${
-                tributeMessage.trim() && !submitting
-                  ? 'bg-white text-black hover:bg-gray-100'
-                  : 'bg-white/10 text-white/30 cursor-default'
-              }`}
-            >
-              {submitting ? 'Processing…' : `${ctaText}${task.price_usdc != null ? ` · $${task.price_usdc} USDC` : ''}`}
-            </button>
-            {tributeMessage.trim() && (
-              <p className="text-center text-xs text-white/20 mt-2">
-                Non-refundable · Secured by USDC on Base
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   // ── Ceremony: animating ────────────────────────────────────────────────────
   if (payPhase === 'animating') {
@@ -618,12 +573,42 @@ export default function TaskDetailClient({
                 </div>
               )}
 
-              {/* CONTENT: Blurred preview */}
+              {/* CONTENT: preview (locked) or player (unlocked) */}
               {task.task_type === 'CONTENT' && (() => {
                 const asset = task.media_asset
-                const previewPath = asset?.bunny_preview_url || asset?.thumbnail_url || null
-                const previewUrl = previewPath ? getBunnyStorageUrl(previewPath) : null
                 const isVideo = asset?.type === 'VIDEO'
+                const libraryId = process.env.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID
+
+                // ── Unlocked: show playable content ──
+                if (isUnlocked) {
+                  if (isVideo && asset?.playback_ref && libraryId) {
+                    return (
+                      <div className="-mx-6 overflow-hidden" style={{ aspectRatio: '9/16' }}>
+                        <iframe
+                          src={`https://iframe.mediadelivery.net/embed/${libraryId}/${asset.playback_ref}?autoplay=false&responsive=true`}
+                          className="w-full h-full"
+                          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                          allowFullScreen
+                        />
+                      </div>
+                    )
+                  }
+                  // Image unlock — show full image
+                  const fullPath = asset?.bunny_url || asset?.bunny_preview_url || asset?.thumbnail_url || task.cover_image_url
+                  const fullUrl = fullPath ? getBunnyStorageUrl(fullPath) : null
+                  return fullUrl ? (
+                    <div className="rounded-2xl overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={fullUrl} alt={task.title} className="w-full object-contain" />
+                    </div>
+                  ) : null
+                }
+
+                // ── Locked: blurred preview ──
+                const previewPath = isVideo
+                  ? (task.cover_image_url || asset?.bunny_preview_url || asset?.thumbnail_url || null)
+                  : (asset?.bunny_preview_url || asset?.thumbnail_url || task.cover_image_url || null)
+                const previewUrl = previewPath ? getBunnyStorageUrl(previewPath) : null
 
                 return (
                   <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
@@ -633,7 +618,7 @@ export default function TaskDetailClient({
                         src={previewUrl}
                         alt="Locked content preview"
                         className="absolute inset-0 w-full h-full object-cover"
-                        style={{ filter: 'blur(7px) brightness(0.55)' }}
+                        style={isVideo ? { filter: 'brightness(0.7)' } : { filter: 'blur(7px) brightness(0.55)' }}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800" />
@@ -661,8 +646,8 @@ export default function TaskDetailClient({
             </div>
 
 
-            {/* ── Section 6: Your devotion earns (sub, published tasks only) ── */}
-            {!isOwner && task.status === 'PUBLISHED' && (
+            {/* ── Section 6: Your devotion earns (sub, published tasks only, not yet unlocked) ── */}
+            {!isOwner && task.status === 'PUBLISHED' && !isUnlocked && (
               <div className="px-6 pb-8">
                 <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/25 mb-4">
                   Your devotion earns
@@ -779,7 +764,7 @@ export default function TaskDetailClient({
                   Edit task
                 </button>
               )
-            ) : task.status === 'PUBLISHED' ? (
+            ) : task.status === 'PUBLISHED' && !isUnlocked ? (
               <button
                 onClick={handleAccept}
                 disabled={!resolved || submitting}

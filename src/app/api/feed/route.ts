@@ -40,7 +40,8 @@ export async function GET(req: Request) {
       .select(`
         id, title, description, task_type, price_usdc, points,
         cover_image_url, created_at,
-        dom:profiles!creator_id ( id, display_name, handle, profile_picture_url )
+        dom:profiles!creator_id ( id, display_name, handle, profile_picture_url ),
+        media_asset:media_assets!media_id ( type )
       `)
       .in('creator_id', domIds)
       .eq('status', 'PUBLISHED')
@@ -56,7 +57,8 @@ export async function GET(req: Request) {
     .select(`
       id, title, description, task_type, price_usdc, points,
       cover_image_url, created_at,
-      dom:profiles!creator_id ( id, display_name, handle, profile_picture_url )
+      dom:profiles!creator_id ( id, display_name, handle, profile_picture_url ),
+      media_asset:media_assets!media_id ( type )
     `)
     .eq('status', 'PUBLISHED')
     .order('created_at', { ascending: false })

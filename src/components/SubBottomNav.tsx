@@ -39,6 +39,14 @@ function UserIcon({ active }: { active: boolean }) {
   )
 }
 
+function LibraryIcon({ active }: { active: boolean }) {
+  return (
+    <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={active ? 0 : 1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+    </svg>
+  )
+}
+
 // ── Route rules ────────────────────────────────────────────────────────────────
 const ALWAYS_HIDDEN_PATTERNS = [
   /^\/task\/[^/]+\/pay$/,
@@ -74,10 +82,11 @@ export default function SubBottomNav() {
   const initials = (profile?.display_name ?? profile?.tribute_alias ?? 'S')[0].toUpperCase()
 
   const tabs = [
-    { label: 'Home',    href: '/home',    Icon: HomeIcon,   active: pathname === '/home' || pathname === '/' },
-    { label: 'Chat',    href: '/chat',    Icon: ChatIcon,   active: pathname.startsWith('/chat') },
-    { label: 'Score',   href: scoreHref,  Icon: TrophyIcon, active: pathname.startsWith('/score') },
-    { label: 'Profile', href: '/profile', Icon: UserIcon,   active: pathname === '/profile' },
+    { label: 'Home',    href: '/home',    Icon: HomeIcon,    active: pathname === '/home' || pathname === '/' },
+    { label: 'Chat',    href: '/chat',    Icon: ChatIcon,    active: pathname.startsWith('/chat') },
+    { label: 'Library', href: '/library', Icon: LibraryIcon, active: pathname.startsWith('/library') },
+    { label: 'Score',   href: scoreHref,  Icon: TrophyIcon,  active: pathname.startsWith('/score') },
+    { label: 'Profile', href: '/profile', Icon: UserIcon,    active: pathname === '/profile' },
   ]
 
   const hideBottomOnMobile = HIDE_BOTTOM_ON_MOBILE.some(r => pathname.startsWith(r))

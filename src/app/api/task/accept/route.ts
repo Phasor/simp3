@@ -101,8 +101,8 @@ export async function POST(req: Request) {
   }
 
   const { taskId, tributeMessage } = await req.json()
-  if (!taskId || !tributeMessage) {
-    return NextResponse.json({ error: 'taskId and tributeMessage are required' }, { status: 400 })
+  if (!taskId) {
+    return NextResponse.json({ error: 'taskId is required' }, { status: 400 })
   }
 
   // Fetch task + dom wallet

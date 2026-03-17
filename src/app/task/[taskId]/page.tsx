@@ -25,6 +25,8 @@ interface TaskRow {
     type: string | null
     thumbnail_url: string | null
     bunny_preview_url: string | null
+    bunny_url: string | null
+    playback_ref: string | null
   } | null
   dom: {
     id: string
@@ -51,7 +53,7 @@ export default async function TaskDetailPage({ params }: Props) {
         banner_image_url, profile_picture_url, vip_cta_text
       ),
       media_asset:media_assets!media_id (
-        type, thumbnail_url, bunny_preview_url
+        type, thumbnail_url, bunny_preview_url, bunny_url, playback_ref
       )
     `)
     .eq('id', taskId)

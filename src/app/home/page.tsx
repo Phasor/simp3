@@ -24,6 +24,7 @@ interface FeedItem {
   cover_image_url: string | null
   created_at: string
   dom: DomInfo
+  media_asset: { type: string | null } | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -41,6 +42,14 @@ const TYPE_ICON: Record<string, string> = {
   CONTENT: '🔒',
 }
 
+function contentLabel(item: FeedItem): string {
+  if (item.task_type !== 'CONTENT') return TYPE_LABEL[item.task_type] ?? item.task_type
+  const t = item.media_asset?.type
+  if (t === 'VIDEO') return 'Video'
+  if (t === 'IMAGE') return 'Image'
+  return 'Content'
+}
+
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
   if (diff < 60) return 'just now'
@@ -56,10 +65,11 @@ function FeedCard({ item }: { item: FeedItem }) {
   const domName = dom.display_name || dom.handle || 'Dom'
   const avatarUrl = dom.profile_picture_url ? getBunnyStorageUrl(dom.profile_picture_url) : null
   const coverUrl = item.cover_image_url ? getBunnyStorageUrl(item.cover_image_url) : null
+  const shouldBlur = item.task_type === 'CONTENT' && item.media_asset?.type === 'IMAGE'
 
   return (
     <Link href={`/task/${item.id}`} className="block bg-gray-950 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
-      {/* Cover image — blurred to tease */}
+      {/* Cover image */}
       <div className="relative w-full overflow-hidden bg-gray-900" style={{ aspectRatio: '4/3' }}>
         {coverUrl ? (
           <>
@@ -67,9 +77,9 @@ function FeedCard({ item }: { item: FeedItem }) {
             <img
               src={coverUrl}
               alt={item.title}
-              className="w-full h-full object-cover filter blur-md scale-110"
+              className={`w-full h-full object-cover ${shouldBlur ? 'filter blur-md scale-110' : ''}`}
             />
-            <div className="absolute inset-0 bg-black/40" />
+            {shouldBlur && <div className="absolute inset-0 bg-black/40" />}
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-3xl">
@@ -78,7 +88,7 @@ function FeedCard({ item }: { item: FeedItem }) {
         )}
         {/* Type badge — top left */}
         <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-medium text-gray-300 border border-gray-700">
-          {TYPE_ICON[item.task_type] ?? '📋'} {TYPE_LABEL[item.task_type] ?? item.task_type}
+          {TYPE_ICON[item.task_type] ?? '📋'} {contentLabel(item)}
         </div>
         {/* Price — bottom right */}
         {item.price_usdc != null && (
