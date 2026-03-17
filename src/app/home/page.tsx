@@ -24,7 +24,7 @@ interface FeedItem {
   cover_image_url: string | null
   created_at: string
   dom: DomInfo
-  media_asset: { type: string | null } | null
+  media_asset: { type: string | null; thumbnail_url: string | null; bunny_preview_url: string | null } | null
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -64,22 +64,29 @@ function FeedCard({ item }: { item: FeedItem }) {
   const dom = item.dom
   const domName = dom.display_name || dom.handle || 'Dom'
   const avatarUrl = dom.profile_picture_url ? getBunnyStorageUrl(dom.profile_picture_url) : null
-  const coverUrl = item.cover_image_url ? getBunnyStorageUrl(item.cover_image_url) : null
-  const shouldBlur = item.task_type === 'CONTENT' && item.media_asset?.type === 'IMAGE'
+
+  // For CONTENT IMAGE tasks: show actual content with server-side blur via proxy
+  // For CONTENT VIDEO tasks and all others: use cover_image_url as-is (Bunny Stream thumbnail URLs
+  // use a different CDN path that the storage proxy can't handle)
+  const isContentImage = item.task_type === 'CONTENT' && item.media_asset?.type === 'IMAGE'
+  const contentImagePath = item.media_asset?.bunny_preview_url || item.media_asset?.thumbnail_url || item.cover_image_url
+  const rawImagePath = isContentImage ? contentImagePath : item.cover_image_url
+  const baseUrl = rawImagePath ? getBunnyStorageUrl(rawImagePath) : null
+  const imageUrl = baseUrl && isContentImage ? `${baseUrl}?blur=20` : baseUrl
 
   return (
     <Link href={`/task/${item.id}`} className="block bg-gray-950 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors">
       {/* Cover image */}
       <div className="relative w-full overflow-hidden bg-gray-900" style={{ aspectRatio: '4/3' }}>
-        {coverUrl ? (
+        {imageUrl ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={coverUrl}
+              src={imageUrl}
               alt={item.title}
-              className={`w-full h-full object-cover ${shouldBlur ? 'filter blur-md scale-110' : ''}`}
+              className="w-full h-full object-cover"
             />
-            {shouldBlur && <div className="absolute inset-0 bg-black/40" />}
+            {isContentImage && <div className="absolute inset-0 bg-black/20" />}
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center text-3xl">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 import { validateBunnyStorageUrl } from '@/lib/utils/bunnynet';
 
 // Bunny.net configuration
@@ -49,17 +50,26 @@ export async function GET(
     }
 
     // Get the image data
-    const imageBuffer = await response.arrayBuffer();
-    
+    let imageBuffer = Buffer.from(await response.arrayBuffer())
+
+    // Apply server-side blur if requested (?blur=1-100)
+    const blurParam = request.nextUrl.searchParams.get('blur')
+    const blurSigma = blurParam ? Math.min(100, Math.max(1, parseInt(blurParam, 10))) : 0
+    if (blurSigma > 0) {
+      // Sharp sigma: 0.3–1000. Map blur 1-100 → sigma 1-50 for visible range
+      const sigma = Math.round(blurSigma * 0.5)
+      imageBuffer = await sharp(imageBuffer).blur(sigma).jpeg({ quality: 70 }).toBuffer()
+    }
+
     // Determine content type from the original response or file extension
-    const contentType = response.headers.get('content-type') || getContentTypeFromPath(path);
-    
+    const contentType = blurSigma > 0 ? 'image/jpeg' : (response.headers.get('content-type') || getContentTypeFromPath(path));
+
     // Return the image with appropriate headers
     return new NextResponse(imageBuffer, {
       status: 200,
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
+        'Cache-Control': 'public, max-age=3600, s-maxage=3600',
         'Access-Control-Allow-Origin': '*',
       },
     });

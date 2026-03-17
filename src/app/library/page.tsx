@@ -33,7 +33,7 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true)
 
   const fetchLibrary = useCallback(async () => {
-    if (!profile?.id) return
+    if (!profile?.id) { setLoading(false); return }
     setLoading(true)
     try {
       const sb = createClient()
@@ -68,21 +68,17 @@ export default function LibraryPage() {
     if (resolved) fetchLibrary()
   }, [resolved, fetchLibrary])
 
-  if (!resolved || loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-black text-white pb-24">
       <div className="max-w-2xl mx-auto px-4 pt-6">
         <h1 className="font-serif text-2xl font-light text-white mb-1">Your Collection</h1>
         <p className="text-sm text-gray-500 mb-6">Content you've unlocked</p>
 
-        {items.length === 0 ? (
+        {(!resolved || loading) ? (
+          <div className="flex justify-center py-16">
+            <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          </div>
+        ) : items.length === 0 ? (
           <div className="py-20 text-center">
             <div className="text-4xl mb-4">🗂️</div>
             <p className="text-white font-semibold mb-2">Nothing here yet</p>

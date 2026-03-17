@@ -41,7 +41,7 @@ export async function GET(req: Request) {
         id, title, description, task_type, price_usdc, points,
         cover_image_url, created_at,
         dom:profiles!creator_id ( id, display_name, handle, profile_picture_url ),
-        media_asset:media_assets!media_id ( type )
+        media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url )
       `)
       .in('creator_id', domIds)
       .eq('status', 'PUBLISHED')
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       id, title, description, task_type, price_usdc, points,
       cover_image_url, created_at,
       dom:profiles!creator_id ( id, display_name, handle, profile_picture_url ),
-      media_asset:media_assets!media_id ( type )
+      media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url )
     `)
     .eq('status', 'PUBLISHED')
     .order('created_at', { ascending: false })
