@@ -174,6 +174,7 @@ export default function TaskBuilder({ onClose, onCreated, editTask }: Props) {
             repetition_phrase: repetitionPhrase || '',
             required_repetitions: requiredRepetitions || '',
             cover_image_url: coverImageUrl,
+            ...(contentMediaId ? { media_id: contentMediaId } : {}),
           }),
         })
         const data = await res.json()

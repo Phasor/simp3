@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
@@ -29,6 +29,13 @@ interface Task {
   instructions: string | null
   repetition_phrase: string | null
   required_repetitions: number | null
+  cover_image_url: string | null
+  media_id: string | null
+  media_asset: {
+    type: string | null
+    thumbnail_url: string | null
+    bunny_preview_url: string | null
+  } | null
   dom: DomProfile
 }
 
@@ -84,8 +91,8 @@ function AuthPromptModal({ onClose, taskId }: { onClose: () => void; taskId: str
         className="w-full max-w-sm bg-gray-950 border border-gray-800 rounded-2xl p-6 space-y-4"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-white">Create an account to tribute</h2>
-        <p className="text-sm text-gray-400">Join Tribute to accept tasks and show your devotion.</p>
+        <h2 className="font-serif text-xl font-light text-white">Create an account to tribute</h2>
+        <p className="font-sans text-sm text-gray-400">Join Tribute to accept tasks and show your devotion.</p>
         <div className="space-y-2">
           <Link
             href={`/signup?next=/task/${taskId}`}
@@ -144,26 +151,28 @@ function EditField({
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function TaskDetailClient({ task }: { task: Task }) {
+export default function TaskDetailClient({
+  task,
+}: {
+  task: Task
+}) {
   const router = useRouter()
   const { profile, resolved } = useAuth()
+  const editBlockRef = useRef<HTMLDivElement>(null)
 
   const dom = task.dom
   const domName = dom.display_name || dom.handle || 'Your Dom'
   const meta = TYPE_META[task.task_type ?? ''] ?? TYPE_META.SUBMISSION
-  const ctaText = dom.vip_cta_text || 'Accept Task'
+  const ctaText = dom.vip_cta_text || `Tribute ${domName}`
 
-  const bannerUrl = dom.banner_image_url ? getBunnyStorageUrl(dom.banner_image_url) : null
   const avatarUrl = dom.profile_picture_url ? getBunnyStorageUrl(dom.profile_picture_url) : null
 
   const isOwner = resolved && profile?.id === task.dom.id
 
   // ── Sub state ──
   const [showAuth, setShowAuth] = useState(false)
-  // ── Payment modal state ──
-  const [showPayModal, setShowPayModal] = useState(false)
   const [tributeMessage, setTributeMessage] = useState('')
-  const [payPhase, setPayPhase] = useState<'form' | 'animating' | 'done'>('form')
+  const [payPhase, setPayPhase] = useState<'idle' | 'writing' | 'animating' | 'done'>('idle')
   const [completionId, setCompletionId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -185,15 +194,25 @@ export default function TaskDetailClient({ task }: { task: Task }) {
     return (value: string) => setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  // ── Sub payment handlers ──
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  function handleEditStart() {
+    setEditing(true)
+    setTimeout(() => {
+      const container = document.querySelector('main')
+      if (container && editBlockRef.current) {
+        container.scrollTo({ top: editBlockRef.current.offsetTop - 16, behavior: 'smooth' })
+      }
+    }, 100)
+  }
+
   function handleAccept() {
     if (!resolved) return
     if (!profile) { setShowAuth(true); return }
-    setShowPayModal(true)
+    setPayPhase('writing')
   }
 
   async function handlePay() {
-    if (!tributeMessage.trim()) { toast.error('Write your tribute message first'); return }
     setSubmitting(true)
     try {
       const res = await fetch('/api/task/accept', {
@@ -212,8 +231,7 @@ export default function TaskDetailClient({ task }: { task: Task }) {
   }
 
   function handleContinue() {
-    setShowPayModal(false)
-    setPayPhase('form')
+    setPayPhase('idle')
     setTributeMessage('')
     if (task.task_type === 'CONTENT') {
       router.push(task.dom.handle ? `/${task.dom.handle}` : '/')
@@ -222,7 +240,6 @@ export default function TaskDetailClient({ task }: { task: Task }) {
     }
   }
 
-  // ── Dom save handler ──
   async function handleSave() {
     setSaving(true)
     try {
@@ -255,10 +272,76 @@ export default function TaskDetailClient({ task }: { task: Task }) {
     setEditing(false)
   }
 
-  // ── Payment overlay (animating / done) ─────────────────────────────────────
-  if (showPayModal && payPhase === 'animating') {
+  // ── Phase: writing tribute message ─────────────────────────────────────────
+  if (payPhase === 'writing') {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
+          {/* Header */}
+          <div className="px-5 pt-5 pb-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between mb-1">
+              <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30">Your tribute</p>
+              <button
+                onClick={() => { setPayPhase('idle'); setTributeMessage('') }}
+                className="text-white/30 hover:text-white/60 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="font-serif italic text-white/50 text-sm">
+              Write your message to {domName} before paying.
+            </p>
+          </div>
+
+          {/* Textarea */}
+          <div className="p-4">
+            <textarea
+              autoFocus
+              value={tributeMessage}
+              onChange={e => setTributeMessage(e.target.value)}
+              placeholder={`Tell ${domName} why you're submitting this tribute…`}
+              rows={5}
+              maxLength={500}
+              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white text-[15px] font-sans placeholder-white/20 focus:outline-none focus:border-white/20 resize-none leading-relaxed"
+            />
+            <div className="flex items-center justify-between mt-2 mb-4">
+              <span className={`text-xs transition-colors ${tributeMessage.trim() ? 'text-gold/70' : 'text-white/20'}`}>
+                {tributeMessage.trim() ? '✓ Ready' : 'Required'}
+              </span>
+              <span className="text-xs text-white/20">{tributeMessage.length}/500</span>
+            </div>
+            <button
+              onClick={() => { if (tributeMessage.trim()) handlePay() }}
+              disabled={!tributeMessage.trim() || submitting}
+              className={`w-full py-4 rounded-xl font-sans font-semibold text-base transition-all ${
+                tributeMessage.trim() && !submitting
+                  ? 'bg-white text-black hover:bg-gray-100'
+                  : 'bg-white/10 text-white/30 cursor-default'
+              }`}
+            >
+              {submitting ? 'Processing…' : `${ctaText}${task.price_usdc != null ? ` · $${task.price_usdc} USDC` : ''}`}
+            </button>
+            {tributeMessage.trim() && (
+              <p className="text-center text-xs text-white/20 mt-2">
+                Non-refundable · Secured by USDC on Base
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Ceremony: animating ────────────────────────────────────────────────────
+  if (payPhase === 'animating') {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 overflow-hidden">
+        {/* Gold ring */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-80 h-80 rounded-full border border-gold/20 animate-ping" style={{ animationDuration: '1.2s' }} />
+        </div>
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-96 h-96 rounded-full bg-white/5 animate-ping" style={{ animationDuration: '1.5s' }} />
         </div>
@@ -273,26 +356,31 @@ export default function TaskDetailClient({ task }: { task: Task }) {
         )}
         <div className="z-10 text-center px-8">
           <div className="text-5xl mb-6">🖤</div>
-          <h2 className="text-2xl font-bold text-white mb-2">{ctaText}</h2>
-          <p className="text-gray-400">Sending to {domName}…</p>
+          <h2 className="font-serif text-3xl font-light text-white mb-2">{ctaText}</h2>
+          <p className="font-sans text-gray-400">Sending to {domName}…</p>
         </div>
       </div>
     )
   }
 
-  if (showPayModal && payPhase === 'done') {
+  // ── Ceremony: done ─────────────────────────────────────────────────────────
+  if (payPhase === 'done') {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 px-6">
         {avatarUrl && (
-          <div className="relative w-20 h-20 rounded-full overflow-hidden border border-white/20 mb-8">
+          <div className="relative w-20 h-20 rounded-full overflow-hidden ring-1 ring-gold/30 shadow-[0_0_20px_rgba(201,168,76,0.2)] mb-8">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={avatarUrl} alt={domName} className="w-full h-full object-cover" />
           </div>
         )}
-        <p className="text-gray-400 text-sm mb-2">{domName}</p>
-        <h2 className="text-2xl font-bold text-white text-center mb-3">Your tribute has been received.</h2>
-        <p className="text-gray-500 text-sm text-center mb-10">
-          {task.task_type === 'CONTENT' ? 'Your content has been unlocked.' : 'Now complete your task to earn your points.'}
+        <p className="font-sans text-gray-400 text-sm mb-2">{domName}</p>
+        <h2 className="font-serif text-[2rem] font-light text-white text-center mb-3 leading-tight">
+          Your tribute has been received.
+        </h2>
+        <p className="font-sans text-gray-500 text-sm text-center mb-10">
+          {task.task_type === 'CONTENT'
+            ? 'Your content has been unlocked.'
+            : 'Now complete your task to earn your points.'}
         </p>
         <button
           onClick={handleContinue}
@@ -309,111 +397,314 @@ export default function TaskDetailClient({ task }: { task: Task }) {
     <>
       {showAuth && <AuthPromptModal onClose={() => setShowAuth(false)} taskId={task.id} />}
 
-      {/* Payment modal */}
-      {showPayModal && payPhase === 'form' && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={() => setShowPayModal(false)}
+      <div className="min-h-screen bg-black text-white pb-[calc(100px+env(safe-area-inset-bottom))]">
+
+        {/* ── Navbar: shown only for logged-out users and dom owners (subs get SubBottomNav) ── */}
+        {resolved && (!profile || isOwner) && (
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+            {/* Left: back */}
+            {dom.handle ? (
+              <Link
+                href={isOwner ? '/dashboard/tasks' : `/${dom.handle}`}
+                className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                {isOwner ? 'My tasks' : 'Back'}
+              </Link>
+            ) : <div />}
+
+            {/* Right: Sign Up (logged-out) or dom draft badge */}
+            <div className="flex items-center gap-2">
+              {isOwner && task.status !== 'PUBLISHED' && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                  {task.status === 'DRAFT' ? 'Draft' : 'Archived'}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 text-xs font-medium text-white/40 px-2.5 py-1.5 rounded-full border border-white/10">
+                {meta.icon}
+                {meta.label}
+              </span>
+              {!profile && (
+                <Link
+                  href={`/signup?next=/task/${task.id}`}
+                  className="ml-1 px-4 py-1.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Dom identity (compact) ── */}
+        <Link
+          href={dom.handle ? `/${dom.handle}` : '#'}
+          className="flex items-center gap-[18px] px-6 py-[18px] group border-b border-white/[0.04]"
         >
-          <div
-            className="w-full max-w-md bg-gray-950 border border-gray-800 rounded-t-3xl sm:rounded-3xl p-6 space-y-5"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500">{domName}</p>
-                <h2 className="text-base font-bold text-white leading-tight">{task.title}</h2>
+          <div className="w-[60px] h-[60px] rounded-full overflow-hidden shrink-0 ring-1 ring-gold/30 group-hover:ring-gold/50 transition-all">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt={domName} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gray-900 flex items-center justify-center font-serif text-2xl text-white/40">
+                {domName[0].toUpperCase()}
               </div>
-              <div className="text-right shrink-0">
-                {task.price_usdc != null && (
-                  <p className="text-xl font-bold text-white">${task.price_usdc}</p>
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="font-serif text-2xl font-medium text-white group-hover:text-white/80 transition-colors">
+              {domName}
+            </div>
+            {dom.tagline && (
+              <div className="font-serif italic text-white/35 text-[21px]">{dom.tagline}</div>
+            )}
+          </div>
+        </Link>
+
+        {/* ── Content: view mode or edit mode ── */}
+        {!editing ? (
+          <div className="max-w-[612px] mx-auto">
+
+            {/* Unavailable notice for non-owners on non-published tasks */}
+            {!isOwner && task.status !== 'PUBLISHED' && (
+              <div className="px-6 pt-10">
+                <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 text-center">
+                  <p className="text-gray-400 text-sm">This task is not currently available.</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── Section 2: Task identity ── */}
+            <div className="px-6 pt-5 pb-6">
+              {/* Flavour text above title — emotional priming (not shown for CONTENT tasks) */}
+              {task.task_type !== 'CONTENT' && (
+                <p className="font-serif italic text-sm mb-5 leading-relaxed text-gold">
+                  {meta.flavour}
+                </p>
+              )}
+              <div className="flex items-center justify-between gap-3 mb-6">
+                <h2
+                  className="font-serif font-medium leading-tight text-white"
+                  style={{ fontSize: 'clamp(1.75rem, 5vw, 2.75rem)' }}
+                >
+                  {task.title}
+                </h2>
+                {task.task_type === 'CONTENT' && task.media_asset?.type && (
+                  <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                    task.media_asset.type === 'VIDEO'
+                      ? 'bg-blue-950 text-blue-300 border border-blue-800'
+                      : 'bg-gray-900 text-gray-300 border border-gray-700'
+                  }`}>
+                    {task.media_asset.type === 'VIDEO' ? (
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    {task.media_asset.type === 'VIDEO' ? 'Video' : 'Image'}
+                  </span>
                 )}
-                <p className="text-xs text-gray-500">USDC</p>
+              </div>
+              {task.task_type === 'CONTENT' && task.media_asset?.type && (
+                <p className="font-serif italic text-white/40 text-xl -mt-3 mb-6">
+                  Unlock this exclusive {task.media_asset.type === 'VIDEO' ? 'video' : 'photo'} and earn points toward VIP chat access
+                </p>
+              )}
+              <div className="flex items-center gap-4 flex-wrap">
+                {task.price_usdc != null && (
+                  <span className="font-sans text-3xl font-semibold text-white tracking-tight">
+                    ${task.price_usdc}
+                    <span className="text-sm font-normal text-white/40 ml-1.5">USDC</span>
+                  </span>
+                )}
+                {task.points > 0 && (
+                  <span className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full text-gold border border-gold/20 bg-gold/[0.08]">
+                    ✦ {task.points} devotion points
+                  </span>
+                )}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                Write your tribute message to {domName} <span className="text-red-400">*</span>
-              </label>
-              <textarea
-                value={tributeMessage}
-                onChange={e => setTributeMessage(e.target.value)}
-                placeholder={`Tell ${domName} why you're submitting this tribute…`}
-                rows={4}
-                maxLength={500}
-                className="w-full px-4 py-3 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-none"
-              />
-              <div className="text-right text-xs text-gray-600 mt-1">{tributeMessage.length}/500</div>
+            {/* ── Section 3: Description + instructions ── */}
+            {(task.description || (task.instructions && task.instructions !== task.description)) && (
+              <div className="px-6 py-8 space-y-6">
+                {task.description && (
+                  <div className="space-y-2">
+                    <p className="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-white/30">
+                      The task
+                    </p>
+                    <p className="font-sans text-[15px] text-white/70 leading-relaxed whitespace-pre-wrap">
+                      {task.description}
+                    </p>
+                  </div>
+                )}
+                {task.instructions && task.instructions !== task.description && (
+                  <div className="space-y-2">
+                    <p className="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-white/30">
+                      Instructions
+                    </p>
+                    <p className="font-sans text-[15px] text-white/70 leading-relaxed whitespace-pre-wrap">
+                      {task.instructions}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Section 4: Task-type specific design moment ── */}
+            <div className="px-6 mb-8">
+              {/* REPETITION: The Oath Block */}
+              {task.task_type === 'REPETITION' && task.repetition_phrase && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 relative overflow-hidden">
+                  <span className="absolute top-1 left-4 font-serif text-8xl text-white/[0.04] leading-none select-none pointer-events-none">
+                    &ldquo;
+                  </span>
+                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4 relative z-10">
+                    You will type this {task.required_repetitions}× without pasting
+                  </p>
+                  <p className="font-serif text-xl italic text-white/80 leading-snug relative z-10">
+                    {task.repetition_phrase}
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
+                    <p className="text-xs text-white/30">
+                      {task.required_repetitions} repetitions · paste disabled · auto-approved on completion
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBMISSION: The Confession Prompt */}
+              {task.task_type === 'SUBMISSION' && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4">
+                    Your declaration
+                  </p>
+                  <p className="font-serif text-lg text-white/60 leading-relaxed italic">
+                    {task.instructions || 'Write your personal declaration for review.'}
+                  </p>
+                  <div className="mt-5 pt-4 border-t border-white/[0.06]">
+                    <p className="text-xs text-white/30">
+                      Reviewed personally by {domName} · paste disabled
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* EVIDENCE: The Challenge Card */}
+              {task.task_type === 'EVIDENCE' && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4">
+                    Prove it
+                  </p>
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 text-white/40">
+                      {meta.icon}
+                    </div>
+                    <div>
+                      <p className="font-serif text-lg text-white/80 leading-snug">
+                        {task.instructions || 'Upload photo evidence of your devotion.'}
+                      </p>
+                      <p className="text-xs text-white/30 mt-2">
+                        {domName} reviews all evidence before approving.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTENT: Blurred preview */}
+              {task.task_type === 'CONTENT' && (() => {
+                const asset = task.media_asset
+                const previewPath = asset?.bunny_preview_url || asset?.thumbnail_url || null
+                const previewUrl = previewPath ? getBunnyStorageUrl(previewPath) : null
+                const isVideo = asset?.type === 'VIDEO'
+
+                return (
+                  <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
+                    {previewUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={previewUrl}
+                        alt="Locked content preview"
+                        className="absolute inset-0 w-full h-full object-cover"
+                        style={{ filter: 'blur(7px) brightness(0.55)' }}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800" />
+                    )}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/10">
+                        {isVideo ? (
+                          <svg className="w-6 h-6 text-white/60" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-6 h-6 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                        )}
+                      </div>
+                      <p className="font-serif text-white/80 text-base drop-shadow-lg">
+                        {isVideo ? 'Unlock this video' : 'Unlock this photo'}
+                      </p>
+                      <p className="text-xs text-white/40">Access granted instantly on payment.</p>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
-            <button
-              onClick={handlePay}
-              disabled={!tributeMessage.trim() || submitting}
-              className="w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {submitting ? 'Processing…' : `${ctaText}${task.price_usdc != null ? ` · $${task.price_usdc} USDC` : ''}`}
-            </button>
-            <p className="text-center text-xs text-gray-600">
-              Payment processed securely. Non-refundable once submitted.
-            </p>
+
+            {/* ── Section 6: Your devotion earns (sub, published tasks only) ── */}
+            {!isOwner && task.status === 'PUBLISHED' && (
+              <div className="px-6 pb-8">
+                <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/25 mb-4">
+                  Your devotion earns
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
+                    <p className="font-sans text-sm text-white/50">Unlock this exclusive content instantly</p>
+                  </div>
+                  {task.points > 0 && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-0.5 h-4 rounded-full bg-gold shrink-0" />
+                      <p className="font-sans text-sm text-white/50">
+                        Earn <span className="text-gold font-medium">{task.points} devotion points</span> toward VIP chat access
+                      </p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
+                    <p className="font-sans text-sm text-white/50">
+                      Build your standing with {domName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
+                    <p className="font-sans text-sm text-white/50">Permanent access in your collection</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
-        </div>
-      )}
 
-      <div className="min-h-screen bg-black text-white pb-32">
+        ) : (
 
-        {/* ── Hero ── */}
-        <div className="relative w-full" style={{ height: '45vh', minHeight: 220, maxHeight: 420 }}>
-          {bannerUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={bannerUrl} alt={domName} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-gray-900 to-black" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-
-          {/* Back button */}
-          {dom.handle && (
-            <Link
-              href={isOwner ? '/dashboard/tasks' : `/${dom.handle}`}
-              className="absolute top-4 left-4 flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-full"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              {isOwner ? 'My tasks' : domName}
-            </Link>
-          )}
-
-          {/* Type badge */}
-          <div className="absolute top-4 right-4 flex items-center gap-1.5 text-xs font-medium text-gray-300 bg-black/60 backdrop-blur-sm px-2.5 py-1.5 rounded-full border border-gray-700">
-            {meta.icon}
-            {meta.label}
-          </div>
-
-          {/* Draft/Archived badge for dom */}
-          {isOwner && task.status !== 'PUBLISHED' && (
-            <div className="absolute bottom-4 right-4 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
-              {task.status === 'DRAFT' ? 'Draft' : 'Archived'}
-            </div>
-          )}
-        </div>
-
-        {/* ── Body ── */}
-        <div className="max-w-lg mx-auto px-4 -mt-8 relative z-10 space-y-5">
-
-          {/* Not available for non-owners viewing non-published tasks */}
-          {!isOwner && task.status !== 'PUBLISHED' && (
-            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 text-center">
-              <p className="text-gray-400 text-sm">This task is not currently available.</p>
-            </div>
-          )}
-
-          {/* Title + price */}
-          {editing ? (
-            <div className="space-y-4">
+          /* ── Edit mode: consolidated block ── */
+          <div ref={editBlockRef} className="max-w-[612px] mx-auto px-4 mt-6">
+            <div className="bg-gray-950/90 border border-gray-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Editing task</p>
+              </div>
               <EditField label="Title" value={form.title} onChange={set('title')} placeholder="Task title" />
               <div className="flex gap-3">
                 <div className="flex-1">
@@ -423,205 +714,82 @@ export default function TaskDetailClient({ task }: { task: Task }) {
                   <EditField label="Points" value={form.points} onChange={set('points')} type="number" placeholder="0" />
                 </div>
               </div>
-            </div>
-          ) : (
-            <div>
-              <h1 className="text-2xl font-bold text-white leading-tight mb-3">{task.title}</h1>
-              <div className="flex items-center gap-3 flex-wrap">
-                {task.price_usdc != null && (
-                  <span className="text-xl font-bold text-white">
-                    ${task.price_usdc} <span className="text-sm font-normal text-gray-400">USDC</span>
-                  </span>
-                )}
-                {task.points > 0 && (
-                  <span className="flex items-center gap-1 text-sm text-yellow-400 font-medium">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                    +{task.points} pts
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {!editing && <p className="text-xs text-gray-500 italic">{meta.flavour}</p>}
-
-          {/* Description */}
-          {editing ? (
-            <EditField label="Description" value={form.description} onChange={set('description')} type="textarea" placeholder="Describe this task to your subs…" />
-          ) : task.description ? (
-            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">About this task</h2>
-              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{task.description}</p>
-            </div>
-          ) : null}
-
-          {/* Instructions */}
-          {editing ? (
-            <EditField label="Instructions" value={form.instructions} onChange={set('instructions')} type="textarea" placeholder="Step-by-step instructions for the sub…" />
-          ) : task.instructions && task.instructions !== task.description ? (
-            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">Instructions</h2>
-              <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{task.instructions}</p>
-            </div>
-          ) : null}
-
-          {/* Repetition details */}
-          {task.task_type === 'REPETITION' && (
-            editing ? (
-              <div className="space-y-4">
-                <EditField label="Phrase to type" value={form.repetition_phrase} onChange={set('repetition_phrase')} placeholder="e.g. I exist to serve you" />
-                <EditField label="Required repetitions" value={form.required_repetitions} onChange={set('required_repetitions')} type="number" placeholder="e.g. 100" />
-              </div>
-            ) : (task.required_repetitions ? (
-              <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4 space-y-2">
-                <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">Task details</h2>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-400">Repetitions required</span>
-                  <span className="font-semibold text-white">{task.required_repetitions}×</span>
-                </div>
-                {task.repetition_phrase && (
-                  <div className="mt-2 bg-gray-900 rounded-xl p-3">
-                    <p className="text-xs text-gray-500 mb-1">Phrase to type</p>
-                    <p className="text-sm text-white font-medium">&ldquo;{task.repetition_phrase}&rdquo;</p>
-                  </div>
-                )}
-              </div>
-            ) : null)
-          )}
-
-          {/* Status selector (dom only, edit mode) */}
-          {editing && (
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold uppercase tracking-widest text-gray-500">Status</label>
-              <div className="flex gap-2">
-                {(['PUBLISHED', 'DRAFT', 'ARCHIVED'] as const).map(s => (
-                  <button
-                    key={s}
-                    onClick={() => set('status')(s)}
-                    className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
-                      form.status === s
-                        ? 'bg-white text-black'
-                        : 'bg-gray-900 border border-gray-700 text-gray-400 hover:border-gray-500'
-                    }`}
-                  >
-                    {s.charAt(0) + s.slice(1).toLowerCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* What you earn (sub view only) */}
-          {!isOwner && task.status === 'PUBLISHED' && (
-            <div className="bg-gray-950 border border-gray-800 rounded-2xl p-4 space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500">What you receive</h2>
-              <div className="space-y-2">
-                {task.task_type === 'CONTENT' && (
-                  <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Instant access to exclusive content
-                  </div>
-                )}
-                {task.points > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-gray-300">
-                    <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    +{task.points} Tribute Points toward VIP access
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Spend recorded toward your Tribute Score
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <svg className="w-4 h-4 text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Proximity to {domName} — earned, not bought
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Dom card (sub view only) */}
-          {!isOwner && (
-            <div className="flex items-center gap-3 bg-gray-950 border border-gray-800 rounded-2xl p-4">
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt={domName} className="w-12 h-12 rounded-full object-cover shrink-0" />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-lg font-bold text-gray-400 shrink-0">
-                  {domName[0].toUpperCase()}
-                </div>
+              <EditField label="Description" value={form.description} onChange={set('description')} type="textarea" placeholder="Describe this task to your subs…" />
+              <EditField label="Instructions" value={form.instructions} onChange={set('instructions')} type="textarea" placeholder="Step-by-step instructions for the sub…" />
+              {task.task_type === 'REPETITION' && (
+                <>
+                  <EditField label="Phrase to type" value={form.repetition_phrase} onChange={set('repetition_phrase')} placeholder="e.g. I exist to serve you" />
+                  <EditField label="Required repetitions" value={form.required_repetitions} onChange={set('required_repetitions')} type="number" placeholder="e.g. 100" />
+                </>
               )}
-              <div className="min-w-0">
-                <p className="font-semibold text-white text-sm truncate">{domName}</p>
-                {dom.handle && <p className="text-xs text-gray-500">@{dom.handle}</p>}
-                {dom.tagline && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{dom.tagline}</p>}
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold uppercase tracking-widest text-gray-500">Status</label>
+                <div className="flex gap-2">
+                  {(['PUBLISHED', 'DRAFT', 'ARCHIVED'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => set('status')(s)}
+                      className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                        form.status === s
+                          ? 'bg-white text-black'
+                          : 'bg-gray-900 border border-gray-700 text-gray-400 hover:border-gray-500'
+                      }`}
+                    >
+                      {s.charAt(0) + s.slice(1).toLowerCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {dom.handle && (
-                <Link href={`/${dom.handle}`} className="ml-auto text-xs text-gray-500 hover:text-gray-300 transition-colors shrink-0">
-                  View profile →
-                </Link>
-              )}
             </div>
-          )}
+          </div>
 
-        </div>
+        )}
       </div>
 
-      {/* ── Fixed bottom bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-black via-black/95 to-transparent pt-8">
-        <div className="max-w-lg mx-auto space-y-2">
+      {/* ── Fixed bottom CTA bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)]">
+        {/* Gradient fade above bar */}
+        <div className="h-16 bg-gradient-to-t from-black to-transparent pointer-events-none" />
+        <div className="bg-black px-4 pb-4 pt-1">
+          <div className="max-w-[612px] mx-auto space-y-2">
 
-          {isOwner ? (
-            editing ? (
-              <div className="flex gap-2">
+            {isOwner ? (
+              editing ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="flex-1 py-3.5 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving ? 'Saving…' : 'Save changes'}
+                  </button>
+                  <button
+                    onClick={handleDiscard}
+                    disabled={saving}
+                    className="px-5 py-3.5 rounded-2xl border border-gray-700 text-gray-300 font-semibold text-sm hover:border-gray-500 transition-colors"
+                  >
+                    Discard
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex-1 py-3.5 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  onClick={handleEditStart}
+                  className="w-full py-3.5 rounded-2xl border border-gray-700 text-white font-semibold text-sm hover:border-gray-500 transition-colors"
                 >
-                  {saving ? 'Saving…' : 'Save changes'}
+                  Edit task
                 </button>
-                <button
-                  onClick={handleDiscard}
-                  disabled={saving}
-                  className="px-5 py-3.5 rounded-2xl border border-gray-700 text-gray-300 font-semibold text-sm hover:border-gray-500 transition-colors"
-                >
-                  Discard
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setEditing(true)}
-                className="w-full py-3.5 rounded-2xl border border-gray-700 text-white font-semibold text-sm hover:border-gray-500 transition-colors"
-              >
-                Edit task
-              </button>
-            )
-          ) : task.status === 'PUBLISHED' ? (
-            <>
+              )
+            ) : task.status === 'PUBLISHED' ? (
               <button
                 onClick={handleAccept}
-                disabled={!resolved}
-                className="w-full py-4 rounded-2xl bg-white text-black font-bold text-base hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                disabled={!resolved || submitting}
+                className="w-full py-4 rounded-2xl font-sans font-semibold text-base bg-white text-black hover:bg-gray-100 animate-gold-pulse disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {ctaText}{task.price_usdc != null ? ` · $${task.price_usdc} USDC` : ''}
+                {submitting ? 'Processing…' : `Buy Now${task.price_usdc != null ? ` $${task.price_usdc} USDC` : ''}`}
               </button>
-              <p className="text-center text-xs text-gray-600">
-                ⚡ Instant · 🔒 Secure · Non-refundable
-              </p>
-            </>
-          ) : null}
+            ) : null}
 
+          </div>
         </div>
       </div>
     </>

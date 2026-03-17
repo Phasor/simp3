@@ -19,6 +19,13 @@ interface TaskRow {
   instructions: string | null
   repetition_phrase: string | null
   required_repetitions: number | null
+  cover_image_url: string | null
+  media_id: string | null
+  media_asset: {
+    type: string | null
+    thumbnail_url: string | null
+    bunny_preview_url: string | null
+  } | null
   dom: {
     id: string
     display_name: string | null
@@ -38,10 +45,13 @@ export default async function TaskDetailPage({ params }: Props) {
     .from('tasks')
     .select(`
       id, title, description, task_type, status, price_usdc, points, instructions,
-      repetition_phrase, required_repetitions,
+      repetition_phrase, required_repetitions, cover_image_url, media_id,
       dom:profiles!creator_id (
         id, display_name, handle, tagline,
         banner_image_url, profile_picture_url, vip_cta_text
+      ),
+      media_asset:media_assets!media_id (
+        type, thumbnail_url, bunny_preview_url
       )
     `)
     .eq('id', taskId)
