@@ -19,7 +19,7 @@ export async function PATCH(req: Request) {
   }
 
   const body = await req.json()
-  const { taskId, status, title, description, instructions, price_usdc, points, repetition_phrase, required_repetitions } = body
+  const { taskId, status, title, description, instructions, price_usdc, points, repetition_phrase, required_repetitions, cover_image_url } = body
   if (!taskId) return NextResponse.json({ error: 'Missing taskId' }, { status: 400 })
 
   // Build update payload — only include fields that were provided
@@ -33,6 +33,7 @@ export async function PATCH(req: Request) {
   if (points !== undefined) updates.points = Number(points) || 0
   if (repetition_phrase !== undefined) updates.repetition_phrase = repetition_phrase
   if (required_repetitions !== undefined) updates.required_repetitions = required_repetitions === '' ? null : Number(required_repetitions)
+  if (cover_image_url !== undefined) updates.cover_image_url = cover_image_url || null
 
   const { error } = await supabase
     .from('tasks')

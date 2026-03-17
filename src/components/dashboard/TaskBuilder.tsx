@@ -1,13 +1,27 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 
 type TaskType = 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT'
 
+interface EditTask {
+  id: string
+  title: string
+  task_type: TaskType
+  price_usdc: number | null
+  points: number
+  cover_image_url: string | null
+  description: string | null
+  instructions: string | null
+  repetition_phrase: string | null
+  required_repetitions: number | null
+}
+
 interface Props {
   onClose: () => void
   onCreated: () => void
+  editTask?: EditTask
 }
 
 const TYPE_OPTIONS: { value: TaskType; label: string; description: string }[] = [
@@ -47,22 +61,23 @@ async function extractVideoFrame(videoFile: File): Promise<File | null> {
   })
 }
 
-export default function TaskBuilder({ onClose, onCreated }: Props) {
-  const [step, setStep] = useState<'type' | 'details'>('type')
-  const [taskType, setTaskType] = useState<TaskType | null>(null)
+export default function TaskBuilder({ onClose, onCreated, editTask }: Props) {
+  const isEditing = !!editTask
+  const [step, setStep] = useState<'type' | 'details'>(isEditing ? 'details' : 'type')
+  const [taskType, setTaskType] = useState<TaskType | null>(editTask?.task_type ?? null)
   const [loading, setLoading] = useState(false)
 
   // Fields
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [instructions, setInstructions] = useState('')
-  const [priceUsdc, setPriceUsdc] = useState('')
-  const [points, setPoints] = useState('')
-  const [repetitionPhrase, setRepetitionPhrase] = useState('')
-  const [requiredRepetitions, setRequiredRepetitions] = useState('')
+  const [title, setTitle] = useState(editTask?.title ?? '')
+  const [description, setDescription] = useState(editTask?.description ?? '')
+  const [instructions, setInstructions] = useState(editTask?.instructions ?? '')
+  const [priceUsdc, setPriceUsdc] = useState(editTask?.price_usdc != null ? String(editTask.price_usdc) : '')
+  const [points, setPoints] = useState(editTask?.points != null ? String(editTask.points) : '')
+  const [repetitionPhrase, setRepetitionPhrase] = useState(editTask?.repetition_phrase ?? '')
+  const [requiredRepetitions, setRequiredRepetitions] = useState(editTask?.required_repetitions != null ? String(editTask.required_repetitions) : '')
 
   // Cover image (non-CONTENT tasks)
-  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(editTask?.cover_image_url ?? null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -72,6 +87,13 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
   const [contentPreview, setContentPreview] = useState<string | null>(null)
   const [contentIsVideo, setContentIsVideo] = useState(false)
   const contentInputRef = useRef<HTMLInputElement>(null)
+
+  // When editing a CONTENT task, show existing cover as preview via proxy URL
+  useEffect(() => {
+    if (isEditing && editTask.task_type === 'CONTENT' && editTask.cover_image_url) {
+      setContentPreview(`/api/image/${editTask.cover_image_url.replace(/^https?:\/\/[^/]+\//, '')}`)
+    }
+  }, [isEditing, editTask])
 
   async function handleCoverUpload(file: File) {
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
@@ -101,7 +123,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
     }
     setUploading(true)
     try {
-      // Upload the actual content to media_assets
       const form = new FormData()
       form.append('file', file)
       const res = await fetch('/api/upload/media', { method: 'POST', body: form })
@@ -112,16 +133,13 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
       setContentIsVideo(file.type.startsWith('video/'))
       setContentPreview(URL.createObjectURL(file))
 
-      // Extract relative path from full CDN URL so getBunnyStorageUrl can proxy it
       const relativePath = (() => {
         try { const u = new URL(data.url); return u.pathname.replace(/^\//, '') } catch { return data.url }
       })()
 
       if (file.type.startsWith('image/')) {
-        // Image: use the same path as the cover (shown blurred in feed)
         setCoverImageUrl(relativePath)
       } else {
-        // Video: extract first frame and upload as cover
         const frame = await extractVideoFrame(file)
         if (frame) {
           const coverForm = new FormData()
@@ -138,33 +156,54 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
     }
   }
 
-  async function handleCreate() {
+  async function handleSave() {
     if (!taskType || !title) return
     setLoading(true)
     try {
-      const res = await fetch('/api/task/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description: description || undefined,
-          task_type: taskType,
-          price_usdc: priceUsdc ? parseFloat(priceUsdc) : undefined,
-          points: points ? parseInt(points) : 0,
-          instructions: instructions || undefined,
-          repetition_phrase: repetitionPhrase || undefined,
-          required_repetitions: requiredRepetitions ? parseInt(requiredRepetitions) : undefined,
-          media_id: contentMediaId || undefined,
-          cover_image_url: coverImageUrl || undefined,
-          status: 'PUBLISHED',
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'Failed to create task'); return }
-      toast.success('Task published!')
+      if (isEditing) {
+        const res = await fetch('/api/task/update', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskId: editTask.id,
+            title,
+            description: description || '',
+            instructions: instructions || '',
+            price_usdc: priceUsdc || '',
+            points: points || 0,
+            repetition_phrase: repetitionPhrase || '',
+            required_repetitions: requiredRepetitions || '',
+            cover_image_url: coverImageUrl,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) { toast.error(data.error ?? 'Failed to save'); return }
+        toast.success('Task updated!')
+      } else {
+        const res = await fetch('/api/task/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            description: description || undefined,
+            task_type: taskType,
+            price_usdc: priceUsdc ? parseFloat(priceUsdc) : undefined,
+            points: points ? parseInt(points) : 0,
+            instructions: instructions || undefined,
+            repetition_phrase: repetitionPhrase || undefined,
+            required_repetitions: requiredRepetitions ? parseInt(requiredRepetitions) : undefined,
+            media_id: contentMediaId || undefined,
+            cover_image_url: coverImageUrl || undefined,
+            status: 'PUBLISHED',
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) { toast.error(data.error ?? 'Failed to create task'); return }
+        toast.success('Task published!')
+      }
       onCreated()
     } catch {
-      toast.error('Failed to create task')
+      toast.error(isEditing ? 'Failed to save task' : 'Failed to create task')
     } finally {
       setLoading(false)
     }
@@ -179,7 +218,9 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <h2 className="text-white font-semibold">
-            {step === 'type' ? 'Create a task' : `New ${taskType?.charAt(0) + taskType!.slice(1).toLowerCase()} task`}
+            {isEditing
+              ? `Edit ${taskType?.charAt(0) + taskType!.slice(1).toLowerCase()} task`
+              : step === 'type' ? 'Create a task' : `New ${taskType?.charAt(0) + taskType!.slice(1).toLowerCase()} task`}
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -189,8 +230,8 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
-          {/* Step 1: choose type */}
-          {step === 'type' && (
+          {/* Step 1: choose type (create only) */}
+          {step === 'type' && !isEditing && (
             <div className="space-y-2">
               {TYPE_OPTIONS.map(opt => (
                 <button
@@ -208,13 +249,14 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
           {/* Step 2: details */}
           {step === 'details' && taskType && (
             <>
-              <button onClick={() => setStep('type')} className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                Change type
-              </button>
+              {!isEditing && (
+                <button onClick={() => setStep('type')} className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  Change type
+                </button>
+              )}
 
               {taskType === 'CONTENT' ? (
-                /* CONTENT: upload the actual content, cover auto-generated */
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">
                     Content <span className="text-red-500">*</span>{' '}
@@ -241,7 +283,7 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                           onClick={() => { setContentMediaId(null); setContentPreview(null); setCoverImageUrl(null) }}
                           className="text-xs text-white bg-black/60 px-3 py-1.5 rounded-full hover:bg-black/80 transition-colors"
                         >
-                          Remove
+                          {isEditing ? 'Replace' : 'Remove'}
                         </button>
                       </div>
                       {uploading && (
@@ -277,7 +319,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                   )}
                 </div>
               ) : (
-                /* Non-CONTENT: optional cover image */
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">
                     Cover image <span className="text-gray-600">(shown blurred in subs&apos; feed)</span>
@@ -338,7 +379,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                 />
               </div>
 
-              {/* Description — not shown for CONTENT */}
               {taskType !== 'CONTENT' && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">Description</label>
@@ -353,7 +393,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                 </div>
               )}
 
-              {/* Instructions — not shown for CONTENT */}
               {taskType !== 'CONTENT' && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">Instructions</label>
@@ -368,7 +407,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                 </div>
               )}
 
-              {/* REPETITION fields */}
               {taskType === 'REPETITION' && (
                 <>
                   <div>
@@ -397,7 +435,6 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                 </>
               )}
 
-              {/* Price + Points */}
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="block text-xs text-gray-400 mb-1.5">Price (USDC)</label>
@@ -431,15 +468,15 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
         {step === 'details' && (
           <div className="px-5 py-4 border-t border-gray-800">
             <button
-              onClick={handleCreate}
+              onClick={handleSave}
               disabled={
                 loading || uploading || !title ||
                 (taskType === 'REPETITION' && (!repetitionPhrase || !requiredRepetitions)) ||
-                (taskType === 'CONTENT' && !contentMediaId)
+                (!isEditing && taskType === 'CONTENT' && !contentMediaId)
               }
               className="w-full py-3 rounded-xl bg-white text-black font-semibold hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              {loading ? 'Publishing…' : uploading ? 'Uploading…' : 'Publish task'}
+              {loading ? 'Saving…' : uploading ? 'Uploading…' : isEditing ? 'Save changes' : 'Publish task'}
             </button>
           </div>
         )}

@@ -4,24 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import toast from 'react-hot-toast'
-import Link from 'next/link'
 import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 function TaskIcon({ task }: { task: Task }) {
   if (task.task_type === 'CONTENT' && task.cover_image_url) {
-    return (
-      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-800">
-        <Image
-          src={getBunnyStorageUrl(task.cover_image_url)}
-          alt={task.title}
-          width={40}
-          height={40}
-          className="w-full h-full object-cover"
-        />
-      </div>
-    )
+    return null // rendered separately as a full-height panel
   }
   return <span className="text-xl shrink-0">{TYPE_ICON[task.task_type]}</span>
 }
@@ -38,6 +27,10 @@ interface Task {
   price_usdc: number | null
   points: number
   cover_image_url: string | null
+  description: string | null
+  instructions: string | null
+  repetition_phrase: string | null
+  required_repetitions: number | null
   created_at: string
   _count?: number
 }
@@ -75,6 +68,7 @@ export default function DashboardTasksPage() {
   const [completions, setCompletions] = useState<Completion[]>([])
   const [tab, setTab] = useState<'tasks' | 'inbox'>('tasks')
   const [showBuilder, setShowBuilder] = useState(false)
+  const [editTask, setEditTask] = useState<Task | null>(null)
   const [loading, setLoading] = useState(true)
   const [feedbackId, setFeedbackId] = useState<string | null>(null)
   const [feedbackText, setFeedbackText] = useState('')
@@ -97,7 +91,7 @@ export default function DashboardTasksPage() {
 
       const { data: tasksData } = await sb
         .from('tasks')
-        .select('id, title, task_type, status, price_usdc, points, cover_image_url, created_at')
+        .select('id, title, task_type, status, price_usdc, points, cover_image_url, description, instructions, repetition_phrase, required_repetitions, created_at')
         .eq('creator_id', profile.id)
         .order('created_at', { ascending: false })
 
@@ -212,6 +206,7 @@ export default function DashboardTasksPage() {
             <TaskSection
               label="Published"
               tasks={published}
+              onEdit={setEditTask}
               onArchive={handleArchive}
               emptyText="No published tasks yet."
             />
@@ -220,6 +215,7 @@ export default function DashboardTasksPage() {
               <TaskSection
                 label="Drafts"
                 tasks={drafts}
+                onEdit={setEditTask}
                 onArchive={handleArchive}
               />
             )}
@@ -228,6 +224,7 @@ export default function DashboardTasksPage() {
               <TaskSection
                 label="Archived"
                 tasks={archived}
+                onEdit={setEditTask}
                 onArchive={handleArchive}
                 muted
               />
@@ -362,6 +359,13 @@ export default function DashboardTasksPage() {
           onCreated={() => { setShowBuilder(false); fetchData() }}
         />
       )}
+      {editTask && (
+        <TaskBuilder
+          editTask={editTask}
+          onClose={() => setEditTask(null)}
+          onCreated={() => { setEditTask(null); fetchData() }}
+        />
+      )}
     </div>
   )
 }
@@ -369,12 +373,14 @@ export default function DashboardTasksPage() {
 function TaskSection({
   label,
   tasks,
+  onEdit,
   onArchive,
   emptyText,
   muted = false,
 }: {
   label: string
   tasks: Task[]
+  onEdit: (task: Task) => void
   onArchive: (id: string) => void
   emptyText?: string
   muted?: boolean
@@ -388,32 +394,44 @@ function TaskSection({
         <p className="text-gray-600 text-sm">{emptyText}</p>
       ) : (
         <div className="space-y-2">
-          {tasks.map(task => (
-            <div
-              key={task.id}
-              className={`flex items-center gap-4 py-6 px-4 rounded-xl border ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
-            >
-              <TaskIcon task={task} />
-              <Link href={`/task/${task.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
-                <div className={`font-medium text-sm truncate ${muted ? 'text-gray-500' : 'text-white'}`}>
-                  {task.title}
+          {tasks.map(task => {
+            const isContentWithCover = task.task_type === 'CONTENT' && task.cover_image_url
+            return (
+              <div
+                key={task.id}
+                onClick={() => onEdit(task)}
+                className={`flex items-center rounded-xl border p-[8px] gap-3 hover:border-gray-600 transition-colors cursor-pointer ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
+              >
+                {isContentWithCover && (
+                  <div className="w-16 shrink-0 self-stretch rounded-lg overflow-hidden">
+                    <Image
+                      src={getBunnyStorageUrl(task.cover_image_url!)}
+                      alt={task.title}
+                      width={64}
+                      height={80}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-1 items-center gap-4 py-5 pr-3 min-w-0">
+                  {!isContentWithCover && <TaskIcon task={task} />}
+                  <div className="flex-1 min-w-0">
+                    <div className={`font-medium text-sm truncate ${muted ? 'text-gray-500' : 'text-white'}`}>
+                      {task.title}
+                    </div>
+                    <div className="text-xs text-gray-600 mt-0.5">
+                      {task.task_type.charAt(0) + task.task_type.slice(1).toLowerCase()}
+                      {task.price_usdc ? ` · $${task.price_usdc} USDC` : ''}
+                      {task.points ? ` · ${task.points} pts` : ''}
+                    </div>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z" />
+                  </svg>
                 </div>
-                <div className="text-xs text-gray-600 mt-0.5">
-                  {task.task_type.charAt(0) + task.task_type.slice(1).toLowerCase()}
-                  {task.price_usdc ? ` · $${task.price_usdc} USDC` : ''}
-                  {task.points ? ` · ${task.points} pts` : ''}
-                </div>
-              </Link>
-              {task.status !== 'ARCHIVED' && (
-                <button
-                  onClick={() => onArchive(task.id)}
-                  className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0"
-                >
-                  Archive
-                </button>
-              )}
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
