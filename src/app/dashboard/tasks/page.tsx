@@ -9,6 +9,23 @@ import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
+function TaskIcon({ task }: { task: Task }) {
+  if (task.task_type === 'CONTENT' && task.cover_image_url) {
+    return (
+      <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-gray-800">
+        <Image
+          src={getBunnyStorageUrl(task.cover_image_url)}
+          alt={task.title}
+          width={40}
+          height={40}
+          className="w-full h-full object-cover"
+        />
+      </div>
+    )
+  }
+  return <span className="text-xl shrink-0">{TYPE_ICON[task.task_type]}</span>
+}
+
 type TaskType = 'REPETITION' | 'SUBMISSION' | 'EVIDENCE' | 'CONTENT'
 type TaskStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 type CompletionStatus = 'ACCEPTED' | 'SUBMITTED' | 'APPROVED' | 'REJECTED'
@@ -20,6 +37,7 @@ interface Task {
   status: TaskStatus
   price_usdc: number | null
   points: number
+  cover_image_url: string | null
   created_at: string
   _count?: number
 }
@@ -63,9 +81,9 @@ export default function DashboardTasksPage() {
   const [reviewing, setReviewing] = useState(false)
 
   const fetchData = useCallback(async (showSpinner = false) => {
-    const sb = supabase()
     if (showSpinner) setLoading(true)
     try {
+      const sb = supabase()
       const { data: { user } } = await sb.auth.getUser()
       if (!user) { router.push('/login'); return }
 
@@ -79,7 +97,7 @@ export default function DashboardTasksPage() {
 
       const { data: tasksData } = await sb
         .from('tasks')
-        .select('id, title, task_type, status, price_usdc, points, created_at')
+        .select('id, title, task_type, status, price_usdc, points, cover_image_url, created_at')
         .eq('creator_id', profile.id)
         .order('created_at', { ascending: false })
 
@@ -373,9 +391,9 @@ function TaskSection({
           {tasks.map(task => (
             <div
               key={task.id}
-              className={`flex items-center gap-4 p-4 rounded-xl border ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
+              className={`flex items-center gap-4 py-6 px-4 rounded-xl border ${muted ? 'border-gray-900 bg-gray-950/50' : 'border-gray-800 bg-gray-950'}`}
             >
-              <span className="text-xl">{TYPE_ICON[task.task_type]}</span>
+              <TaskIcon task={task} />
               <Link href={`/task/${task.id}`} className="flex-1 min-w-0 hover:opacity-80 transition-opacity">
                 <div className={`font-medium text-sm truncate ${muted ? 'text-gray-500' : 'text-white'}`}>
                   {task.title}

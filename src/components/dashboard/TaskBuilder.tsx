@@ -17,6 +17,36 @@ const TYPE_OPTIONS: { value: TaskType; label: string; description: string }[] = 
   { value: 'CONTENT', label: 'Content', description: 'Sub pays to unlock a specific photo or video you choose.' },
 ]
 
+async function extractVideoFrame(videoFile: File): Promise<File | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video')
+    const objectUrl = URL.createObjectURL(videoFile)
+    video.src = objectUrl
+    video.muted = true
+    video.currentTime = 0
+
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth || 1280
+      canvas.height = video.videoHeight || 720
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { URL.revokeObjectURL(objectUrl); resolve(null); return }
+      ctx.drawImage(video, 0, 0)
+      URL.revokeObjectURL(objectUrl)
+      canvas.toBlob((blob) => {
+        resolve(blob ? new File([blob], 'cover.jpg', { type: 'image/jpeg' }) : null)
+      }, 'image/jpeg', 0.85)
+    }, { once: true })
+
+    video.addEventListener('error', () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(null)
+    }, { once: true })
+
+    video.load()
+  })
+}
+
 export default function TaskBuilder({ onClose, onCreated }: Props) {
   const [step, setStep] = useState<'type' | 'details'>('type')
   const [taskType, setTaskType] = useState<TaskType | null>(null)
@@ -31,11 +61,17 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
   const [repetitionPhrase, setRepetitionPhrase] = useState('')
   const [requiredRepetitions, setRequiredRepetitions] = useState('')
 
-  // Cover image
+  // Cover image (non-CONTENT tasks)
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Content media (CONTENT tasks)
+  const [contentMediaId, setContentMediaId] = useState<string | null>(null)
+  const [contentPreview, setContentPreview] = useState<string | null>(null)
+  const [contentIsVideo, setContentIsVideo] = useState(false)
+  const contentInputRef = useRef<HTMLInputElement>(null)
 
   async function handleCoverUpload(file: File) {
     if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
@@ -46,12 +82,55 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
     try {
       const form = new FormData()
       form.append('file', file)
-      form.append('folder', 'task-covers')
-      const res = await fetch('/api/upload', { method: 'POST', body: form })
+      const res = await fetch('/api/upload/task-cover', { method: 'POST', body: form })
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? 'Upload failed'); return }
       setCoverImageUrl(data.url)
       setCoverPreview(URL.createObjectURL(file))
+    } catch {
+      toast.error('Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleContentUpload(file: File) {
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      toast.error('Please upload an image or video file')
+      return
+    }
+    setUploading(true)
+    try {
+      // Upload the actual content to media_assets
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch('/api/upload/media', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Upload failed'); return }
+
+      setContentMediaId(data.id)
+      setContentIsVideo(file.type.startsWith('video/'))
+      setContentPreview(URL.createObjectURL(file))
+
+      // Extract relative path from full CDN URL so getBunnyStorageUrl can proxy it
+      const relativePath = (() => {
+        try { const u = new URL(data.url); return u.pathname.replace(/^\//, '') } catch { return data.url }
+      })()
+
+      if (file.type.startsWith('image/')) {
+        // Image: use the same path as the cover (shown blurred in feed)
+        setCoverImageUrl(relativePath)
+      } else {
+        // Video: extract first frame and upload as cover
+        const frame = await extractVideoFrame(file)
+        if (frame) {
+          const coverForm = new FormData()
+          coverForm.append('file', frame)
+          const coverRes = await fetch('/api/upload/task-cover', { method: 'POST', body: coverForm })
+          const coverData = await coverRes.json()
+          if (coverRes.ok) setCoverImageUrl(coverData.url)
+        }
+      }
     } catch {
       toast.error('Upload failed')
     } finally {
@@ -75,6 +154,7 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
           instructions: instructions || undefined,
           repetition_phrase: repetitionPhrase || undefined,
           required_repetitions: requiredRepetitions ? parseInt(requiredRepetitions) : undefined,
+          media_id: contentMediaId || undefined,
           cover_image_url: coverImageUrl || undefined,
           status: 'PUBLISHED',
         }),
@@ -133,50 +213,117 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
                 Change type
               </button>
 
-              {/* Cover image */}
-              <div>
-                <label className="block text-xs text-gray-400 mb-1.5">
-                  Cover image <span className="text-gray-600">(shown blurred in subs&apos; feed)</span>
-                </label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f) }}
-                />
-                {coverPreview ? (
-                  <div className="relative rounded-xl overflow-hidden h-32 bg-gray-900">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={coverPreview} alt="Cover" className="w-full h-full object-cover filter blur-sm scale-105" />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                      <button
-                        onClick={() => { setCoverImageUrl(null); setCoverPreview(null) }}
-                        className="text-xs text-white bg-black/60 px-3 py-1.5 rounded-full hover:bg-black/80 transition-colors"
-                      >
-                        Remove
-                      </button>
+              {taskType === 'CONTENT' ? (
+                /* CONTENT: upload the actual content, cover auto-generated */
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">
+                    Content <span className="text-red-500">*</span>{' '}
+                    <span className="text-gray-600">(sub unlocks this — shown blurred in feed)</span>
+                  </label>
+                  <input
+                    ref={contentInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleContentUpload(f) }}
+                  />
+                  {contentPreview ? (
+                    <div className="relative rounded-xl overflow-hidden bg-gray-900">
+                      {contentIsVideo ? (
+                        // eslint-disable-next-line jsx-a11y/media-has-caption
+                        <video src={contentPreview} className="w-full max-h-64 object-contain" muted playsInline />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={contentPreview} alt="Content" className="w-full max-h-64 object-contain" />
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <button
+                          onClick={() => { setContentMediaId(null); setContentPreview(null); setCoverImageUrl(null) }}
+                          className="text-xs text-white bg-black/60 px-3 py-1.5 rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      {uploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                          <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full h-24 rounded-xl border border-dashed border-gray-700 hover:border-gray-500 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-400"
-                  >
-                    {uploading ? (
-                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                        </svg>
-                        <span className="text-xs">Upload cover image</span>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <button
+                      onClick={() => contentInputRef.current?.click()}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleContentUpload(f) }}
+                      disabled={uploading}
+                      className="w-full h-24 rounded-xl border border-dashed border-gray-700 hover:border-gray-500 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-400"
+                    >
+                      {uploading ? (
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                          <span className="text-xs">Upload image or video</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {contentPreview && !uploading && (
+                    <p className="text-xs text-gray-600 mt-1.5">
+                      {contentIsVideo ? 'First frame extracted as cover image' : 'This image will appear blurred in subs\' feed'}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Non-CONTENT: optional cover image */
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">
+                    Cover image <span className="text-gray-600">(shown blurred in subs&apos; feed)</span>
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,video/*"
+                    className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f) }}
+                  />
+                  {coverPreview ? (
+                    <div className="relative rounded-xl overflow-hidden bg-gray-900">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={coverPreview} alt="Cover" className="w-full max-h-64 object-contain" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <button
+                          onClick={() => { setCoverImageUrl(null); setCoverPreview(null) }}
+                          className="text-xs text-white bg-black/60 px-3 py-1.5 rounded-full hover:bg-black/80 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleCoverUpload(f) }}
+                      disabled={uploading}
+                      className="w-full h-24 rounded-xl border border-dashed border-gray-700 hover:border-gray-500 transition-colors flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-gray-400"
+                    >
+                      {uploading ? (
+                        <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                          </svg>
+                          <span className="text-xs">Upload or drag cover image</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Title */}
               <div>
@@ -285,10 +432,14 @@ export default function TaskBuilder({ onClose, onCreated }: Props) {
           <div className="px-5 py-4 border-t border-gray-800">
             <button
               onClick={handleCreate}
-              disabled={loading || uploading || !title || (taskType === 'REPETITION' && (!repetitionPhrase || !requiredRepetitions))}
+              disabled={
+                loading || uploading || !title ||
+                (taskType === 'REPETITION' && (!repetitionPhrase || !requiredRepetitions)) ||
+                (taskType === 'CONTENT' && !contentMediaId)
+              }
               className="w-full py-3 rounded-xl bg-white text-black font-semibold hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
             >
-              {loading ? 'Publishing…' : uploading ? 'Uploading cover…' : 'Publish task'}
+              {loading ? 'Publishing…' : uploading ? 'Uploading…' : 'Publish task'}
             </button>
           </div>
         )}

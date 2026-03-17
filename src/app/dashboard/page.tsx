@@ -28,80 +28,85 @@ export default function DashboardOverview() {
   const [chartData, setChartData] = useState<MonthBucket[]>([])
 
   const fetchData = useCallback(async () => {
-    const sb = supabase()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) { router.push('/login'); return }
+    try {
+      const sb = supabase()
+      const { data: { user } } = await sb.auth.getUser()
+      if (!user) { router.push('/login'); return }
 
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('id, user_type, display_name')
-      .eq('auth_user_id', user.id)
-      .single()
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('id, user_type, display_name')
+        .eq('auth_user_id', user.id)
+        .single()
 
-    if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
+      if (!profile || profile.user_type !== 'CREATOR') { router.push('/'); return }
 
-    const domId = profile.id
-    const now = new Date()
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      const domId = profile.id
+      const now = new Date()
+      const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 
-    const [
-      { data: completions },
-      { data: unlocks },
-      { count: activeTasks },
-      { data: vipAccess },
-    ] = await Promise.all([
-      sb.from('task_completions')
-        .select('amount_usdc, accepted_at, tasks!inner(creator_id)')
-        .eq('tasks.creator_id', domId)
-        .eq('status', 'APPROVED'),
+      const [
+        { data: completions },
+        { data: unlocks },
+        { count: activeTasks },
+        { data: vipAccess },
+      ] = await Promise.all([
+        sb.from('task_completions')
+          .select('amount_usdc, accepted_at, tasks!inner(creator_id)')
+          .eq('tasks.creator_id', domId)
+          .eq('status', 'APPROVED'),
 
-      sb.from('content_unlocks')
-        .select('amount_usdc, unlocked_at, media_assets!inner(creator_id)')
-        .eq('media_assets.creator_id', domId),
+        sb.from('content_unlocks')
+          .select('amount_usdc, unlocked_at, media_assets!inner(creator_id)')
+          .eq('media_assets.creator_id', domId),
 
-      sb.from('tasks')
-        .select('id', { count: 'exact', head: true })
-        .eq('creator_id', domId)
-        .eq('status', 'PUBLISHED'),
+        sb.from('tasks')
+          .select('id', { count: 'exact', head: true })
+          .eq('creator_id', domId)
+          .eq('status', 'PUBLISHED'),
 
-      sb.from('chat_access')
-        .select('tier')
-        .eq('creator_id', domId)
-        .eq('state', 'granted'),
-    ])
+        sb.from('chat_access')
+          .select('tier')
+          .eq('creator_id', domId)
+          .eq('state', 'granted'),
+      ])
 
-    const allTxns = [
-      ...(completions ?? []).map(c => ({ usdc: (c.amount_usdc as number) ?? 0, date: c.accepted_at as string })),
-      ...(unlocks ?? []).map(u => ({ usdc: (u.amount_usdc as number) ?? 0, date: u.unlocked_at as string })),
-    ]
+      const allTxns = [
+        ...(completions ?? []).map(c => ({ usdc: (c.amount_usdc as number) ?? 0, date: c.accepted_at as string })),
+        ...(unlocks ?? []).map(u => ({ usdc: (u.amount_usdc as number) ?? 0, date: u.unlocked_at as string })),
+      ]
 
-    const totalEarnings = allTxns.reduce((s, t) => s + t.usdc, 0)
-    const thisMonthEarnings = allTxns
-      .filter(t => t.date?.startsWith(thisMonth))
-      .reduce((s, t) => s + t.usdc, 0)
+      const totalEarnings = allTxns.reduce((s, t) => s + t.usdc, 0)
+      const thisMonthEarnings = allTxns
+        .filter(t => t.date?.startsWith(thisMonth))
+        .reduce((s, t) => s + t.usdc, 0)
 
-    const vipCount = (vipAccess ?? []).filter(a => a.tier === 'GROUP').length
-    const vvipCount = (vipAccess ?? []).filter(a => a.tier === 'PRIVATE').length
+      const vipCount = (vipAccess ?? []).filter(a => a.tier === 'GROUP').length
+      const vvipCount = (vipAccess ?? []).filter(a => a.tier === 'PRIVATE').length
 
-    setStats({ totalEarnings, thisMonthEarnings, activeTasks: activeTasks ?? 0, vipCount, vvipCount })
+      setStats({ totalEarnings, thisMonthEarnings, activeTasks: activeTasks ?? 0, vipCount, vvipCount })
 
-    const buckets: Record<string, number> = {}
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      buckets[key] = 0
+      const buckets: Record<string, number> = {}
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        buckets[key] = 0
+      }
+      for (const t of allTxns) {
+        const key = t.date?.slice(0, 7)
+        if (key && key in buckets) buckets[key] += t.usdc
+      }
+      const chart = Object.entries(buckets).map(([key, usdc]) => {
+        const [yr, mo] = key.split('-')
+        const label = new Date(Number(yr), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+        return { month: label, usdc: Math.round(usdc * 100) / 100 }
+      })
+      setChartData(chart)
+    } catch (err) {
+      console.error('Dashboard fetchData error:', err)
+    } finally {
+      setLoading(false)
     }
-    for (const t of allTxns) {
-      const key = t.date?.slice(0, 7)
-      if (key && key in buckets) buckets[key] += t.usdc
-    }
-    const chart = Object.entries(buckets).map(([key, usdc]) => {
-      const [yr, mo] = key.split('-')
-      const label = new Date(Number(yr), Number(mo) - 1, 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-      return { month: label, usdc: Math.round(usdc * 100) / 100 }
-    })
-    setChartData(chart)
-    setLoading(false)
   }, [router])
 
   useEffect(() => { fetchData() }, [fetchData])

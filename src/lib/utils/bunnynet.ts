@@ -164,6 +164,9 @@ export function getBunnyStorageUrl(path: string): string {
     const trustedDomains = [
       'vz-7465723a-98d.b-cdn.net',
       `${BUNNY_CDN_HOSTNAME}`,
+      // Hardcoded storage hostname — BUNNY_CDN_HOSTNAME is not NEXT_PUBLIC so client sees wrong value
+      'uk.storage.bunnycdn.com',
+      'storage.bunnycdn.com',
     ];
 
     try {
@@ -175,7 +178,10 @@ export function getBunnyStorageUrl(path: string): string {
         return '/placeholder-image.jpg';
       }
 
-      return path;
+      // Route through the proxy instead of returning the raw CDN URL directly
+      // (CDN has token auth enabled — direct requests return 403)
+      const relativePath = url.pathname.replace(/^\//, '');
+      return `/api/image/${relativePath}`;
     } catch (error) {
       console.warn(`Invalid URL in getBunnyStorageUrl: ${path}`, error);
       return '/placeholder-image.jpg';
@@ -188,7 +194,7 @@ export function getBunnyStorageUrl(path: string): string {
     cleanPath = cleanPath.substring(1);
   }
 
-  const validPrefixes = ['profile-pictures/', 'banner-images/', 'ppv-images/', 'ppv-videos/', 'uploads/', 'wall-images/', 'wall-videos/', 'evidence/'];
+  const validPrefixes = ['profile-pictures/', 'banner-images/', 'ppv-images/', 'ppv-videos/', 'uploads/', 'wall-images/', 'wall-videos/', 'evidence/', 'task-covers/'];
   const hasValidPrefix = validPrefixes.some(prefix => cleanPath.startsWith(prefix));
 
   if (!hasValidPrefix) {
@@ -225,7 +231,15 @@ export function validateBunnyStorageUrl(url: string): boolean {
     '/banner-images/',
     'banner-images/',
     '/uploads/',
-    'uploads/'
+    'uploads/',
+    '/wall-images/',
+    'wall-images/',
+    '/wall-videos/',
+    'wall-videos/',
+    '/task-covers/',
+    'task-covers/',
+    '/evidence/',
+    'evidence/',
   ];
 
   const hasValidPrefix = allowedPrefixes.some(prefix => url.startsWith(prefix));

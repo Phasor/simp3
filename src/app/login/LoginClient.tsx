@@ -11,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter()
   const params = useSearchParams()
   const error = params.get('error') ?? ''
+  const expired = params.get('expired') === '1'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [sending, setSending] = useState(false)
@@ -50,6 +51,11 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-6">
         <h1 className="typ-h1 text-slate-900">Sign in</h1>
 
+        {expired && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <p className="typ-body-sm text-amber-400">Your session expired. Please sign in again to reconnect.</p>
+          </div>
+        )}
         {error ? <p className="typ-body-sm text-red-600">Error: {error}</p> : null}
 
         <form onSubmit={handleSubmit} className="space-y-3">

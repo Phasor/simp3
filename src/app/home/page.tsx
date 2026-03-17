@@ -155,7 +155,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-black text-white pb-24">
       {/* Sticky tabs */}
       <div className="sticky top-0 z-30 bg-black/95 backdrop-blur-sm border-b border-gray-900">
-        <div className="max-w-lg mx-auto flex">
+        <div className="w-full md:w-[50vw] mx-auto flex">
           {(['for-you', 'following'] as const).map(t => (
             <button
               key={t}
@@ -174,7 +174,7 @@ export default function HomePage() {
       </div>
 
       {/* Feed */}
-      <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
+      <div className="w-full md:w-[50vw] mx-auto px-4 pt-4 space-y-4">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />

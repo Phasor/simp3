@@ -94,7 +94,11 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
     setProfile(profileData)
   }, [user, fetchProfile])
 
+  // Track explicit sign-outs so we can distinguish them from session expiry
+  const explicitSignOut = useMemo(() => ({ current: false }), []);
+
   const signOut = useCallback(async () => {
+    explicitSignOut.current = true;
     // Clear client state immediately for instant UI feedback
     setSession(null);
     setUser(null);
@@ -103,7 +107,7 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
     setLoading(false);
     // Navigate to server-side signout — it clears cookies properly then redirects to /login
     window.location.href = '/auth/signout';
-  }, [])
+  }, [explicitSignOut])
 
   useEffect(() => {
     DEBUG && console.log('🔐 AuthProvider initializing...', { hasInitialSession: !!initialSession, loading, resolved });
@@ -162,9 +166,16 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
       }
     })();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!active) return;
-      DEBUG && console.log('🔄 Auth state changed:', { hasSession: !!session, userId: session?.user?.id });
+      DEBUG && console.log('🔄 Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
+
+      // Session expired (not an explicit sign-out by the user) → redirect to login
+      if (event === 'SIGNED_OUT' && !explicitSignOut.current) {
+        window.location.href = '/login?expired=1';
+        return;
+      }
+
       setSession(session ?? null);
       setUser(session?.user ?? null);
 
@@ -185,7 +196,7 @@ export function AuthProvider({ children, initialSession = null }: AuthProviderPr
       if (watchdogTimer) clearTimeout(watchdogTimer);
       subscription.unsubscribe();
     };
-  }, [supabase.auth, fetchProfile, initialSession, resolved])
+  }, [supabase.auth, fetchProfile, initialSession, resolved, explicitSignOut])
 
   const value = {
     user,
