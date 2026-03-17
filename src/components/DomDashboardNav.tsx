@@ -4,14 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/AuthContext'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 const TABS = [
-  { label: 'Overview', href: '/dashboard' },
+  { label: 'Home', href: '/dashboard' },
   { label: 'Tasks',    href: '/dashboard/tasks' },
   { label: 'Subs',     href: '/dashboard/subs' },
   { label: 'Chat',     href: '/chat' },
-  { label: 'Earnings', href: '/dashboard/earnings' },
-  { label: 'Settings', href: '/dashboard/settings' },
 ]
 
 function HamburgerIcon({ open }: { open: boolean }) {
@@ -96,7 +95,7 @@ export default function DomDashboardNav() {
             {profile?.profile_picture_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profile.profile_picture_url}
+                src={getBunnyStorageUrl(profile.profile_picture_url)}
                 alt="Profile"
                 className="w-8 h-8 rounded-full object-cover border border-gray-700"
               />
@@ -109,11 +108,11 @@ export default function DomDashboardNav() {
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-gray-950 border border-gray-800 rounded-xl shadow-xl overflow-hidden">
               <Link
-                href={profileHref}
+                href="/dashboard/settings"
                 className="block px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-gray-900 transition-colors"
                 onClick={() => setDropdownOpen(false)}
               >
-                View my profile
+                Settings
               </Link>
               <button
                 onClick={() => { setDropdownOpen(false); signOut() }}
