@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
@@ -31,48 +31,43 @@ export default function LibraryPage() {
   const [items, setItems] = useState<LibraryItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchLibrary = useCallback(async () => {
     if (!resolved) return
     if (!user) { setLoading(false); return }
-    if (!profile?.id) { setLoading(false); return }
+    if (!profile) { setLoading(false); return }
 
-    let cancelled = false
     setLoading(true)
+    try {
+      const { data } = await sb
+        .from('task_completions')
+        .select(`
+          id,
+          task_id,
+          accepted_at,
+          task:tasks!task_id (
+            id, title, cover_image_url,
+            media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url ),
+            dom:profiles!creator_id ( display_name, handle, profile_picture_url )
+          )
+        `)
+        .eq('fan_id', profile.id)
+        .eq('status', 'APPROVED')
+        .not('task_id', 'is', null)
+        .order('accepted_at', { ascending: false })
 
-    ;(async () => {
-      try {
-        const { data } = await sb
-          .from('task_completions')
-          .select(`
-            id,
-            task_id,
-            accepted_at,
-            task:tasks!task_id (
-              id, title, cover_image_url,
-              media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url ),
-              dom:profiles!creator_id ( display_name, handle, profile_picture_url )
-            )
-          `)
-          .eq('fan_id', profile.id)
-          .eq('status', 'APPROVED')
-          .not('task_id', 'is', null)
-          .order('accepted_at', { ascending: false })
-
-        if (cancelled) return
-        const contentItems = (data ?? []).filter(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (r: any) => r.task?.media_asset != null
-        ) as unknown as LibraryItem[]
-        setItems(contentItems)
-      } catch (err) {
-        if (!cancelled) console.error('Library fetch error:', err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => { cancelled = true }
+      const contentItems = (data ?? []).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (r: any) => r.task?.media_asset != null
+      ) as unknown as LibraryItem[]
+      setItems(contentItems)
+    } catch (err) {
+      console.error('Library fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
   }, [resolved, user?.id, profile?.id, sb])
+
+  useEffect(() => { fetchLibrary() }, [fetchLibrary])
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
@@ -111,7 +106,7 @@ export default function LibraryPage() {
               return (
                 <Link
                   key={item.id}
-                  href={`/task/${task.id}`}
+                  href={`/task/${task.id}?from=library`}
                   className="block bg-gray-950 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors"
                 >
                   {/* Thumbnail */}
