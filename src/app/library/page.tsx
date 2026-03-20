@@ -72,7 +72,7 @@ export default function LibraryPage() {
     })()
 
     return () => { cancelled = true }
-  }, [resolved, user, profile?.id, sb])
+  }, [resolved, user?.id, profile?.id, sb])
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">

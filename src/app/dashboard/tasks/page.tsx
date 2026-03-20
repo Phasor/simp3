@@ -109,7 +109,8 @@ export default function DashboardTasksPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, profile, resolved, router, sb])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, profile?.id, resolved, router, sb])
 
   useEffect(() => { fetchData(true) }, [fetchData])
 
