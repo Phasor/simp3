@@ -214,7 +214,7 @@ export default function LibraryPage() {
 
           {/* Content area */}
           <div
-            className="relative max-w-3xl w-full mx-4 mt-16 mb-4 max-h-[calc(100vh-6rem)] flex items-center justify-center"
+            className="relative max-w-5xl w-full mx-4 mt-16 mb-4 max-h-[calc(100vh-6rem)] flex items-center justify-center"
             onClick={e => e.stopPropagation()}
           >
             {mediaLoading ? (
@@ -230,7 +230,7 @@ export default function LibraryPage() {
                   allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
                   allowFullScreen
                   className="w-full rounded-xl bg-gray-950"
-                  style={{ aspectRatio: '16/9', maxHeight: 'calc(100vh - 8rem)' }}
+                  style={{ aspectRatio: '16/9', maxHeight: 'calc(100vh - 10rem)', minHeight: '60vh' }}
                 />
               ) : activeItem.task.media_asset?.type === 'VIDEO' ? (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
