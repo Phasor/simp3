@@ -34,7 +34,7 @@ export default function LibraryPage() {
   useEffect(() => {
     if (!resolved) return
     if (!user) { setLoading(false); return }
-    if (!profile?.id) { setLoading(true); return }
+    if (!profile?.id) { setLoading(false); return }
 
     let cancelled = false
     setLoading(true)
