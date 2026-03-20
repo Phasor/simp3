@@ -9,7 +9,7 @@ interface MonthBucket { month: string; usdc: number }
 
 export default function DashboardOverview() {
   const router = useRouter()
-  const { profile, resolved, supabase: sb } = useAuth()
+  const { user, profile, resolved, supabase: sb } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -23,7 +23,8 @@ export default function DashboardOverview() {
 
   const fetchData = useCallback(async () => {
     if (!resolved) return
-    if (!profile) { router.push('/login'); return }
+    if (!user) { router.push('/login'); return }
+    if (!profile) return // profile still loading
     if (profile.user_type !== 'CREATOR') { router.push('/'); return }
 
     try {
@@ -93,7 +94,7 @@ export default function DashboardOverview() {
     } finally {
       setLoading(false)
     }
-  }, [profile, resolved, router, sb])
+  }, [user, profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 

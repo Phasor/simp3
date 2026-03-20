@@ -57,7 +57,7 @@ const TYPE_ICON: Record<TaskType, string> = {
 
 export default function DashboardTasksPage() {
   const router = useRouter()
-  const { profile, resolved, supabase: sb } = useAuth()
+  const { user, profile, resolved, supabase: sb } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<Completion[]>([])
   const [tab, setTab] = useState<'tasks' | 'inbox'>('tasks')
@@ -70,7 +70,8 @@ export default function DashboardTasksPage() {
 
   const fetchData = useCallback(async (showSpinner = false) => {
     if (!resolved) return
-    if (!profile) { router.push('/login'); return }
+    if (!user) { router.push('/login'); return }
+    if (!profile) return // profile still loading
     if (profile.user_type !== 'CREATOR') { router.push('/'); return }
 
     if (showSpinner) setLoading(true)
@@ -108,7 +109,7 @@ export default function DashboardTasksPage() {
     } finally {
       setLoading(false)
     }
-  }, [profile, resolved, router, sb])
+  }, [user, profile, resolved, router, sb])
 
   useEffect(() => { fetchData(true) }, [fetchData])
 

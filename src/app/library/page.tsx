@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
-import { createClient } from '@/lib/supabase/client'
 
 interface LibraryItem {
   id: string
@@ -28,46 +27,52 @@ interface LibraryItem {
 }
 
 export default function LibraryPage() {
-  const { profile, resolved } = useAuth()
+  const { user, profile, resolved, supabase: sb } = useAuth()
   const [items, setItems] = useState<LibraryItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  const fetchLibrary = useCallback(async () => {
-    if (!profile?.id) { setLoading(false); return }
-    setLoading(true)
-    try {
-      const sb = createClient()
-      const { data } = await sb
-        .from('task_completions')
-        .select(`
-          id,
-          task_id,
-          accepted_at,
-          task:tasks!task_id (
-            id, title, cover_image_url,
-            media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url ),
-            dom:profiles!creator_id ( display_name, handle, profile_picture_url )
-          )
-        `)
-        .eq('fan_id', profile.id)
-        .eq('status', 'APPROVED')
-        .not('task_id', 'is', null)
-        .order('accepted_at', { ascending: false })
-
-      // Filter to CONTENT tasks only
-      const contentItems = (data ?? []).filter(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (r: any) => r.task?.media_asset != null
-      ) as unknown as LibraryItem[]
-      setItems(contentItems)
-    } finally {
-      setLoading(false)
-    }
-  }, [profile?.id])
-
   useEffect(() => {
-    if (resolved) fetchLibrary()
-  }, [resolved, fetchLibrary])
+    if (!resolved) return
+    if (!user) { setLoading(false); return }
+    if (!profile?.id) { setLoading(true); return }
+
+    let cancelled = false
+    setLoading(true)
+
+    ;(async () => {
+      try {
+        const { data } = await sb
+          .from('task_completions')
+          .select(`
+            id,
+            task_id,
+            accepted_at,
+            task:tasks!task_id (
+              id, title, cover_image_url,
+              media_asset:media_assets!media_id ( type, thumbnail_url, bunny_preview_url ),
+              dom:profiles!creator_id ( display_name, handle, profile_picture_url )
+            )
+          `)
+          .eq('fan_id', profile.id)
+          .eq('status', 'APPROVED')
+          .not('task_id', 'is', null)
+          .order('accepted_at', { ascending: false })
+
+        if (cancelled) return
+        const contentItems = (data ?? []).filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (r: any) => r.task?.media_asset != null
+        ) as unknown as LibraryItem[]
+        setItems(contentItems)
+      } catch (err) {
+        if (!cancelled) console.error('Library fetch error:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [resolved, user, profile?.id, sb])
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">

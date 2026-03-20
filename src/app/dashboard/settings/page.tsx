@@ -15,7 +15,7 @@ interface VipTier {
 
 export default function DashboardSettingsPage() {
   const router = useRouter()
-  const { profile, resolved, supabase: sb } = useAuth()
+  const { user, profile, resolved, supabase: sb } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -45,7 +45,8 @@ export default function DashboardSettingsPage() {
 
   const fetchData = useCallback(async () => {
     if (!resolved) return
-    if (!profile) { router.push('/login'); return }
+    if (!user) { router.push('/login'); return }
+    if (!profile) return // profile still loading
     if (profile.user_type !== 'CREATOR') { router.push('/'); return }
 
     try {
@@ -81,7 +82,7 @@ export default function DashboardSettingsPage() {
     } finally {
       setLoading(false)
     }
-  }, [profile, resolved, router, sb])
+  }, [user, profile, resolved, router, sb])
 
   useEffect(() => { fetchData() }, [fetchData])
 

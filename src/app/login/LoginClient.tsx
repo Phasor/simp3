@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/contexts/AuthContext'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -17,14 +18,28 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false)
   const [usePassword, setUsePassword] = useState(false)
 
+  const { profile, resolved } = useAuth()
+
+  // If already authenticated, redirect to the right place
+  useEffect(() => {
+    if (!resolved || !profile) return
+    router.replace(profile.user_type === 'CREATOR' ? '/dashboard' : '/home')
+  }, [profile, resolved, router])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSending(true)
     if (usePassword) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       setSending(false)
       if (error) { toast.error(error.message); return }
-      router.push('/')
+      // Fetch profile to determine redirect destination
+      if (data.user) {
+        const { data: prof } = await supabase.from('profiles').select('user_type').eq('auth_user_id', data.user.id).single()
+        router.push(prof?.user_type === 'CREATOR' ? '/dashboard' : '/home')
+      } else {
+        router.push('/')
+      }
     } else {
       const redirectTo = `${window.location.origin}/auth/callback?next=/`
       const { error } = await supabase.auth.signInWithOtp({
