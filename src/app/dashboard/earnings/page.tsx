@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 interface Txn {
@@ -14,9 +12,6 @@ interface Txn {
 }
 
 export default function DashboardEarningsPage() {
-  const router = useRouter()
-  const { user, profile, resolved, supabase: sb } = useAuth()
-
   const [loading, setLoading] = useState(true)
   const [txns, setTxns] = useState<Txn[]>([])
   const [balance, setBalance] = useState(0)
@@ -27,56 +22,20 @@ export default function DashboardEarningsPage() {
   const [submitting, setSubmitting] = useState(false)
 
   const fetchData = useCallback(async () => {
-    if (!resolved) return
-    if (!user) { router.push('/login'); return }
-    if (!profile) return // profile still loading
-    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
-
     try {
-    setKycStatus(profile.kyc_status ?? 'PENDING')
-    setPayoutWallet(profile.wallet_address ?? '')
-
-    const [{ data: completions }, { data: unlocks }] = await Promise.all([
-      sb.from('task_completions')
-        .select('id, amount_usdc, accepted_at, tasks!inner(title, creator_id)')
-        .eq('tasks.creator_id', profile!.id)
-        .eq('status', 'APPROVED')
-        .order('accepted_at', { ascending: false })
-        .limit(50),
-
-      sb.from('content_unlocks')
-        .select('id, amount_usdc, unlocked_at, media_assets!inner(title, creator_id)')
-        .eq('media_assets.creator_id', profile!.id)
-        .order('unlocked_at', { ascending: false })
-        .limit(50),
-    ])
-
-    const rows: Txn[] = [
-      ...(completions ?? []).map(c => ({
-        id: c.id,
-        date: c.accepted_at,
-        label: (c.tasks as unknown as { title: string })?.title ?? 'Task',
-        amountUsdc: (c.amount_usdc as number) ?? 0,
-        type: 'task' as const,
-      })),
-      ...(unlocks ?? []).map(u => ({
-        id: u.id,
-        date: u.unlocked_at,
-        label: (u.media_assets as unknown as { title: string })?.title ?? 'Content unlock',
-        amountUsdc: (u.amount_usdc as number) ?? 0,
-        type: 'content' as const,
-      })),
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-    setTxns(rows)
-    setBalance(rows.reduce((s, t) => s + t.amountUsdc, 0))
+      const res = await fetch('/api/dashboard/earnings')
+      if (!res.ok) return
+      const data = await res.json()
+      setTxns(data.txns ?? [])
+      setBalance(data.balance ?? 0)
+      setKycStatus(data.kycStatus ?? 'PENDING')
+      setPayoutWallet(data.walletAddress ?? '')
     } catch (err) {
       console.error('Earnings fetch error:', err)
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.id, resolved, router, sb])
+  }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 

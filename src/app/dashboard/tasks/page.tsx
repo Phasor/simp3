@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/contexts/AuthContext'
 import toast from 'react-hot-toast'
 import TaskBuilder from '@/components/dashboard/TaskBuilder'
 import Image from 'next/image'
@@ -56,8 +54,6 @@ const TYPE_ICON: Record<TaskType, string> = {
 }
 
 export default function DashboardTasksPage() {
-  const router = useRouter()
-  const { user, profile, resolved, supabase: sb } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [completions, setCompletions] = useState<Completion[]>([])
   const [tab, setTab] = useState<'tasks' | 'inbox'>('tasks')
@@ -68,51 +64,21 @@ export default function DashboardTasksPage() {
   const [feedbackText, setFeedbackText] = useState('')
   const [reviewing, setReviewing] = useState(false)
 
-  const fetchData = useCallback(async (showSpinner = false) => {
-    if (!resolved) return
-    if (!user) { router.push('/login'); return }
-    if (!profile) return // profile still loading
-    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
-
-    if (showSpinner) setLoading(true)
+  const fetchData = useCallback(async () => {
     try {
-      const { data: tasksData } = await sb
-        .from('tasks')
-        .select('id, title, task_type, status, price_usdc, points, cover_image_url, description, instructions, repetition_phrase, required_repetitions, created_at')
-        .eq('creator_id', profile!.id)
-        .order('created_at', { ascending: false })
-
-      const taskIds = (tasksData ?? []).map(t => t.id)
-
-      let completionsData: Completion[] = []
-      if (taskIds.length > 0) {
-        const { data, error: completionsError } = await sb
-          .from('task_completions')
-          .select(`
-            id, status, tribute_message, submission_text, evidence_url, repetition_count,
-            accepted_at, submitted_at,
-            tasks ( title, task_type ),
-            fan_profile:profiles!fan_id ( tribute_alias, display_name )
-          `)
-          .in('task_id', taskIds)
-          .eq('status', 'SUBMITTED')
-          .order('submitted_at', { ascending: true })
-
-        if (completionsError) console.error('Completions query error:', completionsError)
-        completionsData = (data as unknown as Completion[]) ?? []
-      }
-
-      setTasks(tasksData ?? [])
-      setCompletions(completionsData)
+      const res = await fetch('/api/dashboard/tasks')
+      if (!res.ok) return
+      const data = await res.json()
+      setTasks(data.tasks ?? [])
+      setCompletions((data.completions ?? []) as Completion[])
     } catch (err) {
       console.error('fetchData error:', err)
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.id, resolved, router, sb])
+  }, [])
 
-  useEffect(() => { fetchData(true) }, [fetchData])
+  useEffect(() => { fetchData() }, [fetchData])
 
   async function handleReview(completionId: string, action: 'approve' | 'reject') {
     setReviewing(true)
@@ -413,6 +379,20 @@ function TaskSection({
                       {task.points ? ` · ${task.points} pts` : ''}
                     </div>
                   </div>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      const url = `${window.location.origin}/task/${task.id}`
+                      navigator.clipboard.writeText(url).then(() => toast.success('Link copied!'))
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-700 text-gray-300 text-xs font-medium hover:border-gray-500 hover:text-white transition-colors shrink-0"
+                    title="Copy public link to promote this task"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    Promote
+                  </button>
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 0l.172.172a2 2 0 010 2.828L12 16H9v-3z" />
                   </svg>

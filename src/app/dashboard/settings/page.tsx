@@ -43,20 +43,23 @@ export default function DashboardSettingsPage() {
   // Preview: live sub counts
   const [subCount, setSubCount] = useState<number | null>(null)
 
-  const fetchData = useCallback(async () => {
-    if (!resolved) return
-    if (!user) { router.push('/login'); return }
-    if (!profile) return // profile still loading
-    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
+  // Populate form from profile once auth resolves
+  const [profileLoaded, setProfileLoaded] = useState(false)
+  useEffect(() => {
+    if (!resolved || !profile || profileLoaded) return
+    setDisplayName(profile.display_name ?? '')
+    setTagline(profile.tagline ?? '')
+    setCtaText(profile.vip_cta_text ?? '')
+    setWalletAddress(profile.wallet_address ?? '')
+    setBannerUrl(profile.banner_image_url ?? null)
+    setAvatarUrl(profile.profile_picture_url ?? null)
+    setProfileLoaded(true)
+  }, [resolved, profile, profileLoaded])
 
+  // Fetch VIP tiers and sub count via stable callback
+  const fetchTiers = useCallback(async () => {
+    if (!resolved || !profile) return
     try {
-      setDisplayName(profile.display_name ?? '')
-      setTagline(profile.tagline ?? '')
-      setCtaText(profile.vip_cta_text ?? '')
-      setWalletAddress(profile.wallet_address ?? '')
-      setBannerUrl(profile.banner_image_url ?? null)
-      setAvatarUrl(profile.profile_picture_url ?? null)
-
       const [{ data: tiers }, { count }] = await Promise.all([
         sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
         sb.from('tribute_scores')
@@ -83,9 +86,9 @@ export default function DashboardSettingsPage() {
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.id, resolved, router, sb])
+  }, [resolved, profile?.id])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchTiers() }, [fetchTiers])
 
   async function saveTier(tierType: 'GROUP' | 'PRIVATE', thresholdType: 'TOP_PERCENT' | 'TOP_N', value: string) {
     const num = parseFloat(value)

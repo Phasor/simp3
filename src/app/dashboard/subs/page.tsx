@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/lib/contexts/AuthContext'
 
 interface SubRow {
   fan_id: string
@@ -32,56 +30,21 @@ function scoreTier(total: number) {
 }
 
 export default function DashboardSubsPage() {
-  const router = useRouter()
-  const { user, profile, resolved, supabase: sb } = useAuth()
   const [subs, setSubs] = useState<SubRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const fetchData = useCallback(async () => {
-    if (!resolved) return
-    if (!user) { router.push('/login'); return }
-    if (!profile) return // profile still loading
-    if (profile.user_type !== 'CREATOR') { router.push('/'); return }
-
     try {
-      const now = new Date()
-      const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-
-      const { data: scores } = await sb
-        .from('tribute_scores')
-        .select('fan_id, total_score, spend_score, task_score')
-        .eq('dom_id', profile!.id)
-        .eq('month_year', monthYear)
-        .order('total_score', { ascending: false })
-
-      if (!scores || scores.length === 0) return
-
-      // Fetch aliases for all fans
-      const fanIds = scores.map(s => s.fan_id)
-      const { data: profiles } = await sb
-        .from('profiles')
-        .select('id, tribute_alias, display_name')
-        .in('id', fanIds)
-
-      const profileMap = Object.fromEntries(
-        (profiles ?? []).map(p => [p.id, p.tribute_alias ?? p.display_name ?? 'Anonymous'])
-      )
-
-      setSubs(scores.map(s => ({
-        fan_id: s.fan_id,
-        total_score: s.total_score,
-        spend_score: s.spend_score,
-        task_score: s.task_score,
-        alias: profileMap[s.fan_id] ?? 'Anonymous',
-        tier: scoreTier(s.total_score),
-      })))
+      const res = await fetch('/api/dashboard/subs')
+      if (!res.ok) return
+      const data = await res.json()
+      setSubs((data.subs ?? []).map((s: SubRow) => ({ ...s, tier: scoreTier(s.total_score) })))
     } catch (err) {
       console.error('Subs fetch error:', err)
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.id, resolved, router, sb])
+  }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
