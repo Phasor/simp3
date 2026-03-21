@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 interface ContentAsset {
   id: string
@@ -26,7 +27,9 @@ export default function ContentUnlockClient({ asset }: Props) {
   const dom = asset.dom
   const domName = dom.display_name || dom.handle || 'Your Dom'
   const ctaText = dom.vip_cta_text || 'Unlock content'
-  const preview = asset.bunny_preview_url ?? asset.thumbnail_url
+  const rawPreview = asset.bunny_preview_url ?? asset.thumbnail_url
+  // Server-side blur so unblurred URL never appears in page source
+  const preview = rawPreview ? `${getBunnyStorageUrl(rawPreview)}?blur=20` : null
 
   async function handleUnlock() {
     setLoading(true)
@@ -53,7 +56,7 @@ export default function ContentUnlockClient({ asset }: Props) {
             src={preview}
             alt={asset.title ?? 'Locked content'}
             fill
-            className="object-cover blur-lg scale-110"
+            className="object-cover scale-110"
           />
         ) : (
           <div className="w-full h-full bg-gray-900" />

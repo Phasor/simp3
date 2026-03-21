@@ -61,5 +61,23 @@ export default async function TaskDetailPage({ params }: Props) {
 
   if (!task) notFound()
 
-  return <TaskDetailClient task={task as unknown as TaskRow} />
+  // SECURITY: Strip sensitive media fields before sending to the client.
+  // playback_ref + bunny_url would let anyone construct the Bunny Stream
+  // embed URL or CDN path without paying. The client fetches these via
+  // the authenticated /api/content/[mediaId]/signed-url endpoint instead.
+  const taskRow = task as unknown as TaskRow
+  const safeTask: TaskRow = {
+    ...taskRow,
+    media_asset: taskRow.media_asset
+      ? {
+          type: taskRow.media_asset.type,
+          thumbnail_url: taskRow.media_asset.thumbnail_url,
+          bunny_preview_url: taskRow.media_asset.bunny_preview_url,
+          bunny_url: null,
+          playback_ref: null,
+        }
+      : null,
+  }
+
+  return <TaskDetailClient task={safeTask} />
 }

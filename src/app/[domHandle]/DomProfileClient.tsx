@@ -153,7 +153,9 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
     router.push(`/content/${asset.id}/unlock`)
   }
 
-  const previewSrc = asset.bunny_preview_url ?? asset.thumbnail_url
+  const rawPreviewPath = asset.bunny_preview_url ?? asset.thumbnail_url
+  // Server-side blur via proxy so the unblurred URL never appears in page source
+  const previewSrc = rawPreviewPath ? `${getBunnyStorageUrl(rawPreviewPath)}?blur=20` : null
 
   return (
     <button
@@ -165,7 +167,7 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
         <img
           src={previewSrc}
           alt={asset.title ?? 'Locked content'}
-          className="w-full h-full object-cover filter blur-sm scale-105 group-hover:blur-md transition-all"
+          className="w-full h-full object-cover scale-105 transition-all"
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-gray-700">

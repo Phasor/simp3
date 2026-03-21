@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/contexts/AuthContext'
@@ -160,6 +160,7 @@ export default function TaskDetailClient({
   task: Task
 }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { profile, resolved } = useAuth()
   const editBlockRef = useRef<HTMLDivElement>(null)
 
@@ -175,7 +176,11 @@ export default function TaskDetailClient({
   // ── Sub state ──
   const [showAuth, setShowAuth] = useState(false)
   const [payPhase, setPayPhase] = useState<'idle' | 'animating' | 'done'>('idle')
-  const [isUnlocked, setIsUnlocked] = useState(false)
+  // If coming from library, the sub already owns this content — show unlocked immediately
+  const [isUnlocked, setIsUnlocked] = useState(searchParams.get('from') === 'library')
+
+  // Secure URL for unlocked content — fetched from authenticated API, never from props
+  const [secureMediaUrl, setSecureMediaUrl] = useState<{ url: string; type: string; embed: boolean } | null>(null)
 
   // Check if this sub has already unlocked this CONTENT task
   useEffect(() => {
@@ -187,8 +192,18 @@ export default function TaskDetailClient({
       .eq('fan_id', profile.id)
       .eq('status', 'APPROVED')
       .maybeSingle()
-      .then(({ data }) => { if (data) setIsUnlocked(true) })
+      .then(({ data }) => setIsUnlocked(!!data))
   }, [task.id, task.task_type, profile?.id])
+
+  // When unlocked, fetch the secure media URL from the authenticated API
+  useEffect(() => {
+    if (!isUnlocked || !task.media_id || !profile?.id) return
+    fetch(`/api/content/${task.media_id}/signed-url`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.url) setSecureMediaUrl(data) })
+      .catch(() => {})
+  }, [isUnlocked, task.media_id, profile?.id])
+
   const [completionId, setCompletionId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -577,15 +592,21 @@ export default function TaskDetailClient({
               {task.task_type === 'CONTENT' && (() => {
                 const asset = task.media_asset
                 const isVideo = asset?.type === 'VIDEO'
-                const libraryId = process.env.NEXT_PUBLIC_BUNNY_STREAM_LIBRARY_ID
 
-                // ── Unlocked: show playable content ──
+                // ── Unlocked: show playable content via secure API URL ──
                 if (isUnlocked) {
-                  if (isVideo && asset?.playback_ref && libraryId) {
+                  if (!secureMediaUrl) {
+                    return (
+                      <div className="rounded-2xl overflow-hidden flex items-center justify-center py-12">
+                        <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                      </div>
+                    )
+                  }
+                  if (secureMediaUrl.embed) {
                     return (
                       <div className="-mx-6 overflow-hidden" style={{ aspectRatio: '9/16' }}>
                         <iframe
-                          src={`https://iframe.mediadelivery.net/embed/${libraryId}/${asset.playback_ref}?autoplay=false&responsive=true`}
+                          src={secureMediaUrl.url}
                           className="w-full h-full"
                           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
                           allowFullScreen
@@ -593,15 +614,12 @@ export default function TaskDetailClient({
                       </div>
                     )
                   }
-                  // Image unlock — show full image
-                  const fullPath = asset?.bunny_url || asset?.bunny_preview_url || asset?.thumbnail_url || task.cover_image_url
-                  const fullUrl = fullPath ? getBunnyStorageUrl(fullPath) : null
-                  return fullUrl ? (
+                  return (
                     <div className="rounded-2xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={fullUrl} alt={task.title} className="w-full object-contain" />
+                      <img src={secureMediaUrl.url} alt={task.title} className="w-full object-contain" />
                     </div>
-                  ) : null
+                  )
                 }
 
                 // ── Locked: blurred preview ──
@@ -609,16 +627,19 @@ export default function TaskDetailClient({
                   ? (task.cover_image_url || asset?.bunny_preview_url || asset?.thumbnail_url || null)
                   : (asset?.bunny_preview_url || asset?.thumbnail_url || task.cover_image_url || null)
                 const previewUrl = previewPath ? getBunnyStorageUrl(previewPath) : null
+                // Server-side blur: append ?blur= so the proxy returns a blurred image.
+                // This prevents the unblurred URL from ever appearing in page source.
+                const blurredPreviewUrl = previewUrl ? `${previewUrl}?blur=20` : null
 
                 return (
                   <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
-                    {previewUrl ? (
+                    {blurredPreviewUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={previewUrl}
+                        src={blurredPreviewUrl}
                         alt="Locked content preview"
                         className="absolute inset-0 w-full h-full object-cover"
-                        style={isVideo ? { filter: 'brightness(0.7)' } : { filter: 'blur(7px) brightness(0.55)' }}
+                        style={{ filter: 'brightness(0.55)' }}
                       />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800" />
