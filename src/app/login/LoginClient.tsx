@@ -18,13 +18,20 @@ export default function LoginPage() {
   const [sending, setSending] = useState(false)
   const [usePassword, setUsePassword] = useState(false)
 
-  const { profile, resolved } = useAuth()
+  const next = params.get('next') ?? ''
+  const { user, profile, resolved } = useAuth()
 
   // If already authenticated, redirect to the right place
   useEffect(() => {
-    if (!resolved || !profile) return
-    router.replace(profile.user_type === 'CREATOR' ? '/dashboard' : '/home')
-  }, [profile, resolved, router])
+    if (!resolved) return
+    if (!user) return
+    if (!profile || !profile.onboarding_completed) {
+      router.replace(next ? `/onboarding?next=${encodeURIComponent(next)}` : '/onboarding')
+      return
+    }
+    const dest = next || (profile.user_type === 'CREATOR' ? '/dashboard' : '/home')
+    router.replace(dest)
+  }, [user, profile, resolved, router, next])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,13 +42,19 @@ export default function LoginPage() {
       if (error) { toast.error(error.message); return }
       // Fetch profile to determine redirect destination
       if (data.user) {
-        const { data: prof } = await supabase.from('profiles').select('user_type').eq('auth_user_id', data.user.id).single()
-        router.push(prof?.user_type === 'CREATOR' ? '/dashboard' : '/home')
+        const { data: prof } = await supabase.from('profiles').select('user_type, onboarding_completed').eq('auth_user_id', data.user.id).maybeSingle()
+        if (!prof || !prof.onboarding_completed) {
+          window.location.href = next ? `/onboarding?next=${encodeURIComponent(next)}` : '/onboarding'
+        } else {
+          const dest = next || (prof.user_type === 'CREATOR' ? '/dashboard' : '/home')
+          window.location.href = dest
+        }
       } else {
-        router.push('/')
+        window.location.href = next || '/'
       }
     } else {
-      const redirectTo = `${window.location.origin}/auth/callback?next=/`
+      const callbackNext = next || '/'
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackNext)}`
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: redirectTo },
@@ -53,7 +66,8 @@ export default function LoginPage() {
   }
 
   async function signInWithGoogle() {
-    const redirectTo = `${window.location.origin}/auth/callback?next=/`
+    const callbackNext = next || '/'
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(callbackNext)}`
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },

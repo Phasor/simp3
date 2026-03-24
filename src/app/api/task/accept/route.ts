@@ -130,11 +130,12 @@ export async function POST(req: Request) {
   }
 
   const amountUsdc = task.price_usdc ?? 0
+  const STUB_PAYMENTS = process.env.STUB_PAYMENTS === 'true'
   const PRIVY_CONFIGURED = !!(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET)
 
   let txHash: string
 
-  if (PRIVY_CONFIGURED && profile.privy_wallet_id) {
+  if (!STUB_PAYMENTS && PRIVY_CONFIGURED && profile.privy_wallet_id) {
     // === REAL PAYMENT: Privy server-side USDC transfer ===
     const result = await sendPrivyTransaction(profile.privy_wallet_id, dom.wallet_address, amountUsdc)
     if ('error' in result) {
@@ -143,9 +144,11 @@ export async function POST(req: Request) {
     txHash = result.txHash
     console.log('[task/accept] Real Privy tx sent:', txHash)
   } else {
-    // === STUB: no Privy wallet or keys missing ===
-    if (PRIVY_CONFIGURED && !profile.privy_wallet_id) {
-      console.warn('[task/accept] Sub has no privy_wallet_id — using stub. Run wallet creation first.')
+    // === STUB: forced via STUB_PAYMENTS=true, or Privy not configured / no wallet ===
+    if (STUB_PAYMENTS) {
+      console.warn('[task/accept] STUB_PAYMENTS=true — skipping real transaction')
+    } else if (PRIVY_CONFIGURED && !profile.privy_wallet_id) {
+      console.warn('[task/accept] Sub has no privy_wallet_id — using stub')
     } else {
       console.warn('[task/accept] Privy not configured — using stub payment')
     }

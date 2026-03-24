@@ -615,9 +615,14 @@ export default function TaskDetailClient({
                     )
                   }
                   return (
-                    <div className="rounded-2xl overflow-hidden">
+                    <div className="rounded-2xl overflow-hidden flex items-center justify-center bg-black" style={{ maxHeight: 'calc(100vh - 160px)' }}>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={secureMediaUrl.url} alt={task.title} className="w-full object-contain" />
+                      <img
+                        src={secureMediaUrl.url}
+                        alt={task.title}
+                        className="w-full h-full object-contain"
+                        style={{ maxHeight: 'calc(100vh - 160px)' }}
+                      />
                     </div>
                   )
                 }

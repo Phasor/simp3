@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { signBunnyUrl } from '@/lib/utils/bunnySign'
+import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
 /**
  * GET /api/content/[mediaId]/signed-url
@@ -69,6 +69,6 @@ export async function GET(
     return NextResponse.json({ url: embedUrl, type: 'VIDEO', embed: true })
   }
 
-  const signedUrl = signBunnyUrl(asset.bunny_url, 300)
-  return NextResponse.json({ url: signedUrl, type: asset.type, embed: false })
+  const proxyUrl = getBunnyStorageUrl(asset.bunny_url)
+  return NextResponse.json({ url: proxyUrl, type: asset.type, embed: false })
 }

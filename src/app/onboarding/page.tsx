@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
@@ -64,6 +64,8 @@ function StepDots({ step, role }: { step: Step; role: 'CREATOR' | 'FAN' | null }
 // ── Main component ────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextParam = searchParams.get('next') ?? ''
   const supabase = createClient()
 
   const [step, setStep] = useState<Step>('email')
@@ -92,7 +94,7 @@ export default function OnboardingPage() {
         .maybeSingle()
 
       if (profile?.onboarding_completed) {
-        router.replace('/')
+        window.location.href = nextParam || (profile.user_type === 'CREATOR' ? '/dashboard' : '/home')
         return
       }
 
@@ -161,7 +163,7 @@ export default function OnboardingPage() {
     setLoading(false)
 
     if (existing?.onboarding_completed) {
-      router.replace('/')
+      window.location.href = nextParam || (existing.user_type === 'CREATOR' ? '/dashboard' : '/home')
       return
     }
 
@@ -261,7 +263,7 @@ export default function OnboardingPage() {
       .eq('id', profileId)
     setLoading(false)
     if (error) { toast.error(error.message); return }
-    router.replace('/dashboard')
+    window.location.href = '/dashboard'
   }
 
   // ── Step: sub-age ───────────────────────────────────────────────────────────
@@ -310,7 +312,7 @@ export default function OnboardingPage() {
     setLoading(true)
     await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', profileId)
     setLoading(false)
-    router.replace('/')
+    window.location.href = nextParam || '/home'
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────

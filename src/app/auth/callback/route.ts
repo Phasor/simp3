@@ -37,13 +37,17 @@ export async function GET(req: Request) {
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
-    // New user or incomplete onboarding → go to onboarding
+    const next = url.searchParams.get('next') ?? ''
+    const safeNext = next.startsWith('/') ? next : '/'
+
+    // New user or incomplete onboarding → go to onboarding (preserve next for post-onboarding redirect)
     if (!profile || !profile.onboarding_completed) {
-      return NextResponse.redirect(new URL('/onboarding', url.origin), { status: 303 });
+      const dest = next ? `/onboarding?next=${encodeURIComponent(safeNext)}` : '/onboarding'
+      return NextResponse.redirect(new URL(dest, url.origin), { status: 303 });
     }
 
-    // Returning user → home (redirects to /dashboard or /profile by role)
-    return NextResponse.redirect(new URL('/', url.origin), { status: 303 });
+    // Returning user → honour next param, fall back to role default
+    return NextResponse.redirect(new URL(safeNext || '/', url.origin), { status: 303 });
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Authentication failed';

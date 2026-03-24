@@ -26,13 +26,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 interface AuthProviderProps {
   children: React.ReactNode
   initialSession?: Session | null
+  initialProfile?: Profile | null
 }
 
-export function AuthProvider({ children, initialSession = null }: AuthProviderProps) {
+export function AuthProvider({ children, initialSession = null, initialProfile = null }: AuthProviderProps) {
   // 👇 derive from initialSession right away
   const [session, setSession] = useState<Session | null>(initialSession)
   const [user, setUser] = useState<User | null>(initialSession?.user ?? null)
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(initialProfile)
   
   // If we already have a session from the server, we are NOT loading
   const [loading, setLoading] = useState<boolean>(!initialSession)

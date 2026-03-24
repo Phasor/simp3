@@ -44,20 +44,23 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   let initialSession = null;
-  
-  // Always try to get session from server for better hydration
+  let initialProfile = null;
+
+  // Fetch session + profile server-side so nav renders immediately on hydration
   try {
     const supabase = await getServerSupabase();
     const { data: { session } } = await supabase.auth.getSession();
     initialSession = session;
-    console.log('[Layout] SSR session:', { 
-      hasSession: !!session, 
-      userId: session?.user?.id,
-      serverAuthGate: FLAGS.SERVER_AUTH_GATE 
-    });
+    if (session?.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('auth_user_id', session.user.id)
+        .maybeSingle();
+      initialProfile = profile ?? null;
+    }
   } catch (error) {
     console.warn('[Layout] Failed to get server session:', error);
-    // Continue with null session
   }
 
   return (
@@ -66,7 +69,7 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${cormorant.variable} antialiased h-screen flex flex-col`}
       >
         <PrivyNoSSR>
-          <AuthProvider initialSession={initialSession}>
+          <AuthProvider initialSession={initialSession} initialProfile={initialProfile}>
             <NavSwitcher />
             <main className="flex-1 overflow-y-auto">
               {children}
