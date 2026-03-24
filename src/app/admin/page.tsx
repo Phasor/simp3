@@ -175,7 +175,6 @@ function UploadsTable({ rows }: { rows: Record<string, unknown>[] }) {
               <td className="py-2 pr-4 text-gray-400">{fmt(r.type)}</td>
               <td className="py-2 pr-4 font-mono text-xs text-gray-500">{fmt(r.mime_type)}</td>
               <td className="py-2 pr-4 text-gray-400">{fmtBytes(r.file_size as number)}</td>
-              <td className="py-2 pr-4">{fmt(r.is_on_wall)}</td>
               <td className="py-2 pr-4 font-mono">{r.price_usdc ? `$${r.price_usdc}` : '—'}</td>
               <td className="py-2 text-gray-500 text-xs">{fmtDate(r.created_at as string)}</td>
             </tr>

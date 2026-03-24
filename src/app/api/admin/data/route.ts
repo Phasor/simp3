@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
   if (type === 'uploads') {
     const { data, error } = await sb
       .from('media_assets')
-      .select('id, creator_id, type, title, mime_type, file_size, is_on_wall, price_usdc, created_at, profiles(handle, display_name)')
+      .select('id, creator_id, type, title, mime_type, file_size, price_usdc, created_at, profiles(handle, display_name)')
       .order('created_at', { ascending: false })
       .limit(500)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

@@ -30,21 +30,30 @@ export default async function DomProfilePage({ params }: Props) {
     .eq('status', 'PUBLISHED')
     .order('created_at', { ascending: false })
 
-  // Fetch wall content (assets with is_on_wall = true)
-  const { data: wallAssets } = await supabase
-    .from('media_assets')
-    .select('id, title, thumbnail_url, bunny_preview_url, price_usdc, type')
+  // Fetch published CONTENT tasks (for sale content)
+  const { data: contentTasks } = await supabase
+    .from('tasks')
+    .select('id, title, price_usdc, media_asset:media_assets!media_id(type, thumbnail_url, bunny_preview_url)')
     .eq('creator_id', dom.id)
-    .eq('is_on_wall', true)
+    .eq('status', 'PUBLISHED')
+    .eq('task_type', 'CONTENT')
     .order('created_at', { ascending: false })
 
-  // Fetch VIP tier config to show teaser text
-  const { data: groupTier } = await supabase
-    .from('vip_tiers')
-    .select('threshold_type, threshold_value')
-    .eq('dom_id', dom.id)
-    .eq('tier_type', 'GROUP')
-    .maybeSingle()
+  // Fetch VIP tier configs
+  const [{ data: groupTier }, { data: privateTier }] = await Promise.all([
+    supabase
+      .from('vip_tiers')
+      .select('threshold_type, threshold_value')
+      .eq('dom_id', dom.id)
+      .eq('tier_type', 'GROUP')
+      .maybeSingle(),
+    supabase
+      .from('vip_tiers')
+      .select('threshold_type, threshold_value')
+      .eq('dom_id', dom.id)
+      .eq('tier_type', 'PRIVATE')
+      .maybeSingle(),
+  ])
 
   // Follower count
   const { count: followerCount } = await supabase
@@ -77,8 +86,9 @@ export default async function DomProfilePage({ params }: Props) {
     <DomProfileClient
       dom={dom}
       tasks={tasks ?? []}
-      wallAssets={wallAssets ?? []}
+      contentTasks={contentTasks ?? []}
       groupTier={groupTier ?? null}
+      privateTier={privateTier ?? null}
       followerCount={followerCount ?? 0}
       initialIsFollowing={isFollowing}
     />

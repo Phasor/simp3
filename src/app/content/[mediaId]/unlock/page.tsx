@@ -31,7 +31,6 @@ export default async function ContentUnlockPage({ params }: Props) {
       dom:profiles!creator_id ( display_name, handle, banner_image_url, vip_cta_text )
     `)
     .eq('id', mediaId)
-    .eq('is_on_wall', true)
     .maybeSingle()
 
   if (!asset) notFound()

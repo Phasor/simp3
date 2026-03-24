@@ -228,7 +228,6 @@ export interface Database {
           bunny_url: string | null
           bunny_preview_url: string | null
           price_usdc: number | null
-          is_on_wall: boolean | null
         }
         Insert: {
           id?: string
@@ -243,7 +242,6 @@ export interface Database {
           bunny_url?: string | null
           bunny_preview_url?: string | null
           price_usdc?: number | null
-          is_on_wall?: boolean | null
         }
         Update: {
           id?: string
@@ -258,7 +256,6 @@ export interface Database {
           bunny_url?: string | null
           bunny_preview_url?: string | null
           price_usdc?: number | null
-          is_on_wall?: boolean | null
         }
       }
       tasks: {

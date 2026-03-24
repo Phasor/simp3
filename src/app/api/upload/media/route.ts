@@ -125,7 +125,6 @@ export async function POST(req: NextRequest) {
         bunny_preview_url: result.thumbnailUrl ?? null,
         thumbnail_url: result.thumbnailUrl ?? null,
         playback_ref: result.videoId,
-        is_on_wall: false,
         price_usdc: null,
       })
       .select('id')
@@ -156,7 +155,6 @@ export async function POST(req: NextRequest) {
         bunny_url: fullUrl,
         bunny_preview_url: fullUrl,
         thumbnail_url: fullUrl,
-        is_on_wall: false,
         price_usdc: null,
       })
       .select('id')

@@ -26,7 +26,7 @@ export default async function ContentPage({ params }: Props) {
   // Fetch asset
   const { data: asset } = await supabase
     .from('media_assets')
-    .select('id, type, bunny_url, bunny_preview_url, title, creator_id, is_on_wall, price_usdc')
+    .select('id, type, bunny_url, bunny_preview_url, title, creator_id, price_usdc')
     .eq('id', mediaId)
     .maybeSingle()
 

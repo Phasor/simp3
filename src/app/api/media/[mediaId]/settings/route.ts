@@ -5,7 +5,7 @@ export const runtime = 'nodejs'
 
 interface Params { params: Promise<{ mediaId: string }> }
 
-// PATCH body: { is_on_wall?: boolean, price_usdc?: number | null, title?: string }
+// PATCH body: { price_usdc?: number | null, title?: string }
 export async function PATCH(req: Request, { params }: Params) {
   const { mediaId } = await params
   const supabase = await createClient()
@@ -24,7 +24,6 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const body = await req.json()
   const updates: Record<string, unknown> = {}
-  if (body.is_on_wall !== undefined) updates.is_on_wall = body.is_on_wall
   if (body.price_usdc !== undefined) updates.price_usdc = body.price_usdc
   if (body.title !== undefined) updates.title = body.title
 

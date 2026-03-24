@@ -27,9 +27,8 @@ export async function POST(_req: Request, { params }: Params) {
   // Fetch the asset
   const { data: asset } = await supabase
     .from('media_assets')
-    .select('id, price_usdc, is_on_wall, creator_id')
+    .select('id, price_usdc, creator_id')
     .eq('id', mediaId)
-    .eq('is_on_wall', true)
     .maybeSingle()
 
   if (!asset) return NextResponse.json({ error: 'Content not found' }, { status: 404 })

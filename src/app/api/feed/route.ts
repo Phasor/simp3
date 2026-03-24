@@ -22,6 +22,17 @@ export async function GET(req: Request) {
   const tab = searchParams.get('tab') ?? 'for-you'
   const LIMIT = 30
 
+  // Exclude tasks this sub has already purchased
+  const { data: purchaseRows } = await supabase
+    .from('purchases')
+    .select('task_id')
+    .eq('fan_id', profile.id)
+
+  const purchasedTaskIds = (purchaseRows ?? []).map(r => r.task_id).filter(Boolean) as string[]
+  const purchasedFilter = purchasedTaskIds.length > 0
+    ? `(${purchasedTaskIds.join(',')})`
+    : null
+
   if (tab === 'following') {
     // Get dom IDs this sub follows
     const { data: followRows } = await supabase
@@ -32,8 +43,8 @@ export async function GET(req: Request) {
     const domIds = (followRows ?? []).map(r => r.dom_id)
     if (domIds.length === 0) return NextResponse.json({ items: [] })
 
-    // Get published tasks from followed doms
-    const { data: tasks } = await supabase
+    // Get published tasks from followed doms, excluding purchased
+    let query = supabase
       .from('tasks')
       .select(`
         id, title, description, task_type, price_usdc, points,
@@ -46,11 +57,14 @@ export async function GET(req: Request) {
       .order('created_at', { ascending: false })
       .limit(LIMIT)
 
+    if (purchasedFilter) query = query.not('id', 'in', purchasedFilter)
+
+    const { data: tasks } = await query
     return NextResponse.json({ items: tasks ?? [] })
   }
 
-  // For You — all published tasks, newest first
-  const { data: tasks } = await supabase
+  // For You — all published tasks, newest first, excluding purchased
+  let query = supabase
     .from('tasks')
     .select(`
       id, title, description, task_type, price_usdc, points,
@@ -62,5 +76,8 @@ export async function GET(req: Request) {
     .order('created_at', { ascending: false })
     .limit(LIMIT)
 
+  if (purchasedFilter) query = query.not('id', 'in', purchasedFilter)
+
+  const { data: tasks } = await query
   return NextResponse.json({ items: tasks ?? [] })
 }

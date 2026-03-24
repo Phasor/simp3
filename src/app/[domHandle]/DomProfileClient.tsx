@@ -27,16 +27,14 @@ interface Task {
   points: number
 }
 
-interface WallAsset {
+interface ContentTask {
   id: string
-  title: string | null
-  thumbnail_url: string | null
-  bunny_preview_url: string | null
+  title: string
   price_usdc: number | null
-  type: string
+  media_asset: { type: string; thumbnail_url: string | null; bunny_preview_url: string | null } | null
 }
 
-interface GroupTier {
+interface TierConfig {
   threshold_type: string
   threshold_value: number
 }
@@ -143,18 +141,18 @@ function TaskCard({ task }: { task: Task }) {
   )
 }
 
-// ── Content wall item ─────────────────────────────────────────────────────────
-function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () => void }) {
+// ── Content task item ─────────────────────────────────────────────────────────
+function ContentTaskItem({ task, onClickGuest }: { task: ContentTask; onClickGuest: () => void }) {
   const { profile, resolved } = useAuth()
   const router = useRouter()
 
   function handleClick() {
     if (!resolved) return
     if (!profile) { onClickGuest(); return }
-    router.push(`/content/${asset.id}/unlock`)
+    router.push(`/task/${task.id}`)
   }
 
-  const rawPreviewPath = asset.bunny_preview_url ?? asset.thumbnail_url
+  const rawPreviewPath = task.media_asset?.bunny_preview_url ?? task.media_asset?.thumbnail_url
   // Server-side blur via proxy so the unblurred URL never appears in page source
   const previewSrc = rawPreviewPath ? `${getBunnyStorageUrl(rawPreviewPath)}?blur=20` : null
 
@@ -167,7 +165,7 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={previewSrc}
-          alt={asset.title ?? 'Locked content'}
+          alt={task.title}
           className="w-full h-full object-cover scale-105 transition-all"
         />
       ) : (
@@ -183,8 +181,8 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
           <svg className="w-4 h-4 text-gray-300 mx-auto mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
           </svg>
-          {asset.price_usdc != null && (
-            <p className="text-white text-xs font-semibold">${asset.price_usdc} USDC</p>
+          {task.price_usdc != null && (
+            <p className="text-white text-xs font-semibold">${task.price_usdc} USDC</p>
           )}
         </div>
       </div>
@@ -192,17 +190,93 @@ function WallItem({ asset, onClickGuest }: { asset: WallAsset; onClickGuest: () 
   )
 }
 
+// ── VIP Access Card ───────────────────────────────────────────────────────────
+function qualificationText(tier: TierConfig): string {
+  if (tier.threshold_type === 'TOP_PERCENT') {
+    return `Finish in the top ${tier.threshold_value}% of subs this month`
+  }
+  return `Be one of the top ${tier.threshold_value} subs this month`
+}
+
+function VipAccessCard({ groupTier, privateTier, domName }: { groupTier: TierConfig | null; privateTier: TierConfig | null; domName: string }) {
+  if (!groupTier && !privateTier) return null
+
+  return (
+    <div className="mt-6 rounded-2xl border border-gray-800 bg-gray-950 overflow-hidden">
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4 border-b border-gray-800/60">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-700/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.745 3.745 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.745 3.745 0 013.296-1.043A3.745 3.745 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.745 3.745 0 013.296 1.043 3.745 3.745 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-white font-semibold text-sm leading-tight">{domName}&apos;s inner circle</h3>
+            <p className="text-gray-500 text-xs mt-0.5">Earn your place through tasks and tribute</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tiers */}
+      <div className="divide-y divide-gray-800/60">
+        {groupTier && (
+          <div className="px-5 py-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-semibold text-white">VIP Group Chat</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-full">VIP</span>
+              </div>
+              <p className="text-gray-400 text-xs leading-relaxed">{qualificationText(groupTier)}</p>
+              <p className="text-gray-600 text-xs mt-1">Access granted at the start of each month</p>
+            </div>
+          </div>
+        )}
+
+        {privateTier && (
+          <div className="px-5 py-4 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-semibold text-white">VVIP Private DMs</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full">VVIP</span>
+              </div>
+              <p className="text-gray-400 text-xs leading-relaxed">{qualificationText(privateTier)}</p>
+              <p className="text-gray-600 text-xs mt-1">Direct access to {domName} — the highest tier</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer CTA */}
+      <div className="px-5 py-3 bg-gray-900/40 border-t border-gray-800/60">
+        <p className="text-gray-600 text-xs text-center">Score resets monthly · Complete tasks and tribute to climb the ranks</p>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 interface Props {
   dom: DomProfile
   tasks: Task[]
-  wallAssets: WallAsset[]
-  groupTier: GroupTier | null
+  contentTasks: ContentTask[]
+  groupTier: TierConfig | null
+  privateTier: TierConfig | null
   followerCount: number
   initialIsFollowing: boolean
 }
 
-export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, followerCount, initialIsFollowing }: Props) {
+export default function DomProfileClient({ dom, tasks, contentTasks, groupTier, privateTier, followerCount, initialIsFollowing }: Props) {
   const { profile, resolved } = useAuth()
   const [activeTab, setActiveTab] = useState<'tasks' | 'content'>('tasks')
   const [showAuthPrompt, setShowAuthPrompt] = useState(false)
@@ -239,12 +313,6 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
 
   const displayName = dom.display_name ?? dom.handle ?? 'Tribute Dom'
 
-  const vipTeaserText = groupTier
-    ? groupTier.threshold_type === 'TOP_PERCENT'
-      ? `Top ${groupTier.threshold_value}% of devoted subs get exclusive access.`
-      : `Only ${groupTier.threshold_value} subs qualify for VIP access.`
-    : 'Top subs earn exclusive access.'
-
   return (
     <>
       {showAuthPrompt && (
@@ -254,7 +322,7 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
         />
       )}
 
-      <div className="w-full md:max-w-[70vw] md:mx-auto">
+      <div className="w-full md:max-w-[70vw] md:mx-auto md:pt-2.5">
 
       {/* Hero */}
       <div className="relative w-full bg-gray-950" style={{ height: '40vh', minHeight: 220, maxHeight: 400 }}>
@@ -266,7 +334,7 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={bannerRef}
-              src={dom.banner_image_url.startsWith('http') ? dom.banner_image_url : getBunnyStorageUrl(dom.banner_image_url)}
+              src={getBunnyStorageUrl(dom.banner_image_url)}
               alt={displayName}
               className="w-full h-full object-cover"
               onLoad={() => setBannerLoaded(true)}
@@ -354,7 +422,7 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
               : 'border-transparent text-gray-500 hover:text-gray-300'
           }`}
         >
-          Content {wallAssets.length > 0 && <span className="ml-1 text-xs text-gray-600">({wallAssets.length})</span>}
+          Content {contentTasks.length > 0 && <span className="ml-1 text-xs text-gray-600">({contentTasks.length})</span>}
         </button>
       </div>
 
@@ -377,14 +445,14 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
 
         {activeTab === 'content' && (
           <>
-            {wallAssets.length === 0 ? (
+            {contentTasks.length === 0 ? (
               <p className="text-gray-600 text-sm text-center py-8">No content yet.</p>
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {wallAssets.map(asset => (
-                  <WallItem
-                    key={asset.id}
-                    asset={asset}
+                {contentTasks.map(task => (
+                  <ContentTaskItem
+                    key={task.id}
+                    task={task}
                     onClickGuest={() => setShowAuthPrompt(true)}
                   />
                 ))}
@@ -393,17 +461,8 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
           </>
         )}
 
-        {/* VIP teaser — always shown */}
-        <div className="mt-6 rounded-2xl border border-gray-800 bg-gray-950 p-5 text-center">
-          <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center mx-auto mb-3">
-            <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" />
-            </svg>
-          </div>
-          <h3 className="text-white font-semibold mb-1">Join my inner circle</h3>
-          <p className="text-gray-500 text-xs leading-relaxed">{vipTeaserText}</p>
-          <p className="text-gray-600 text-xs mt-2">Complete tasks and tribute to earn your place.</p>
-        </div>
+        {/* VIP access card */}
+        <VipAccessCard groupTier={groupTier} privateTier={privateTier} domName={displayName} />
       </div>
 
       </div> {/* end md:max-w-[70vw] wrapper */}

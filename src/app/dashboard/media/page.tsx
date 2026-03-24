@@ -12,7 +12,6 @@ interface MediaAsset {
   type: 'IMAGE' | 'VIDEO'
   bunny_url: string | null
   thumbnail_url: string | null
-  is_on_wall: boolean
   price_usdc: number | null
   created_at: string
 }
@@ -48,7 +47,7 @@ export default function DashboardMediaPage() {
 
     const { data } = await sb
       .from('media_assets')
-      .select('id, title, type, bunny_url, thumbnail_url, is_on_wall, price_usdc, created_at')
+      .select('id, title, type, bunny_url, thumbnail_url, price_usdc, created_at')
       .eq('creator_id', profile.id)
       .order('created_at', { ascending: false })
 
@@ -71,27 +70,6 @@ export default function DashboardMediaPage() {
       fetchAssets()
     } finally {
       setUploading(false)
-    }
-  }
-
-  async function toggleWall(asset: MediaAsset) {
-    const next = !asset.is_on_wall
-    // Require price before putting on wall
-    if (next && !asset.price_usdc) {
-      setEditingId(asset.id)
-      setEditPrice('')
-      toast('Set a price before publishing to wall', { icon: '💬' })
-      return
-    }
-    const res = await fetch(`/api/media/${asset.id}/settings`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_on_wall: next }),
-    })
-    if (res.ok) {
-      setAssets(prev => prev.map(a => a.id === asset.id ? { ...a, is_on_wall: next } : a))
-    } else {
-      toast.error('Failed to update')
     }
   }
 
@@ -127,7 +105,7 @@ export default function DashboardMediaPage() {
       <div className="max-w-3xl mx-auto px-4 pt-6">
 
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-semibold">Content wall</h1>
+          <h1 className="text-xl font-semibold">Media library</h1>
           <button
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
@@ -145,7 +123,7 @@ export default function DashboardMediaPage() {
         </div>
 
         <p className="text-xs text-gray-500 mb-6">
-          Upload photos or videos. Toggle &ldquo;On wall&rdquo; to make them visible on your public profile as locked content.
+          Upload photos or videos. Attach them to a CONTENT task to sell them on your profile.
         </p>
 
         {loading ? (
@@ -219,18 +197,6 @@ export default function DashboardMediaPage() {
 
                   {/* Controls */}
                   <div className="flex items-center gap-3 shrink-0">
-                    {/* On wall toggle */}
-                    <button
-                      onClick={() => toggleWall(asset)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        asset.is_on_wall
-                          ? 'bg-white text-black'
-                          : 'bg-gray-900 border border-gray-700 text-gray-400 hover:border-gray-500'
-                      }`}
-                    >
-                      {asset.is_on_wall ? 'On wall' : 'Off wall'}
-                    </button>
-
                     {/* Delete */}
                     <button
                       onClick={() => deleteAsset(asset.id)}
