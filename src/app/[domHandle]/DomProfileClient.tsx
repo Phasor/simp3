@@ -11,6 +11,7 @@ interface DomProfile {
   id: string
   display_name: string | null
   tagline: string | null
+  bio: string | null
   banner_image_url: string | null
   profile_picture_url: string | null
   vip_cta_text: string | null
@@ -253,6 +254,8 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
         />
       )}
 
+      <div className="w-full md:max-w-[70vw] md:mx-auto">
+
       {/* Hero */}
       <div className="relative w-full bg-gray-950" style={{ height: '40vh', minHeight: 220, maxHeight: 400 }}>
         {dom.banner_image_url ? (
@@ -320,6 +323,16 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
           <p className="text-gray-300 text-sm leading-relaxed mb-4">{dom.tagline}</p>
         )}
       </div>
+
+      {/* About section */}
+      {dom.bio && (
+        <div className="px-4 pb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
+            About {displayName}
+          </h2>
+          <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{dom.bio}</p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-900 px-4">
@@ -392,6 +405,8 @@ export default function DomProfileClient({ dom, tasks, wallAssets, groupTier, fo
           <p className="text-gray-600 text-xs mt-2">Complete tasks and tribute to earn your place.</p>
         </div>
       </div>
+
+      </div> {/* end md:max-w-[70vw] wrapper */}
     </>
   )
 }

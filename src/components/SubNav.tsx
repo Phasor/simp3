@@ -47,7 +47,7 @@ const ALWAYS_HIDDEN_PATTERNS = [
 ]
 const HIDE_BOTTOM_ON_MOBILE = ['/chat']
 
-export default function SubBottomNav() {
+export default function SubNav() {
   const pathname = usePathname()
   const { profile, signOut } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)

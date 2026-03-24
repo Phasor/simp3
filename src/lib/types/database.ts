@@ -22,6 +22,7 @@ export interface Database {
           tribute_alias: string | null
           vip_cta_text: string | null
           tagline: string | null
+          bio: string | null
           kyc_status: string | null
         }
         Insert: {
@@ -42,6 +43,7 @@ export interface Database {
           tribute_alias?: string | null
           vip_cta_text?: string | null
           tagline?: string | null
+          bio?: string | null
           kyc_status?: string | null
         }
         Update: {
@@ -62,6 +64,7 @@ export interface Database {
           tribute_alias?: string | null
           vip_cta_text?: string | null
           tagline?: string | null
+          bio?: string | null
           kyc_status?: string | null
         }
       }

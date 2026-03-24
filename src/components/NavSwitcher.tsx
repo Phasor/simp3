@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import DomDashboardNav from '@/components/DomDashboardNav'
-import SubBottomNav from '@/components/SubBottomNav'
+import SubNav from '@/components/SubNav'
 
 // Static route prefixes that exist in the app (not domHandle dynamic segments).
 // Used to identify [domHandle] routes — anything NOT in this list that starts
@@ -40,13 +40,16 @@ export default function NavSwitcher() {
   // Routes that opt out of the global nav
   if (NO_GLOBAL_NAV.some(re => re.test(pathname))) return null
 
-  // [domHandle] routes have WordmarkOnly rendered in their own layout
-  if (isDomHandleRoute(pathname)) return null
+  // [domHandle] routes: show SubNav for authenticated subs, otherwise no global nav
+  if (isDomHandleRoute(pathname)) {
+    if (profile?.user_type === 'FAN') return <SubNav />
+    return null
+  }
 
   if (!profile) return null
 
   if (profile.user_type === 'CREATOR') return <DomDashboardNav />
-  if (profile.user_type === 'FAN') return <SubBottomNav />
+  if (profile.user_type === 'FAN') return <SubNav />
 
   return null
 }

@@ -33,6 +33,7 @@ export default function DashboardSettingsPage() {
   // Profile fields
   const [displayName, setDisplayName] = useState('')
   const [tagline, setTagline] = useState('')
+  const [bio, setBio] = useState('')
   const [ctaText, setCtaText] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
   const [bannerUrl, setBannerUrl] = useState<string | null>(null)
@@ -49,6 +50,7 @@ export default function DashboardSettingsPage() {
     if (!resolved || !profile || profileLoaded) return
     setDisplayName(profile.display_name ?? '')
     setTagline(profile.tagline ?? '')
+    setBio(profile.bio ?? '')
     setCtaText(profile.vip_cta_text ?? '')
     setWalletAddress(profile.wallet_address ?? '')
     setBannerUrl(profile.banner_image_url ?? null)
@@ -153,12 +155,18 @@ export default function DashboardSettingsPage() {
       }
 
       // Save profile fields
-      await sb.from('profiles').update({
+      const { error: profileError } = await sb.from('profiles').update({
         display_name: displayName || null,
         tagline: tagline || null,
+        bio: bio || null,
         vip_cta_text: ctaText || null,
         wallet_address: walletAddress || null,
       }).eq('id', profile.id)
+
+      if (profileError) {
+        toast.error('Failed to save profile: ' + profileError.message)
+        return
+      }
 
       // Save tiers
       const results = await Promise.all([
@@ -265,6 +273,12 @@ export default function DashboardSettingsPage() {
             <input type="text" value={tagline} onChange={e => setTagline(e.target.value)}
               maxLength={120} placeholder="One line that says what you are"
               className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600" />
+          </Field>
+          <Field label="About" hint="Shown on your public profile under your name">
+            <textarea value={bio} onChange={e => setBio(e.target.value)}
+              maxLength={1000} rows={5} placeholder="Tell subs about yourself..."
+              className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-none" />
+            <p className="text-xs text-gray-600 mt-1 text-right">{bio.length}/1000</p>
           </Field>
           <Field label="Submit button text" hint="Shown on the Send Moment screen">
             <input type="text" value={ctaText} onChange={e => setCtaText(e.target.value)}

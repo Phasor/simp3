@@ -28,7 +28,7 @@ export async function GET() {
       accepted_at,
       task:tasks!task_id (
         id, title, cover_image_url, media_id,
-        media_asset:media_assets!media_id ( id, type, thumbnail_url, bunny_preview_url ),
+        media_asset:media_assets!media_id ( id, type, bunny_url, thumbnail_url, bunny_preview_url ),
         dom:profiles!creator_id ( display_name, handle, profile_picture_url )
       )
     `)

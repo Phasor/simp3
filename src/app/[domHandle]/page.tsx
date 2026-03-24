@@ -15,7 +15,7 @@ export default async function DomProfilePage({ params }: Props) {
   // Fetch dom profile by handle
   const { data: dom } = await supabase
     .from('profiles')
-    .select('id, display_name, tagline, banner_image_url, profile_picture_url, vip_cta_text, handle')
+    .select('id, display_name, tagline, bio, banner_image_url, profile_picture_url, vip_cta_text, handle')
     .eq('handle', domHandle)
     .eq('user_type', 'CREATOR')
     .maybeSingle()

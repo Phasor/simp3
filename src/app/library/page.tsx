@@ -15,6 +15,7 @@ interface LibraryItem {
     media_asset: {
       id: string
       type: string | null
+      bunny_url: string | null
       thumbnail_url: string | null
       bunny_preview_url: string | null
     } | null
@@ -116,7 +117,10 @@ export default function LibraryPage() {
               const domName = dom.display_name || dom.handle || 'Dom'
               const isVideo = task.media_asset?.type === 'VIDEO'
 
-              const thumbPath = task.cover_image_url
+              // Library shows unlocked content — use the actual content image (bunny_url),
+              // not the cover/preview which may be a different teaser image.
+              const thumbPath = task.media_asset?.bunny_url
+                || task.cover_image_url
                 || task.media_asset?.bunny_preview_url
                 || task.media_asset?.thumbnail_url
                 || null
