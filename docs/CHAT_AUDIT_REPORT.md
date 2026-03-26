@@ -288,9 +288,63 @@ onConnectionChange: useCallback((isConnected: boolean) => {
 
 ---
 
+### BUG 8: Realtime Subscription Torn Down When Fan Access Expires — Kills Dom's Receive Path
+
+**Severity:** CRITICAL
+**File:** `src/lib/hooks/useRealtimeChat.ts:125-128`
+
+**The Bug:**
+```typescript
+if (!accessStatus?.hasAccess) {
+  cleanup();  // ← tears down channel for BOTH Dom and Sub
+  return;
+}
+```
+
+When the fan's VIP access expires, the realtime channel is **torn down for both parties**. The Dom's client disconnects entirely, meaning even if Bugs 2-4 were fixed and the Dom could send via API, they would **not receive any incoming messages** either. The reconnect logic (line 88-98) also refuses to retry when access is expired.
+
+Combined with BUG 4 (Dom can't send), this creates a **complete communication blackout** for the Dom once any fan's access expires.
+
+**Fix:**
+Pass `isCreator` into the hook and only enforce access gating for fans:
+```typescript
+if (!accessStatus?.hasAccess && !isCreator) {
+  cleanup();
+  return;
+}
+```
+
+---
+
+### BUG 9: Messages Silently Dropped When Sender Profile Not in Lookup Map
+
+**Severity:** HIGH
+**File:** `src/components/chat/ChatMessage.tsx:117-118`
+
+**The Bug:**
+```typescript
+const sender = profiles[message.sender_id];
+if (!sender) return groups; // ← silently drops the message
+```
+
+The `profiles` map is passed as `{ [creatorId]: creatorProfile, [fanId]: fanProfile }`. If for any reason `message.sender_id` doesn't exactly match either key (e.g., profile data was loaded with a stale ID, or there's a UUID casing mismatch), the message is **silently filtered out of the rendered list**. The message exists in state but is never shown.
+
+**Fix:**
+Show a fallback for unknown senders instead of dropping the message:
+```typescript
+const sender = profiles[message.sender_id] ?? {
+  id: message.sender_id,
+  display_name: 'Unknown',
+  email: '',
+  // ... minimal fallback profile
+};
+```
+
+---
+
 ## MEDIUM Issues
 
-### BUG 7: Session Method Inconsistency — `getSession()` vs `getUser()`
+### BUG 10: Session Method Inconsistency — `getSession()` vs `getUser()`
 
 **Severity:** MEDIUM
 **Files:** `src/app/api/chat/send/route.ts:70-71` vs `src/app/api/chat/messages/[creatorId]/[fanId]/route.ts:31`
@@ -341,16 +395,32 @@ The `chat_messages`, `conversations`, `chat_access`, and `chat_rules` tables are
 | BUG 4: Access gates Dom send | When fan access expires | Dom can't reply | Dom |
 | BUG 5: Dom can't start chat | Always | Dom can't initiate | Dom |
 | BUG 6: No reconnect backfill | On every reconnect | Missed messages | Both parties |
-| BUG 7: getSession stale | Intermittent | Auth inconsistency | Dom |
+| BUG 8: Realtime killed on expiry | When fan access expires | Dom can't receive | Dom |
+| BUG 9: Silent message drop | On profile lookup miss | Message not rendered | Both parties |
+| BUG 10: getSession stale | Intermittent | Auth inconsistency | Dom |
+
+---
+
+## The Primary Root Cause
+
+The **dominant root cause** is that `chat_access` is applied symmetrically to both Dom and Sub in the frontend, but the domain model requires Doms to ALWAYS be able to send and receive. Four bugs combine to create a **complete communication blackout** for Doms once a Sub's VIP access expires:
+
+1. **BUG 4** (ChatThread.tsx:250) — `handleSendMessage` blocks Doms when `hasAccess` is false
+2. **BUG 4** (ChatThread.tsx:290) — `canSendMessages` disables the input for Doms
+3. **BUG 8** (useRealtimeChat.ts:125) — Realtime subscription torn down for Doms
+4. **BUG 8** (useRealtimeChat.ts:89) — Reconnection blocked for Doms
+
+The database RLS policies are actually correct — they explicitly allow `creator_id = current_profile_id()` for INSERT without an access check. But the frontend overrides this with access gating that doesn't distinguish between Dom and Sub users.
 
 ---
 
 ## Recommended Fix Priority
 
-1. **BUG 1** (ConvID mismatch) — Quick fix, eliminates the most common delivery failure
-2. **BUG 6** (Reconnect backfill) — One-line change, catches all transient failures
-3. **BUG 2** (Admin client for fetch) — Eliminates RLS-related fetch failures for Doms
-4. **BUG 4** (Dom send gating) — Allows Doms to always reply
+1. **BUGs 4+8** (Dom access gating) — The #1 cause. Add `isCreator` bypass to send guard, input state, and realtime subscription. Fixes the complete blackout.
+2. **BUG 1** (ConvID mismatch) — Quick fix, eliminates the most common transient delivery failure
+3. **BUG 6** (Reconnect backfill) — One-line change, catches all transient failures
+4. **BUG 2** (Admin client for fetch) — Eliminates RLS-related fetch failures for Doms
 5. **BUG 3** (Polling safety net) — Catches all edge cases that realtime misses
-6. **BUG 5** (Dom initiate chat) — Feature gap, lower urgency
-7. **BUG 7** (Session consistency) — Defense in depth
+6. **BUG 9** (Message drop) — Defensive fix, show unknown senders instead of hiding
+7. **BUG 5** (Dom initiate chat) — Feature gap, lower urgency
+8. **BUG 10** (Session consistency) — Defense in depth
