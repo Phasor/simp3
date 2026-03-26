@@ -9,6 +9,7 @@ interface UseRealtimeChatOptions {
   fanId: string;
   currentUserId: string;
   accessStatus: ChatAccessStatus | null;
+  isCreator?: boolean; // If true, bypass access gating (Doms can always send/receive)
   conversationId?: string; // Optional: if provided, use this instead of generating from IDs
   usePostgresChanges?: boolean; // Optional: use postgres_changes instead of broadcast
   onNewMessage?: (message: ChatMessage) => void;
@@ -27,6 +28,7 @@ export function useRealtimeChat({
   fanId,
   currentUserId,
   accessStatus,
+  isCreator = false,
   conversationId,
   usePostgresChanges = true,
   onNewMessage,
@@ -85,8 +87,8 @@ export function useRealtimeChat({
   const scheduleReconnect = useCallback((reason: string) => {
     if (isCleanupRef.current) return;
     
-    // Don't retry if access is lost
-    if (!accessStatus?.hasAccess) {
+    // Don't retry if access is lost (but Doms can always stay connected)
+    if (!accessStatus?.hasAccess && !isCreator) {
       if (!accessExpiredNotifiedRef.current) {
         console.log('🚫 Not retrying - access lost');
         onAccessExpiredRef.current?.();
@@ -116,13 +118,13 @@ export function useRealtimeChat({
       }
       reconnectTimeoutRef.current = null;
     }, totalDelay);
-  }, [accessStatus?.hasAccess]);
+  }, [accessStatus?.hasAccess, isCreator]);
 
   // Set up realtime subscription with improved stability
   useEffect(() => {
     isCleanupRef.current = false;
-    
-    if (!accessStatus?.hasAccess) {
+
+    if (!accessStatus?.hasAccess && !isCreator) {
       cleanup();
       return;
     }
@@ -297,7 +299,7 @@ export function useRealtimeChat({
     setupConnection();
 
     return cleanup;
-  }, [creatorId, fanId, currentUserId, accessStatus?.hasAccess, supabase, reconnectNonce, conversationId, usePostgresChanges, cleanup, scheduleReconnect]);
+  }, [creatorId, fanId, currentUserId, accessStatus?.hasAccess, isCreator, supabase, reconnectNonce, conversationId, usePostgresChanges, cleanup, scheduleReconnect]);
 
   const reconnect = useCallback(() => {
     if (process.env.NEXT_PUBLIC_DEBUG === '1') {

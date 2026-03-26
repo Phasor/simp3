@@ -3,6 +3,31 @@ import { memo } from 'react';
 import { MessageCircle } from 'lucide-react';
 import type { ChatMessage, Profile } from '@/lib/types/database';
 
+/** Fallback profile for messages whose sender_id isn't in the profiles map */
+function fallbackProfile(senderId: string): Profile {
+  return {
+    id: senderId,
+    display_name: 'Unknown',
+    email: '',
+    auth_user_id: '',
+    created_at: new Date().toISOString(),
+    user_type: 'FAN',
+    onboarding_completed: false,
+    profile_picture_url: null,
+    banner_image_url: null,
+    about_text: null,
+    handle: null,
+    wallet_address: null,
+    age_verified: null,
+    age_verified_at: null,
+    tribute_alias: null,
+    vip_cta_text: null,
+    tagline: null,
+    bio: null,
+    kyc_status: null,
+  };
+}
+
 interface ChatMessageProps {
   message: ChatMessage;
   sender: Profile;
@@ -114,8 +139,7 @@ export function MessageList({
 }: MessageListProps) {
   // Group consecutive messages by sender
   const messageGroups = messages.reduce((groups: Array<{ sender: Profile; messages: ChatMessage[]; isCurrentUser: boolean }>, message) => {
-    const sender = profiles[message.sender_id];
-    if (!sender) return groups;
+    const sender = profiles[message.sender_id] ?? fallbackProfile(message.sender_id);
 
     const isCurrentUser = message.sender_id === currentUserId;
     const lastGroup = groups[groups.length - 1];

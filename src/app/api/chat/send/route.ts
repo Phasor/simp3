@@ -65,11 +65,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get session from cookie (no network round-trip)
+    // Validate JWT with Supabase server (not just cookie read)
     const supabase = await getServerSupabase();
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('id, user_type')
-      .eq('auth_user_id', session.user.id)
+      .eq('auth_user_id', user.id)
       .single();
 
     if (profileError || !profile) {
