@@ -14,7 +14,7 @@ interface VipTier {
 }
 
 export default function DashboardSettingsPage() {
-  const { profile, resolved } = useAuth()
+  const { profile, refreshProfile } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -43,26 +43,23 @@ export default function DashboardSettingsPage() {
   // Preview: live sub counts
   const [subCount, setSubCount] = useState<number | null>(null)
 
-  // Populate form from profile once auth resolves
-  const [profileLoaded, setProfileLoaded] = useState(false)
-  useEffect(() => {
-    if (!resolved || !profile || profileLoaded) return
-    setDisplayName(profile.display_name ?? '')
-    setTagline(profile.tagline ?? '')
-    setBio(profile.bio ?? '')
-    setCtaText(profile.vip_cta_text ?? '')
-    setWalletAddress(profile.wallet_address ?? '')
-    setBannerUrl(profile.banner_image_url ?? null)
-    setAvatarUrl(profile.profile_picture_url ?? null)
-    setProfileLoaded(true)
-  }, [resolved, profile, profileLoaded])
-
-  // Fetch VIP tiers and sub count via API route (matches dashboard pattern)
+  // Fetch all settings data from API (single source of truth)
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch('/api/dashboard/settings', { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
+
+      // Populate profile fields from server
+      if (data.profile) {
+        setDisplayName(data.profile.display_name ?? '')
+        setTagline(data.profile.tagline ?? '')
+        setBio(data.profile.about_text ?? '')
+        setCtaText(data.profile.vip_cta_text ?? '')
+        setWalletAddress(data.profile.wallet_address ?? '')
+        setBannerUrl(data.profile.banner_image_url ?? null)
+        setAvatarUrl(data.profile.profile_picture_url ?? null)
+      }
 
       setSubCount(data.subCount ?? 0)
 
@@ -148,17 +145,22 @@ export default function DashboardSettingsPage() {
         return
       }
 
-      // Save profile fields
-      const { error: profileError } = await createClient().from('profiles').update({
-        display_name: displayName || null,
-        tagline: tagline || null,
-        bio: bio || null,
-        vip_cta_text: ctaText || null,
-        wallet_address: walletAddress || null,
-      }).eq('id', profile.id)
+      // Save profile fields via API route (server-side Supabase)
+      const res = await fetch('/api/dashboard/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          display_name: displayName,
+          tagline,
+          about_text: bio,
+          vip_cta_text: ctaText,
+          wallet_address: walletAddress,
+        }),
+      })
 
-      if (profileError) {
-        toast.error('Failed to save profile: ' + profileError.message)
+      if (!res.ok) {
+        const data = await res.json()
+        toast.error(data.error ?? 'Failed to save profile')
         return
       }
 
@@ -169,10 +171,14 @@ export default function DashboardSettingsPage() {
       ])
 
       if (results.every(Boolean)) {
+        refreshProfile().catch(() => {}) // update AuthContext in background, non-blocking
         toast.success('Settings saved')
       } else {
         toast.error('Some settings failed to save')
       }
+    } catch (err) {
+      console.error('Settings save error:', err)
+      toast.error('Failed to save settings')
     } finally {
       setSaving(false)
     }
