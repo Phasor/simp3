@@ -261,8 +261,22 @@ export default function OnboardingPage() {
         onboarding_completed: true,
       })
       .eq('id', profileId)
+    if (error) { setLoading(false); toast.error(error.message); return }
+
+    // Auto-create a Privy payout wallet for the dom so they can receive payments immediately
+    // (they can override with their own address in Dashboard > Settings)
+    try {
+      await fetch('/api/wallet/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId }),
+      })
+    } catch {
+      // Non-fatal — dom can set a wallet address manually in settings
+      console.warn('[onboarding] Dom wallet creation failed — skipping')
+    }
+
     setLoading(false)
-    if (error) { toast.error(error.message); return }
     window.location.href = '/dashboard'
   }
 

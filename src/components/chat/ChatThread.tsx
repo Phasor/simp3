@@ -134,23 +134,27 @@ export function ChatThread({
       });
     }, [conversationId]),
     onConnectionChange: useCallback((isConnected: boolean) => {
-      if (isConnected && messages.length === 0) {
-        fetchMessages(creatorId, fanId, { limit: 20 })
+      if (isConnected) {
+        // Always backfill on (re)connect to recover any messages missed during
+        // connection gaps. setMessages uses a functional merge so duplicates are
+        // discarded — safe to call even if loadMessages already ran.
+        fetchMessages(creatorId, fanId, { limit: 50 })
           .then(response => {
             if (response.messages.length > 0) {
               setMessages(prev => {
                 const newMessages = response.messages.filter(
                   m => !prev.some(p => p.id === m.id)
                 );
+                if (newMessages.length === 0) return prev;
                 return [...prev, ...newMessages].sort(
                   (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                 );
               });
             }
           })
-          .catch(err => console.error('Failed to backfill messages:', err));
+          .catch(err => console.error('Failed to backfill messages on reconnect:', err));
       }
-    }, [creatorId, fanId, messages.length]),
+    }, [creatorId, fanId]),
     onAccessExpired: useCallback(() => {}, [])
   });
 

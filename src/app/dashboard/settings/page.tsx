@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/contexts/AuthContext'
+import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 
@@ -14,8 +14,7 @@ interface VipTier {
 }
 
 export default function DashboardSettingsPage() {
-  const router = useRouter()
-  const { user, profile, resolved, supabase: sb } = useAuth()
+  const { profile, resolved } = useAuth()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -58,20 +57,16 @@ export default function DashboardSettingsPage() {
     setProfileLoaded(true)
   }, [resolved, profile, profileLoaded])
 
-  // Fetch VIP tiers and sub count via stable callback
-  const fetchTiers = useCallback(async () => {
-    if (!resolved || !profile) return
+  // Fetch VIP tiers and sub count via API route (matches dashboard pattern)
+  const fetchData = useCallback(async () => {
     try {
-      const [{ data: tiers }, { count }] = await Promise.all([
-        sb.from('vip_tiers').select('*').eq('dom_id', profile.id),
-        sb.from('tribute_scores')
-          .select('fan_id', { count: 'exact', head: true })
-          .eq('dom_id', profile.id),
-      ])
+      const res = await fetch('/api/dashboard/settings', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
 
-      setSubCount(count ?? 0)
+      setSubCount(data.subCount ?? 0)
 
-      for (const t of tiers ?? []) {
+      for (const t of data.tiers ?? []) {
         if (t.tier_type === 'GROUP') {
           setGroupEnabled(true)
           setGroupThresholdType(t.threshold_type)
@@ -87,10 +82,9 @@ export default function DashboardSettingsPage() {
     } finally {
       setLoading(false)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolved, profile?.id])
+  }, [])
 
-  useEffect(() => { fetchTiers() }, [fetchTiers])
+  useEffect(() => { fetchData() }, [fetchData])
 
   async function saveTier(tierType: 'GROUP' | 'PRIVATE', thresholdType: 'TOP_PERCENT' | 'TOP_N', value: string) {
     const num = parseFloat(value)
@@ -135,7 +129,7 @@ export default function DashboardSettingsPage() {
       setAvatarUrl(url)
       // Save to DB immediately
       if (profile) {
-        await sb.from('profiles').update({ profile_picture_url: url }).eq('id', profile.id)
+        await createClient().from('profiles').update({ profile_picture_url: url }).eq('id', profile.id)
       }
       toast.success('Avatar updated')
     } finally {
@@ -155,7 +149,7 @@ export default function DashboardSettingsPage() {
       }
 
       // Save profile fields
-      const { error: profileError } = await sb.from('profiles').update({
+      const { error: profileError } = await createClient().from('profiles').update({
         display_name: displayName || null,
         tagline: tagline || null,
         bio: bio || null,

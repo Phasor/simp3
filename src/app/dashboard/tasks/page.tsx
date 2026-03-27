@@ -66,7 +66,7 @@ export default function DashboardTasksPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/tasks')
+      const res = await fetch('/api/dashboard/tasks', { cache: 'no-store' })
       if (!res.ok) return
       const data = await res.json()
       setTasks(data.tasks ?? [])

@@ -9,7 +9,7 @@ interface UseRealtimeChatOptions {
   fanId: string;
   currentUserId: string;
   accessStatus: ChatAccessStatus | null;
-  conversationId?: string; // Optional: if provided, use this instead of generating from IDs
+  conversationId?: string; // Accepted for API compatibility but no longer used for channel naming
   usePostgresChanges?: boolean; // Optional: use postgres_changes instead of broadcast
   onNewMessage?: (message: ChatMessage) => void;
   onConnectionChange?: (connected: boolean) => void;
@@ -147,14 +147,14 @@ export function useRealtimeChat({
 
     // Async function to handle conversation_id lookup and connection
     const setupConnection = async () => {
-      // Use supplied conversationId when present; otherwise fall back to sorted IDs
-      const effectiveConversationId =
-        conversationId ?? [creatorId, fanId].sort().join('_');
-      
+      // Always derive channel name from sorted IDs — this is deterministic and never
+      // changes for a given conversation, so the subscription stays alive even when
+      // the conversationId state in the parent transitions from null to a value.
+      const channelName = `chat_${[creatorId, fanId].sort().join('_')}`;
+
       // Check if cleanup was called while we were fetching
       if (isCleanupRef.current) return;
-      
-      const channelName = `chat_${effectiveConversationId}`;
+
       console.log('🔗 Client connecting to channel:', channelName, 'for users:', { creatorId, fanId });
       console.log(`🔗 Connecting to channel: ${channelName}`);
       
@@ -297,7 +297,10 @@ export function useRealtimeChat({
     setupConnection();
 
     return cleanup;
-  }, [creatorId, fanId, currentUserId, accessStatus?.hasAccess, supabase, reconnectNonce, conversationId, usePostgresChanges, cleanup, scheduleReconnect]);
+  // NOTE: conversationId is intentionally NOT in this dep array.
+  // The channel name is always derived from sorted [creatorId, fanId] (see setupConnection above),
+  // so changing conversationId would cause a spurious cleanup+reconnect gap that drops messages.
+  }, [creatorId, fanId, currentUserId, accessStatus?.hasAccess, supabase, reconnectNonce, usePostgresChanges, cleanup, scheduleReconnect]);
 
   const reconnect = useCallback(() => {
     if (process.env.NEXT_PUBLIC_DEBUG === '1') {

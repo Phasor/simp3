@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
@@ -239,12 +239,10 @@ function EvidenceUI({ task, completionId, backHref }: { task: Task; completionId
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [done, setDone] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   function handleFile(f: File) {
     setFile(f)
-    const url = URL.createObjectURL(f)
-    setPreview(url)
+    setPreview(URL.createObjectURL(f))
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -257,20 +255,12 @@ function EvidenceUI({ task, completionId, backHref }: { task: Task; completionId
     if (!file) return
     setUploading(true)
     try {
-      // Upload to Bunny first
       const formData = new FormData()
       formData.append('file', file)
-      const uploadRes = await fetch('/api/upload/evidence', {
-        method: 'POST',
-        body: formData,
-      })
+      const uploadRes = await fetch('/api/upload/evidence', { method: 'POST', body: formData })
       const uploadData = await uploadRes.json()
-      if (!uploadRes.ok) {
-        toast.error(uploadData.error ?? 'Upload failed')
-        return
-      }
+      if (!uploadRes.ok) { toast.error(uploadData.error ?? 'Upload failed'); return }
 
-      // Submit with evidence URL
       const submitRes = await fetch(`/api/task-completion/${completionId}/submit`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -297,43 +287,47 @@ function EvidenceUI({ task, completionId, backHref }: { task: Task; completionId
         <p className="text-gray-400 text-sm leading-relaxed">{task.instructions}</p>
       )}
 
-      {/* Drop zone */}
+      {/* Upload zone — input overlaid directly so iOS tap works without programmatic .click() */}
       <div
         onDrop={handleDrop}
         onDragOver={e => e.preventDefault()}
-        onClick={() => !preview && inputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-2xl transition-colors ${
-          preview ? 'border-gray-700' : 'border-gray-800 hover:border-gray-600 cursor-pointer'
+        className={`relative border-2 border-dashed rounded-2xl overflow-hidden transition-colors ${
+          preview ? 'border-gray-700' : 'border-gray-800'
         }`}
       >
         {preview ? (
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Evidence preview" className="w-full rounded-2xl max-h-80 object-cover" />
+            <img src={preview} alt="Evidence preview" className="w-full max-h-80 object-cover" />
             <button
               onClick={() => { setFile(null); setPreview(null) }}
-              className="absolute top-3 right-3 bg-black/70 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black transition-colors"
+              className="absolute top-3 right-3 bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg leading-none hover:bg-black transition-colors z-10"
             >
               ×
             </button>
           </div>
         ) : (
-          <div className="py-14 flex flex-col items-center gap-3 text-gray-500">
-            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <span className="text-sm">Tap to upload or drag image here</span>
-            <span className="text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 10 MB</span>
-          </div>
+          <>
+            <div className="py-14 flex flex-col items-center gap-3 text-gray-500 pointer-events-none select-none">
+              {/* Camera icon — suggests taking a photo on mobile */}
+              <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                  d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+              </svg>
+              <span className="text-sm font-medium">Tap to take a photo or choose from gallery</span>
+              <span className="text-xs text-gray-600">JPEG, PNG, WebP or GIF · max 10 MB</span>
+            </div>
+            {/* Transparent file input covers the entire zone — works reliably on iOS + Android */}
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+            />
+          </>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-          className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
-        />
       </div>
 
       <button
