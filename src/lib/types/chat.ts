@@ -100,7 +100,7 @@ export function toConversationItem(conv: ConversationServer): ConversationItem {
         profile_picture_url: conv.creator_ppu,
         banner_image_url: null,
         about_text: null,
-        handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
+        bio: null, handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
         tribute_alias: null, vip_cta_text: null, tagline: null, kyc_status: null,
       },
       fan: {
@@ -114,7 +114,7 @@ export function toConversationItem(conv: ConversationServer): ConversationItem {
         profile_picture_url: conv.fan_ppu,
         banner_image_url: null,
         about_text: null,
-        handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
+        bio: null, handle: null, wallet_address: null, age_verified: null, age_verified_at: null,
         tribute_alias: null, vip_cta_text: null, tagline: null, kyc_status: null,
       },
       lastMessage,

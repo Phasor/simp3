@@ -7,6 +7,9 @@ import toast from 'react-hot-toast'
 import { useAuth } from '@/lib/contexts/AuthContext'
 import { getBunnyStorageUrl } from '@/lib/utils/bunnynet'
 import { createClient } from '@/lib/supabase/client'
+import TaskVisualBlock from './TaskVisualBlock'
+import DomCard from './DomCard'
+import ChatProgressCard from './ChatProgressCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface DomProfile {
@@ -81,6 +84,13 @@ const TYPE_META: Record<string, { label: string; icon: React.ReactNode; flavour:
     ),
     flavour: 'Exclusive content. Access granted instantly on payment.',
   },
+}
+
+// ── CTA copy by task type ──────────────────────────────────────────────────────
+function getCtaCopy(taskType: string | null, priceUsdc: number | null) {
+  const priceStr = priceUsdc != null ? `  $${priceUsdc}` : ''
+  if (taskType === 'CONTENT') return `View Now${priceStr}`
+  return `Accept Task${priceStr}`
 }
 
 // ── Auth prompt modal ──────────────────────────────────────────────────────────
@@ -176,13 +186,9 @@ export default function TaskDetailClient({
   // ── Sub state ──
   const [showAuth, setShowAuth] = useState(false)
   const [payPhase, setPayPhase] = useState<'idle' | 'animating' | 'done'>('idle')
-  // If coming from library, the sub already owns this content — show unlocked immediately
   const [isUnlocked, setIsUnlocked] = useState(searchParams.get('from') === 'library')
-
-  // Secure URL for unlocked content — fetched from authenticated API, never from props
   const [secureMediaUrl, setSecureMediaUrl] = useState<{ url: string; type: string; embed: boolean } | null>(null)
 
-  // Check if this sub has already unlocked this CONTENT task
   useEffect(() => {
     if (task.task_type !== 'CONTENT' || !profile?.id) return
     const sb = createClient()
@@ -195,7 +201,6 @@ export default function TaskDetailClient({
       .then(({ data }) => setIsUnlocked(!!data))
   }, [task.id, task.task_type, profile?.id])
 
-  // When unlocked, fetch the secure media URL from the authenticated API
   useEffect(() => {
     if (!isUnlocked || !task.media_id || !profile?.id) return
     fetch(`/api/content/${task.media_id}/signed-url`)
@@ -224,7 +229,6 @@ export default function TaskDetailClient({
   function set(field: keyof typeof form) {
     return (value: string) => setForm(prev => ({ ...prev, [field]: value }))
   }
-
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   function handleEditStart() {
@@ -264,7 +268,7 @@ export default function TaskDetailClient({
   function handleContinue() {
     setPayPhase('idle')
     if (task.task_type === 'CONTENT') {
-      setIsUnlocked(true) // show content immediately without a full page reload
+      setIsUnlocked(true)
     } else {
       router.push(`/task/${task.id}/complete?completion=${completionId}`)
     }
@@ -302,13 +306,13 @@ export default function TaskDetailClient({
     setEditing(false)
   }
 
-
+  const ctaCopy = getCtaCopy(task.task_type, task.price_usdc)
+  const showSubCta = !isOwner && task.status === 'PUBLISHED' && !isUnlocked
 
   // ── Ceremony: animating ────────────────────────────────────────────────────
   if (payPhase === 'animating') {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center z-50 overflow-hidden">
-        {/* Gold ring */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-80 h-80 rounded-full border border-gold/20 animate-ping" style={{ animationDuration: '1.2s' }} />
         </div>
@@ -362,32 +366,24 @@ export default function TaskDetailClient({
     )
   }
 
-  // ── Main render ────────────────────────────────────────────────────────────
-  return (
-    <>
-      {showAuth && <AuthPromptModal onClose={() => setShowAuth(false)} taskId={task.id} />}
-
-      <div className="min-h-screen bg-black text-white pb-[calc(100px+env(safe-area-inset-bottom))]">
-
-        {/* ── Navbar: shown only for logged-out users and dom owners (subs get SubBottomNav) ── */}
-        {resolved && (!profile || isOwner) && (
+  // ── Edit mode: full-width single column ──────────────────────────────────
+  if (editing) {
+    return (
+      <>
+        <div className="min-h-screen bg-black text-white pb-[calc(100px+env(safe-area-inset-bottom))]">
+          {/* Nav */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-            {/* Left: back */}
-            {dom.handle ? (
-              <Link
-                href={isOwner ? '/dashboard/tasks' : `/${dom.handle}`}
-                className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-                {isOwner ? 'My tasks' : 'Back'}
-              </Link>
-            ) : <div />}
-
-            {/* Right: Sign Up (logged-out) or dom draft badge */}
+            <Link
+              href="/dashboard/tasks"
+              className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              My tasks
+            </Link>
             <div className="flex items-center gap-2">
-              {isOwner && task.status !== 'PUBLISHED' && (
+              {task.status !== 'PUBLISHED' && (
                 <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
                   {task.status === 'DRAFT' ? 'Draft' : 'Archived'}
                 </span>
@@ -396,320 +392,9 @@ export default function TaskDetailClient({
                 {meta.icon}
                 {meta.label}
               </span>
-              {!profile && (
-                <Link
-                  href={`/signup?next=/task/${task.id}`}
-                  className="ml-1 px-4 py-1.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-colors"
-                >
-                  Sign Up
-                </Link>
-              )}
             </div>
           </div>
-        )}
 
-        {/* ── Dom identity (compact) ── */}
-        <Link
-          href={dom.handle ? `/${dom.handle}` : '#'}
-          className="flex items-center gap-[18px] px-6 py-[18px] group border-b border-white/[0.04]"
-        >
-          <div className="w-[60px] h-[60px] rounded-full overflow-hidden shrink-0 ring-1 ring-gold/30 group-hover:ring-gold/50 transition-all">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarUrl} alt={domName} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gray-900 flex items-center justify-center font-serif text-2xl text-white/40">
-                {domName[0].toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <div className="font-serif text-2xl font-medium text-white group-hover:text-white/80 transition-colors">
-              {domName}
-            </div>
-            {dom.tagline && (
-              <div className="font-serif italic text-white/35 text-[21px]">{dom.tagline}</div>
-            )}
-          </div>
-        </Link>
-
-        {/* ── Content: view mode or edit mode ── */}
-        {!editing ? (
-          <div className="max-w-[612px] mx-auto">
-
-            {/* Unavailable notice for non-owners on non-published tasks */}
-            {!isOwner && task.status !== 'PUBLISHED' && (
-              <div className="px-6 pt-10">
-                <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 text-center">
-                  <p className="text-gray-400 text-sm">This task is not currently available.</p>
-                </div>
-              </div>
-            )}
-
-            {/* ── Section 2: Task identity ── */}
-            <div className="px-6 pt-5 pb-6">
-              {/* Flavour text above title — emotional priming (not shown for CONTENT tasks) */}
-              {task.task_type !== 'CONTENT' && (
-                <p className="font-serif italic text-sm mb-5 leading-relaxed text-gold">
-                  {meta.flavour}
-                </p>
-              )}
-              <div className="flex items-center justify-between gap-3 mb-6">
-                <h2
-                  className="font-serif font-medium leading-tight text-white"
-                  style={{ fontSize: 'clamp(1.75rem, 5vw, 2.75rem)' }}
-                >
-                  {task.title}
-                </h2>
-                {task.task_type === 'CONTENT' && task.media_asset?.type && (
-                  <span className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${
-                    task.media_asset.type === 'VIDEO'
-                      ? 'bg-blue-950 text-blue-300 border border-blue-800'
-                      : 'bg-gray-900 text-gray-300 border border-gray-700'
-                  }`}>
-                    {task.media_asset.type === 'VIDEO' ? (
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                    {task.media_asset.type === 'VIDEO' ? 'Video' : 'Image'}
-                  </span>
-                )}
-              </div>
-              {task.task_type === 'CONTENT' && task.media_asset?.type && (
-                <p className="font-serif italic text-white/40 text-xl -mt-3 mb-6">
-                  Unlock this exclusive {task.media_asset.type === 'VIDEO' ? 'video' : 'photo'} and earn points toward VIP chat access
-                </p>
-              )}
-              <div className="flex items-center gap-4 flex-wrap">
-                {task.price_usdc != null && (
-                  <span className="font-sans text-3xl font-semibold text-white tracking-tight">
-                    ${task.price_usdc}
-                    <span className="text-sm font-normal text-white/40 ml-1.5">USDC</span>
-                  </span>
-                )}
-                {task.points > 0 && (
-                  <span className="flex items-center gap-1.5 text-sm font-medium px-3 py-1 rounded-full text-gold border border-gold/20 bg-gold/[0.08]">
-                    ✦ {task.points} devotion points
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* ── Section 3: Description + instructions ── */}
-            {(task.description || (task.instructions && task.instructions !== task.description)) && (
-              <div className="px-6 py-8 space-y-6">
-                {task.description && (
-                  <div className="space-y-2">
-                    <p className="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-white/30">
-                      The task
-                    </p>
-                    <p className="font-sans text-[15px] text-white/70 leading-relaxed whitespace-pre-wrap">
-                      {task.description}
-                    </p>
-                  </div>
-                )}
-                {task.instructions && task.instructions !== task.description && (
-                  <div className="space-y-2">
-                    <p className="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-white/30">
-                      Instructions
-                    </p>
-                    <p className="font-sans text-[15px] text-white/70 leading-relaxed whitespace-pre-wrap">
-                      {task.instructions}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Section 4: Task-type specific design moment ── */}
-            <div className="px-6 mb-8">
-              {/* REPETITION: The Oath Block */}
-              {task.task_type === 'REPETITION' && task.repetition_phrase && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 relative overflow-hidden">
-                  <span className="absolute top-1 left-4 font-serif text-8xl text-white/[0.04] leading-none select-none pointer-events-none">
-                    &ldquo;
-                  </span>
-                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4 relative z-10">
-                    You will type this {task.required_repetitions}× without pasting
-                  </p>
-                  <p className="font-serif text-xl italic text-white/80 leading-snug relative z-10">
-                    {task.repetition_phrase}
-                  </p>
-                  <div className="mt-5 pt-4 border-t border-white/[0.06] flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
-                    <p className="text-xs text-white/30">
-                      {task.required_repetitions} repetitions · paste disabled · auto-approved on completion
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* SUBMISSION: The Confession Prompt */}
-              {task.task_type === 'SUBMISSION' && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4">
-                    Your declaration
-                  </p>
-                  <p className="font-serif text-lg text-white/60 leading-relaxed italic">
-                    {task.instructions || 'Write your personal declaration for review.'}
-                  </p>
-                  <div className="mt-5 pt-4 border-t border-white/[0.06]">
-                    <p className="text-xs text-white/30">
-                      Reviewed personally by {domName} · paste disabled
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* EVIDENCE: The Challenge Card */}
-              {task.task_type === 'EVIDENCE' && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-                  <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/30 mb-4">
-                    Prove it
-                  </p>
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 text-white/40">
-                      {meta.icon}
-                    </div>
-                    <div>
-                      <p className="font-serif text-lg text-white/80 leading-snug">
-                        {task.instructions || 'Upload photo evidence of your devotion.'}
-                      </p>
-                      <p className="text-xs text-white/30 mt-2">
-                        {domName} reviews all evidence before approving.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* CONTENT: preview (locked) or player (unlocked) */}
-              {task.task_type === 'CONTENT' && (() => {
-                const asset = task.media_asset
-                const isVideo = asset?.type === 'VIDEO'
-
-                // ── Unlocked: show playable content via secure API URL ──
-                if (isUnlocked) {
-                  if (!secureMediaUrl) {
-                    return (
-                      <div className="rounded-2xl overflow-hidden flex items-center justify-center py-12">
-                        <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-                      </div>
-                    )
-                  }
-                  if (secureMediaUrl.embed) {
-                    return (
-                      <div className="-mx-6 overflow-hidden" style={{ aspectRatio: '9/16' }}>
-                        <iframe
-                          src={secureMediaUrl.url}
-                          className="w-full h-full"
-                          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
-                          allowFullScreen
-                        />
-                      </div>
-                    )
-                  }
-                  return (
-                    <div className="rounded-2xl overflow-hidden flex items-center justify-center bg-black" style={{ maxHeight: 'calc(100vh - 160px)' }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={secureMediaUrl.url}
-                        alt={task.title}
-                        className="w-full h-full object-contain"
-                        style={{ maxHeight: 'calc(100vh - 160px)' }}
-                      />
-                    </div>
-                  )
-                }
-
-                // ── Locked: blurred preview ──
-                const previewPath = isVideo
-                  ? (task.cover_image_url || asset?.bunny_preview_url || asset?.thumbnail_url || null)
-                  : (asset?.bunny_preview_url || asset?.thumbnail_url || task.cover_image_url || null)
-                const previewUrl = previewPath ? getBunnyStorageUrl(previewPath) : null
-                // Server-side blur: append ?blur= so the proxy returns a blurred image.
-                // This prevents the unblurred URL from ever appearing in page source.
-                const blurredPreviewUrl = previewUrl ? `${previewUrl}?blur=20` : null
-
-                return (
-                  <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
-                    {blurredPreviewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={blurredPreviewUrl}
-                        alt="Locked content preview"
-                        className="absolute inset-0 w-full h-full object-cover"
-                        style={{ filter: 'brightness(0.55)' }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-gray-800" />
-                    )}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/10">
-                        {isVideo ? (
-                          <svg className="w-6 h-6 text-white/60" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        ) : (
-                          <svg className="w-6 h-6 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                          </svg>
-                        )}
-                      </div>
-                      <p className="font-serif text-white/80 text-base drop-shadow-lg">
-                        {isVideo ? 'Unlock this video' : 'Unlock this photo'}
-                      </p>
-                      <p className="text-xs text-white/40">Access granted instantly on payment.</p>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-
-
-            {/* ── Section 6: Your devotion earns (sub, published tasks only, not yet unlocked) ── */}
-            {!isOwner && task.status === 'PUBLISHED' && !isUnlocked && (
-              <div className="px-6 pb-8">
-                <p className="font-sans text-xs tracking-[0.15em] uppercase text-white/25 mb-4">
-                  Your devotion earns
-                </p>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
-                    <p className="font-sans text-sm text-white/50">Unlock this exclusive content instantly</p>
-                  </div>
-                  {task.points > 0 && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-0.5 h-4 rounded-full bg-gold shrink-0" />
-                      <p className="font-sans text-sm text-white/50">
-                        Earn <span className="text-gold font-medium">{task.points} devotion points</span> toward VIP chat access
-                      </p>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
-                    <p className="font-sans text-sm text-white/50">
-                      Build your standing with {domName}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-0.5 h-4 rounded-full bg-white/20 shrink-0" />
-                    <p className="font-sans text-sm text-white/50">Permanent access in your collection</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-
-        ) : (
-
-          /* ── Edit mode: consolidated block ── */
           <div ref={editBlockRef} className="max-w-[612px] mx-auto px-4 mt-6">
             <div className="bg-gray-950/90 border border-gray-800 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2 mb-1">
@@ -753,53 +438,257 @@ export default function TaskDetailClient({
               </div>
             </div>
           </div>
+        </div>
 
+        {/* Edit mode bottom bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)]">
+          <div className="h-16 bg-gradient-to-t from-black to-transparent pointer-events-none" />
+          <div className="bg-black px-4 pb-4 pt-1">
+            <div className="max-w-[612px] mx-auto flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-3.5 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? 'Saving…' : 'Save changes'}
+              </button>
+              <button
+                onClick={handleDiscard}
+                disabled={saving}
+                className="px-5 py-3.5 rounded-2xl border border-gray-700 text-gray-300 font-semibold text-sm hover:border-gray-500 transition-colors"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // ── Main render: two-column layout ────────────────────────────────────────
+  return (
+    <>
+      {showAuth && <AuthPromptModal onClose={() => setShowAuth(false)} taskId={task.id} />}
+
+      <div className="min-h-screen bg-black text-white pb-24 lg:pb-8">
+
+        {/* ── Navbar: shown only for logged-out users and dom owners (subs get SubBottomNav) ── */}
+        {resolved && (!profile || isOwner) && (
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+            {dom.handle ? (
+              <Link
+                href={isOwner ? '/dashboard/tasks' : `/${dom.handle}`}
+                className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                {isOwner ? 'My tasks' : 'Back'}
+              </Link>
+            ) : <div />}
+
+            <div className="flex items-center gap-2">
+              {isOwner && task.status !== 'PUBLISHED' && (
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 border border-yellow-500/40 text-yellow-400">
+                  {task.status === 'DRAFT' ? 'Draft' : 'Archived'}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 text-xs font-medium text-white/40 px-2.5 py-1.5 rounded-full border border-white/10">
+                {meta.icon}
+                {meta.label}
+              </span>
+              {!profile && (
+                <Link
+                  href={`/signup?next=/task/${task.id}`}
+                  className="ml-1 px-4 py-1.5 rounded-full bg-white text-black text-sm font-semibold hover:bg-gray-100 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              )}
+            </div>
+          </div>
         )}
+
+        {/* ── Page header: full width above two columns ── */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 mb-6">
+          {/* Back link (sub view, mobile only — desktop has nav) */}
+          {!isOwner && !!profile && dom.handle && (
+            <Link
+              href={`/${dom.handle}`}
+              className="inline-flex items-center gap-1.5 text-sm text-white/40 hover:text-white transition-colors mb-4 lg:hidden"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </Link>
+          )}
+
+          {/* Task title + dom name */}
+          <div>
+            {task.task_type !== 'CONTENT' && (
+              <p className="font-serif italic text-sm mb-3 leading-relaxed text-gold">
+                {meta.flavour}
+              </p>
+            )}
+            <h1
+              className="font-serif font-medium leading-tight text-white mb-2"
+              style={{ fontSize: 'clamp(1.75rem, 5vw, 2.75rem)' }}
+            >
+              {task.title}
+            </h1>
+            <Link
+              href={dom.handle ? `/${dom.handle}` : '#'}
+              className="inline-flex items-center gap-2 text-white/50 hover:text-white/70 transition-colors"
+            >
+              <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 ring-1 ring-gold/30">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt={domName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gray-900 flex items-center justify-center font-serif text-xs text-white/40">
+                    {domName[0].toUpperCase()}
+                  </div>
+                )}
+              </div>
+              <span className="text-sm font-medium">by {domName}</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Two-column layout ── */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_420px] lg:gap-8">
+
+          {/* ── LEFT COLUMN: visual content ── */}
+          <div className="min-w-0">
+            {/* Unavailable notice for non-owners on non-published tasks */}
+            {!isOwner && task.status !== 'PUBLISHED' && (
+              <div className="mb-6">
+                <div className="bg-gray-950 border border-gray-800 rounded-2xl p-6 text-center">
+                  <p className="text-gray-400 text-sm">This task is not currently available.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Task-type visual block */}
+            <div className="mb-8">
+              <TaskVisualBlock
+                taskType={task.task_type}
+                title={task.title}
+                repetitionPhrase={task.repetition_phrase}
+                requiredRepetitions={task.required_repetitions}
+                instructions={task.instructions}
+                domName={domName}
+                coverImageUrl={task.cover_image_url}
+                mediaAsset={task.media_asset}
+                isUnlocked={isUnlocked}
+                secureMediaUrl={secureMediaUrl}
+                meta={meta}
+              />
+            </div>
+
+          </div>
+
+          {/* ── RIGHT COLUMN: CTA + progress + about + dom card ── */}
+          <div className="lg:sticky lg:top-6 lg:self-start space-y-5 mt-8 lg:mt-0">
+
+            {/* 1. CTA button (desktop — inline; mobile uses fixed bottom bar) */}
+            {showSubCta && (
+              <button
+                onClick={handleAccept}
+                disabled={!resolved || submitting}
+                className="hidden lg:block w-full py-4 rounded-2xl font-sans font-semibold text-base bg-white text-black hover:bg-gray-100 animate-gold-pulse disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {submitting ? 'Processing…' : ctaCopy}
+              </button>
+            )}
+
+            {/* Dom edit button (desktop) */}
+            {isOwner && (
+              <button
+                onClick={handleEditStart}
+                className="hidden lg:block w-full py-3.5 rounded-2xl border border-gray-700 text-white font-semibold text-sm hover:border-gray-500 transition-colors"
+              >
+                Edit task
+              </button>
+            )}
+
+            {/* 2. Description */}
+            {task.description && (
+              <div>
+                <p className="font-sans font-semibold text-white mb-4">{task.title}</p>
+                <p className="font-sans text-xs font-semibold text-white/30 mb-1.5">Item Description</p>
+                <p className="font-sans text-sm text-white/60 leading-relaxed whitespace-pre-wrap">{task.description}</p>
+              </div>
+            )}
+
+            {/* 3. Points badge */}
+            {!isOwner && task.points > 0 && task.status === 'PUBLISHED' && !isUnlocked && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gold/[0.06] border border-gold/15">
+                <span className="text-2xl">💎</span>
+                <div>
+                  <p className="text-sm font-semibold text-gold">+{task.points} points</p>
+                  <p className="text-xs text-white/40">Earn toward VIP chat access</p>
+                </div>
+              </div>
+            )}
+
+            {/* 3. Chat Access Progress card */}
+            {!isOwner && task.status === 'PUBLISHED' && !isUnlocked && (
+              <ChatProgressCard
+                domId={dom.id}
+                domName={domName}
+                taskPoints={task.points}
+                isAuthenticated={!!profile}
+              />
+            )}
+
+            {/* 4. Instructions */}
+            {task.instructions && task.instructions !== task.description && (
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+                <p className="font-sans text-xs font-semibold tracking-[0.15em] uppercase text-white/30">
+                  Instructions
+                </p>
+                <p className="font-sans text-sm text-white/70 leading-relaxed whitespace-pre-wrap">
+                  {task.instructions}
+                </p>
+              </div>
+            )}
+
+            {/* 5. Dom profile card */}
+            <DomCard
+              id={dom.id}
+              displayName={dom.display_name}
+              handle={dom.handle}
+              tagline={dom.tagline}
+              profilePictureUrl={dom.profile_picture_url}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* ── Fixed bottom CTA bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)]">
-        {/* Gradient fade above bar */}
+      {/* ── Fixed bottom CTA bar (mobile only for subs, always for dom owner) ── */}
+      <div className={`fixed bottom-0 left-0 right-0 z-40 pb-[env(safe-area-inset-bottom)] ${showSubCta ? 'lg:hidden' : ''}`}>
         <div className="h-16 bg-gradient-to-t from-black to-transparent pointer-events-none" />
         <div className="bg-black px-4 pb-4 pt-1">
           <div className="max-w-[612px] mx-auto space-y-2">
-
             {isOwner ? (
-              editing ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="flex-1 py-3.5 rounded-2xl bg-white text-black font-bold text-sm hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {saving ? 'Saving…' : 'Save changes'}
-                  </button>
-                  <button
-                    onClick={handleDiscard}
-                    disabled={saving}
-                    className="px-5 py-3.5 rounded-2xl border border-gray-700 text-gray-300 font-semibold text-sm hover:border-gray-500 transition-colors"
-                  >
-                    Discard
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={handleEditStart}
-                  className="w-full py-3.5 rounded-2xl border border-gray-700 text-white font-semibold text-sm hover:border-gray-500 transition-colors"
-                >
-                  Edit task
-                </button>
-              )
-            ) : task.status === 'PUBLISHED' && !isUnlocked ? (
+              <button
+                onClick={handleEditStart}
+                className="w-full py-3.5 rounded-2xl border border-gray-700 text-white font-semibold text-sm hover:border-gray-500 transition-colors lg:hidden"
+              >
+                Edit task
+              </button>
+            ) : showSubCta ? (
               <button
                 onClick={handleAccept}
                 disabled={!resolved || submitting}
                 className="w-full py-4 rounded-2xl font-sans font-semibold text-base bg-white text-black hover:bg-gray-100 animate-gold-pulse disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {submitting ? 'Processing…' : `Buy Now${task.price_usdc != null ? ` $${task.price_usdc} USDC` : ''}`}
+                {submitting ? 'Processing…' : ctaCopy}
               </button>
             ) : null}
-
           </div>
         </div>
       </div>

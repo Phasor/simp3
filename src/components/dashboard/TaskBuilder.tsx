@@ -392,19 +392,17 @@ export default function TaskBuilder({ onClose, onCreated, editTask }: Props) {
                 />
               </div>
 
-              {taskType !== 'CONTENT' && (
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">Description</label>
-                  <textarea
-                    value={description}
-                    onChange={e => setDescription(e.target.value)}
-                    placeholder="What subs see on your profile"
-                    rows={2}
-                    maxLength={300}
-                    className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-none"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Description</label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Selling pitch shown to subs on the task page"
+                  rows={2}
+                  maxLength={300}
+                  className="w-full px-3 py-2.5 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm placeholder-gray-600 focus:outline-none focus:border-gray-600 resize-none"
+                />
+              </div>
 
               {taskType !== 'CONTENT' && (
                 <div>

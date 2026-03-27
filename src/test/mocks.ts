@@ -90,7 +90,7 @@ export function mockQueryBuilder(resolvedData: unknown = null, resolvedError: un
 
   // Make the builder itself thenable (for queries without .single())
   const promise = Promise.resolve({ data: Array.isArray(resolvedData) ? resolvedData : resolvedData ? [resolvedData] : [], error: resolvedError });
-  builder[Symbol.for('nodejs.util.inspect.custom')] = () => 'MockQueryBuilder';
+  (builder as Record<symbol, unknown>)[Symbol.for('nodejs.util.inspect.custom')] = () => 'MockQueryBuilder';
 
   return Object.assign(promise, builder);
 }

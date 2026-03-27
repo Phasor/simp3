@@ -86,7 +86,12 @@ export default async function DomProfilePage({ params }: Props) {
     <DomProfileClient
       dom={dom}
       tasks={tasks ?? []}
-      contentTasks={contentTasks ?? []}
+      contentTasks={(contentTasks ?? []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        price_usdc: t.price_usdc,
+        media_asset: Array.isArray(t.media_asset) ? t.media_asset[0] ?? null : t.media_asset ?? null,
+      }))}
       groupTier={groupTier ?? null}
       privateTier={privateTier ?? null}
       followerCount={followerCount ?? 0}
