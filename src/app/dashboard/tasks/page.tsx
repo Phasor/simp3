@@ -108,6 +108,21 @@ export default function DashboardTasksPage() {
     fetchData()
   }
 
+  async function handleTogglePublish(taskId: string, currentStatus: TaskStatus) {
+    const newStatus = currentStatus === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+    const res = await fetch('/api/task/update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ taskId, status: newStatus }),
+    })
+    if (!res.ok) {
+      toast.error('Failed to update task status')
+      return
+    }
+    toast.success(newStatus === 'PUBLISHED' ? 'Task published' : 'Task unpublished')
+    fetchData()
+  }
+
   const published = tasks.filter(t => t.status === 'PUBLISHED')
   const drafts = tasks.filter(t => t.status === 'DRAFT')
   const archived = tasks.filter(t => t.status === 'ARCHIVED')
@@ -162,6 +177,7 @@ export default function DashboardTasksPage() {
               tasks={published}
               onEdit={setEditTask}
               onArchive={handleArchive}
+              onTogglePublish={handleTogglePublish}
               emptyText="No published tasks yet."
             />
             {/* Drafts */}
@@ -171,6 +187,7 @@ export default function DashboardTasksPage() {
                 tasks={drafts}
                 onEdit={setEditTask}
                 onArchive={handleArchive}
+                onTogglePublish={handleTogglePublish}
               />
             )}
             {/* Archived */}
@@ -180,6 +197,7 @@ export default function DashboardTasksPage() {
                 tasks={archived}
                 onEdit={setEditTask}
                 onArchive={handleArchive}
+                onTogglePublish={handleTogglePublish}
                 muted
               />
             )}
@@ -329,6 +347,7 @@ function TaskSection({
   tasks,
   onEdit,
   onArchive,
+  onTogglePublish,
   emptyText,
   muted = false,
 }: {
@@ -336,6 +355,7 @@ function TaskSection({
   tasks: Task[]
   onEdit: (task: Task) => void
   onArchive: (id: string) => void
+  onTogglePublish: (id: string, status: TaskStatus) => void
   emptyText?: string
   muted?: boolean
 }) {
@@ -379,6 +399,21 @@ function TaskSection({
                       {task.points ? ` · ${task.points} pts` : ''}
                     </div>
                   </div>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      onTogglePublish(task.id, task.status)
+                    }}
+                    className="shrink-0"
+                    title={task.status === 'PUBLISHED' ? 'Unpublish task' : 'Publish task'}
+                  >
+                    <div className={`relative w-[72px] h-7 rounded-full transition-colors flex items-center ${task.status === 'PUBLISHED' ? 'bg-green-500' : 'bg-gray-700'}`}>
+                      <span className={`absolute text-[10px] font-medium ${task.status === 'PUBLISHED' ? 'left-2.5 text-white' : 'right-2.5 text-gray-400'}`}>
+                        {task.status === 'PUBLISHED' ? 'Live' : 'Draft'}
+                      </span>
+                      <div className={`absolute top-[4px] w-5 h-5 rounded-full bg-white transition-all ${task.status === 'PUBLISHED' ? 'left-[48px]' : 'left-[4px]'}`} />
+                    </div>
+                  </button>
                   <button
                     onClick={e => {
                       e.stopPropagation()
