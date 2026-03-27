@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +38,15 @@ export async function GET(
       );
     }
 
+    // Use admin client for DB queries — bypasses RLS, no auth timing issues
+    // (matches the pattern in /api/chat/send)
+    const admin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // Get user's profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await admin
       .from('profiles')
       .select('id, user_type')
       .eq('auth_user_id', user.id)
@@ -69,9 +77,8 @@ export async function GET(
         ? new Date(beforeRaw).toISOString()
         : undefined;
 
-    // Use simple creator_id + fan_id query (reliable and works with RLS)
-    // This is more reliable than depending on conversation_id function
-    let query = supabase
+    // Use admin client for message query — bypasses RLS to avoid stale JWT issues
+    let query = admin
       .from('chat_messages')
       .select('*')
       .eq('creator_id', creatorId)

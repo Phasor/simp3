@@ -114,13 +114,12 @@ export function ChatThread({
     fanId,
     currentUserId: currentProfileId,
     accessStatus,
+    isCreator,
     conversationId: conversationId || undefined,
     usePostgresChanges: true,
     onNewMessage: useCallback((newMessage: ChatMessage) => {
-      if (!conversationId) {
-        const messageConversationId = `${newMessage.creator_id}|${newMessage.fan_id}`;
-        setConversationId(messageConversationId);
-      }
+      // Do NOT set conversationId here — it's managed by the useEffect hooks below.
+      // Using a different format here (pipe vs underscore) caused channel reconnection storms.
       setMessages(prev => {
         if (prev.some(msg => msg.id === newMessage.id)) return prev;
         const last = prev[prev.length - 1];
@@ -132,13 +131,13 @@ export function ChatThread({
         );
         return updated;
       });
-    }, [conversationId]),
+    }, []),
     onConnectionChange: useCallback((isConnected: boolean) => {
       if (isConnected) {
         // Always backfill on (re)connect to recover any messages missed during
         // connection gaps. setMessages uses a functional merge so duplicates are
         // discarded — safe to call even if loadMessages already ran.
-        fetchMessages(creatorId, fanId, { limit: 50 })
+        fetchMessages(creatorId, fanId, { limit: 20 })
           .then(response => {
             if (response.messages.length > 0) {
               setMessages(prev => {
@@ -204,8 +203,7 @@ export function ChatThread({
     if (!conversationId && messages.length > 0) {
       const firstMessage = messages[0];
       if (firstMessage) {
-        const messageConversationId = `${firstMessage.creator_id}|${firstMessage.fan_id}`;
-        setConversationId(messageConversationId);
+        setConversationId(generateConversationId(firstMessage.creator_id, firstMessage.fan_id));
       }
     }
   }, [messages, conversationId]);
@@ -215,6 +213,26 @@ export function ChatThread({
       setConversationId(generateConversationId(creatorId, fanId));
     }
   }, [conversationId, creatorId, fanId, authReady]);
+
+  // Safety-net poll: catches messages missed during JWT transitions or realtime gaps
+  useEffect(() => {
+    if (!creatorId || !fanId) return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetchMessages(creatorId, fanId, { limit: 10 });
+        setMessages(prev => {
+          const newMsgs = response.messages.filter(m => !prev.some(p => p.id === m.id));
+          if (newMsgs.length === 0) return prev;
+          return [...prev, ...newMsgs].sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          );
+        });
+      } catch {
+        // Silently ignore poll failures — realtime is the primary path
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [creatorId, fanId]);
 
   // FIRST PAINT: double rAF to ensure layout is settled (prevents short-scroll under footer)
   useLayoutEffect(() => {
@@ -251,7 +269,7 @@ export function ChatThread({
   }, [stickToBottom, scrollToBottom]);
 
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!currentProfileId || !accessStatus?.hasAccess) return;
+    if (!currentProfileId || (!isCreator && !accessStatus?.hasAccess)) return;
     setStickToBottom(true); // sending implies we want to be pinned
 
     let optimisticMessage: ChatMessage | null = null;
@@ -270,8 +288,7 @@ export function ChatThread({
 
       if (result.success && result.message) {
         if (!conversationId) {
-          const messageConversationId = `${result.message.creator_id}|${result.message.fan_id}`;
-          setConversationId(messageConversationId);
+          setConversationId(generateConversationId(result.message.creator_id, result.message.fan_id));
         }
         setMessages(prev => {
           const withoutServerDupes = prev.filter(m => m.id !== result.message!.id);
@@ -291,7 +308,7 @@ export function ChatThread({
     }
   }, [currentProfile, accessStatus, creatorId, fanId, conversationId]);
 
-  const canSendMessages = accessStatus?.hasAccess && !accessLoading && authReady;
+  const canSendMessages = (isCreator || accessStatus?.hasAccess) && !accessLoading && authReady;
   const showAccessWarning = !accessLoading && !accessStatus?.hasAccess;
 
   if (!authReady) {
