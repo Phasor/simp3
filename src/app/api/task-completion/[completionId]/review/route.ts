@@ -25,7 +25,7 @@ export async function PATCH(req: Request, { params }: Params) {
   // Verify the completion is on a task owned by this dom
   const { data: completion } = await supabase
     .from('task_completions')
-    .select('id, status, task_id, tasks!inner(creator_id)')
+    .select('id, status, task_id, fan_id, tasks!inner(creator_id)')
     .eq('id', completionId)
     .maybeSingle()
 
@@ -56,7 +56,14 @@ export async function PATCH(req: Request, { params }: Params) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Note: recalculate_tribute_score() fires automatically via DB trigger on APPROVED
+  // recalculate_tribute_score() fires automatically via DB trigger on APPROVED
+  // Instant VIP qualification check (fire-and-forget — don't block the response)
+  if (action === 'approve') {
+    supabase.rpc('check_fan_vip_qualification', {
+      p_fan_id: completion.fan_id,
+      p_dom_id: profile.id,
+    }).then(({ error }) => { if (error) console.error('VIP qualification check failed:', error) })
+  }
 
   return NextResponse.json({ ok: true })
 }

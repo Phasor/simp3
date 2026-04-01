@@ -24,10 +24,12 @@ export default function DashboardSettingsPage() {
   const [groupEnabled, setGroupEnabled] = useState(false)
   const [groupThresholdType, setGroupThresholdType] = useState<'TOP_PERCENT' | 'TOP_N'>('TOP_PERCENT')
   const [groupValue, setGroupValue] = useState('')
+  const [groupMinSpend, setGroupMinSpend] = useState('')
 
   // VVIP (PRIVATE) tier
   const [privateEnabled, setPrivateEnabled] = useState(false)
   const [privateValue, setPrivateValue] = useState('')
+  const [privateMinSpend, setPrivateMinSpend] = useState('')
 
   // Profile fields
   const [displayName, setDisplayName] = useState('')
@@ -68,10 +70,12 @@ export default function DashboardSettingsPage() {
           setGroupEnabled(true)
           setGroupThresholdType(t.threshold_type)
           setGroupValue(String(t.threshold_value))
+          setGroupMinSpend(t.min_spend_usdc ? String(t.min_spend_usdc) : '')
         }
         if (t.tier_type === 'PRIVATE') {
           setPrivateEnabled(true)
           setPrivateValue(String(t.threshold_value))
+          setPrivateMinSpend(t.min_spend_usdc ? String(t.min_spend_usdc) : '')
         }
       }
     } catch (err) {
@@ -83,13 +87,15 @@ export default function DashboardSettingsPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  async function saveTier(tierType: 'GROUP' | 'PRIVATE', thresholdType: 'TOP_PERCENT' | 'TOP_N', value: string) {
+  async function saveTier(tierType: 'GROUP' | 'PRIVATE', thresholdType: 'TOP_PERCENT' | 'TOP_N', value: string, minSpend: string) {
     const num = parseFloat(value)
     if (isNaN(num) || num <= 0) { toast.error('Enter a valid number'); return false }
+    const minSpendNum = minSpend ? parseFloat(minSpend) : 0
+    if (isNaN(minSpendNum) || minSpendNum < 0) { toast.error('Min spend must be 0 or more'); return false }
     const res = await fetch('/api/vip/tiers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tier_type: tierType, threshold_type: thresholdType, threshold_value: num }),
+      body: JSON.stringify({ tier_type: tierType, threshold_type: thresholdType, threshold_value: num, min_spend_usdc: minSpendNum }),
     })
     return res.ok
   }
@@ -166,8 +172,8 @@ export default function DashboardSettingsPage() {
 
       // Save tiers
       const results = await Promise.all([
-        groupEnabled ? saveTier('GROUP', groupThresholdType, groupValue) : Promise.resolve(true),
-        privateEnabled ? saveTier('PRIVATE', 'TOP_N', privateValue) : Promise.resolve(true),
+        groupEnabled ? saveTier('GROUP', groupThresholdType, groupValue, groupMinSpend) : Promise.resolve(true),
+        privateEnabled ? saveTier('PRIVATE', 'TOP_N', privateValue, privateMinSpend) : Promise.resolve(true),
       ])
 
       if (results.every(Boolean)) {
@@ -326,18 +332,36 @@ export default function DashboardSettingsPage() {
 
             {groupEnabled && (
               <div className="space-y-3 pl-1">
-                <div className="flex gap-2">
-                  {(['TOP_PERCENT', 'TOP_N'] as const).map(t => (
-                    <button
-                      key={t}
-                      onClick={() => setGroupThresholdType(t)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        groupThresholdType === t ? 'bg-white text-black' : 'bg-gray-900 border border-gray-800 text-gray-400 hover:border-gray-600'
-                      }`}
-                    >
-                      {t === 'TOP_PERCENT' ? 'Top %' : 'Top N'}
-                    </button>
-                  ))}
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Minimum spend (USDC, last 30 days)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={groupMinSpend}
+                      onChange={e => setGroupMinSpend(e.target.value)}
+                      min={0}
+                      step="0.01"
+                      placeholder="e.g. 50"
+                      className="w-28 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-400">USDC</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Ranking filter</label>
+                  <div className="flex gap-2">
+                    {(['TOP_PERCENT', 'TOP_N'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => setGroupThresholdType(t)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                          groupThresholdType === t ? 'bg-white text-black' : 'bg-gray-900 border border-gray-800 text-gray-400 hover:border-gray-600'
+                        }`}
+                      >
+                        {t === 'TOP_PERCENT' ? 'Top %' : 'Top N'}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
@@ -373,7 +397,22 @@ export default function DashboardSettingsPage() {
             </div>
 
             {privateEnabled && (
-              <div className="space-y-2 pl-1">
+              <div className="space-y-3 pl-1">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Minimum spend (USDC, last 30 days)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={privateMinSpend}
+                      onChange={e => setPrivateMinSpend(e.target.value)}
+                      min={0}
+                      step="0.01"
+                      placeholder="e.g. 100"
+                      className="w-28 px-3 py-2 bg-gray-900 border border-gray-800 rounded-lg text-white text-sm focus:outline-none focus:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-400">USDC</span>
+                  </div>
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
@@ -403,7 +442,7 @@ export default function DashboardSettingsPage() {
           >
             {recalculating ? 'Recalculating…' : 'Recalculate VIP access now'}
           </button>
-          <p className="text-xs text-gray-600">Access recalculates automatically on the 1st of each month.</p>
+          <p className="text-xs text-gray-600">Access recalculates daily based on rolling 30-day activity.</p>
         </Section>
 
       </div>

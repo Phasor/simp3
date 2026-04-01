@@ -19,7 +19,7 @@ interface Props {
 export async function GET(_req: Request, { params }: Props) {
   const { domId } = await params
 
-  // Get authenticated user (optional — unauthenticated users get fanScore: 0)
+  // Get authenticated user (optional — unauthenticated users get fanSpend: 0)
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -34,50 +34,39 @@ export async function GET(_req: Request, { params }: Props) {
   }
 
   const admin = getAdmin()
-  const now = new Date()
-  const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
 
   // Run all queries in parallel
-  const [tierResult, fanScoreResult, allScoresResult, accessCountResult, hasAccessResult] = await Promise.all([
+  const [tierResult, fanSpendResult, allSpendsResult, accessCountResult, hasAccessResult] = await Promise.all([
     // 1. Get dom's GROUP tier config
     admin
       .from('vip_tiers')
-      .select('threshold_type, threshold_value')
+      .select('threshold_type, threshold_value, min_spend_usdc')
       .eq('dom_id', domId)
       .eq('tier_type', 'GROUP')
       .maybeSingle(),
 
-    // 2. Get fan's tribute score for this dom this month
+    // 2. Get fan's 30-day spend with this dom
     fanProfileId
-      ? admin
-          .from('tribute_scores')
-          .select('total_score')
-          .eq('fan_id', fanProfileId)
-          .eq('dom_id', domId)
-          .eq('month_year', monthYear)
-          .maybeSingle()
+      ? admin.rpc('get_fan_30d_spend_raw', { p_fan_id: fanProfileId, p_dom_id: domId }).then(r => r)
       : Promise.resolve({ data: null }),
 
-    // 3. Get all scores for this dom this month (ordered DESC) for cutoff calculation
-    admin
-      .from('tribute_scores')
-      .select('total_score')
-      .eq('dom_id', domId)
-      .eq('month_year', monthYear)
-      .order('total_score', { ascending: false }),
+    // 3. Get all fans' 30-day spends for ranking
+    admin.rpc('get_dom_fan_spends_30d_raw', { p_dom_id: domId }).then(r => r),
 
     // 4. Count fans with active chat access for this dom
     admin
       .from('chat_access')
       .select('id', { count: 'exact', head: true })
       .eq('creator_id', domId)
-      .eq('state', 'granted'),
+      .eq('state', 'granted')
+      .gt('access_until', new Date().toISOString()),
 
-    // 5. Check if fan already has access
+    // 5. Check if fan already has access (must be granted AND not expired)
     fanProfileId
       ? admin
           .from('chat_access')
-          .select('id')
+          .select('id, access_until')
           .eq('fan_id', fanProfileId)
           .eq('creator_id', domId)
           .eq('state', 'granted')
@@ -91,36 +80,79 @@ export async function GET(_req: Request, { params }: Props) {
   }
 
   const tier = tierResult.data
-  const fanScore = fanScoreResult.data?.total_score ?? 0
-  const allScores = (allScoresResult.data ?? []).map((s: { total_score: number }) => s.total_score)
+  const minSpendUsdc = Number(tier.min_spend_usdc ?? 0)
   const fansWithAccess = accessCountResult.count ?? 0
-  const hasChatAccess = !!hasAccessResult.data
+  const accessRow = hasAccessResult.data as { id: string; access_until: string } | null
+  const hasChatAccess = !!accessRow && new Date(accessRow.access_until) > new Date()
 
-  // Calculate cutoff score based on threshold type
-  let cutoffScore = 100 // default minimum target when no fans exist yet
-  if (tier.threshold_type === 'TOP_N') {
-    const cutoffRank = Math.max(1, Math.floor(Number(tier.threshold_value)))
-    if (allScores.length >= cutoffRank) {
-      cutoffScore = allScores[cutoffRank - 1]
-    } else if (allScores.length > 0) {
-      // Fewer fans than slots — any score qualifies, but show a reasonable target
-      cutoffScore = Math.max(1, allScores[allScores.length - 1])
-    }
-  } else if (tier.threshold_type === 'TOP_PERCENT') {
-    const pct = Number(tier.threshold_value) / 100
-    const cutoffRank = Math.max(1, Math.floor(allScores.length * pct))
-    if (allScores.length > 0 && cutoffRank <= allScores.length) {
-      cutoffScore = allScores[cutoffRank - 1]
+  // Calculate fan's 30-day spend using direct query (RPC functions may not exist yet)
+  // Fallback: query task_completions directly
+  let fanSpend30d = 0
+  if (fanProfileId) {
+    if (fanSpendResult.data != null && typeof fanSpendResult.data === 'number') {
+      fanSpend30d = fanSpendResult.data
+    } else {
+      // Direct query fallback
+      const { data: rows } = await admin
+        .from('task_completions')
+        .select('amount_usdc, tasks!inner(creator_id)')
+        .eq('fan_id', fanProfileId)
+        .eq('tasks.creator_id', domId)
+        .eq('status', 'APPROVED')
+        .gte('reviewed_at', thirtyDaysAgo)
+      fanSpend30d = (rows ?? []).reduce((sum: number, r: { amount_usdc: number | null }) => sum + Number(r.amount_usdc ?? 0), 0)
     }
   }
 
-  // Ensure cutoff is at least 1 for the progress bar to make sense
-  cutoffScore = Math.max(cutoffScore, 1)
+  // Get all fans' 30-day spends for ranking calculation
+  let allSpends: number[] = []
+  if (allSpendsResult.data && Array.isArray(allSpendsResult.data)) {
+    allSpends = allSpendsResult.data
+      .filter((r: { spend_30d: number }) => r.spend_30d >= minSpendUsdc)
+      .map((r: { spend_30d: number }) => Number(r.spend_30d))
+      .sort((a: number, b: number) => b - a)
+  } else {
+    // Direct query fallback
+    const { data: rows } = await admin
+      .from('task_completions')
+      .select('fan_id, amount_usdc, tasks!inner(creator_id)')
+      .eq('tasks.creator_id', domId)
+      .eq('status', 'APPROVED')
+      .gte('reviewed_at', thirtyDaysAgo)
+
+    const spendByFan: Record<string, number> = {}
+    for (const r of rows ?? []) {
+      spendByFan[r.fan_id] = (spendByFan[r.fan_id] ?? 0) + Number(r.amount_usdc ?? 0)
+    }
+    allSpends = Object.values(spendByFan)
+      .filter(s => s >= minSpendUsdc)
+      .sort((a, b) => b - a)
+  }
+
+  const meetsMinSpend = fanSpend30d >= minSpendUsdc
+  const totalQualifying = allSpends.length
+
+  // Calculate the cutoff (how many fans get access)
+  let cutoffCount = 0
+  if (tier.threshold_type === 'TOP_PERCENT') {
+    cutoffCount = Math.max(1, Math.floor(totalQualifying * Number(tier.threshold_value) / 100))
+  } else {
+    cutoffCount = Number(tier.threshold_value)
+  }
+
+  // Fan's rank among qualifying fans (1-based, lower is better)
+  const fanRank = meetsMinSpend ? allSpends.filter(s => s > fanSpend30d).length + 1 : null
+  const meetsRanking = fanRank !== null && fanRank <= cutoffCount
 
   return NextResponse.json({
     hasGroupTier: true,
-    fanScore,
-    cutoffScore,
+    fanSpend30d,
+    minSpendUsdc,
+    meetsMinSpend,
+    fanRank,
+    cutoffCount,
+    totalQualifying,
+    meetsRanking,
     fansWithAccess,
     hasChatAccess,
   })

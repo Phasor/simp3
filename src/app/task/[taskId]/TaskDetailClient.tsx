@@ -639,7 +639,7 @@ export default function TaskDetailClient({
               <ChatProgressCard
                 domId={dom.id}
                 domName={domName}
-                taskPoints={task.points}
+                taskPriceUsdc={Number(task.price_usdc ?? 0)}
                 isAuthenticated={!!profile}
               />
             )}

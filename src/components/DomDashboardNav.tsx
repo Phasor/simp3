@@ -107,6 +107,9 @@ export default function DomDashboardNav() {
           </button>
           {dropdownOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-gray-950 border border-gray-800 rounded-xl shadow-xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-800">
+                <p className="text-xs text-gray-500 truncate">{profile?.email}</p>
+              </div>
               <Link
                 href="/dashboard/settings"
                 className="block px-4 py-3 text-sm text-gray-300 hover:text-white hover:bg-gray-900 transition-colors"

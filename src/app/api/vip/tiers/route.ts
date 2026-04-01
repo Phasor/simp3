@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const { tier_type, threshold_type, threshold_value } = await req.json()
+  const { tier_type, threshold_type, threshold_value, min_spend_usdc } = await req.json()
 
   if (!tier_type || !threshold_type || threshold_value == null) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
@@ -58,11 +58,21 @@ export async function POST(req: Request) {
   if (typeof threshold_value !== 'number' || threshold_value <= 0) {
     return NextResponse.json({ error: 'threshold_value must be a positive number' }, { status: 400 })
   }
+  if (min_spend_usdc != null && (typeof min_spend_usdc !== 'number' || min_spend_usdc < 0)) {
+    return NextResponse.json({ error: 'min_spend_usdc must be a non-negative number' }, { status: 400 })
+  }
 
   const { error } = await supabase
     .from('vip_tiers')
     .upsert(
-      { dom_id: profile.id, tier_type, threshold_type, threshold_value, updated_at: new Date().toISOString() },
+      {
+        dom_id: profile.id,
+        tier_type,
+        threshold_type,
+        threshold_value,
+        min_spend_usdc: min_spend_usdc ?? 0,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: 'dom_id,tier_type' }
     )
 

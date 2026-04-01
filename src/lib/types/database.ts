@@ -447,6 +447,7 @@ export interface Database {
           tier_type: 'GROUP' | 'PRIVATE'
           threshold_type: 'TOP_PERCENT' | 'TOP_N'
           threshold_value: number
+          min_spend_usdc: number
           reset_day: number | null
           created_at: string
           updated_at: string
@@ -457,6 +458,7 @@ export interface Database {
           tier_type: 'GROUP' | 'PRIVATE'
           threshold_type: 'TOP_PERCENT' | 'TOP_N'
           threshold_value: number
+          min_spend_usdc?: number
           reset_day?: number | null
           created_at?: string
           updated_at?: string
@@ -467,6 +469,7 @@ export interface Database {
           tier_type?: 'GROUP' | 'PRIVATE'
           threshold_type?: 'TOP_PERCENT' | 'TOP_N'
           threshold_value?: number
+          min_spend_usdc?: number
           reset_day?: number | null
           created_at?: string
           updated_at?: string

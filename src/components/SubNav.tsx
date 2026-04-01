@@ -124,6 +124,9 @@ export default function SubNav() {
 
           {dropdownOpen && (
             <div className="absolute right-0 top-9 w-44 bg-gray-950 border border-gray-800 rounded-xl shadow-xl overflow-hidden z-50">
+              <div className="px-4 py-3 border-b border-gray-800">
+                <p className="text-xs text-gray-500 truncate">{profile.email}</p>
+              </div>
               <Link
                 href="/profile"
                 onClick={() => setDropdownOpen(false)}

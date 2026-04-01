@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react'
 
 interface ChatProgressData {
   hasGroupTier: boolean
-  fanScore?: number
-  cutoffScore?: number
+  fanSpend30d?: number
+  minSpendUsdc?: number
+  meetsMinSpend?: boolean
+  fanRank?: number | null
+  cutoffCount?: number
+  totalQualifying?: number
+  meetsRanking?: boolean
   fansWithAccess?: number
   hasChatAccess?: boolean
 }
@@ -13,11 +18,11 @@ interface ChatProgressData {
 interface ChatProgressCardProps {
   domId: string
   domName: string
-  taskPoints: number
+  taskPriceUsdc: number
   isAuthenticated: boolean
 }
 
-export default function ChatProgressCard({ domId, domName, taskPoints, isAuthenticated }: ChatProgressCardProps) {
+export default function ChatProgressCard({ domId, domName, taskPriceUsdc, isAuthenticated }: ChatProgressCardProps) {
   const [data, setData] = useState<ChatProgressData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -41,8 +46,17 @@ export default function ChatProgressCard({ domId, domName, taskPoints, isAuthent
 
   if (!data?.hasGroupTier) return null
 
-  const { fanScore = 0, cutoffScore = 100, fansWithAccess = 0, hasChatAccess = false } = data
+  const {
+    fanSpend30d = 0,
+    minSpendUsdc = 0,
+    meetsMinSpend = false,
+    fanRank = null,
+    cutoffCount = 0,
+    fansWithAccess = 0,
+    hasChatAccess = false,
+  } = data
 
+  // Already has access
   if (hasChatAccess) {
     return (
       <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/20 p-5">
@@ -51,52 +65,69 @@ export default function ChatProgressCard({ domId, domName, taskPoints, isAuthent
           <p className="text-sm font-semibold text-emerald-400">Chat Access Active</p>
         </div>
         <p className="text-xs text-white/40">
-          You have VIP chat access with {domName}. Keep earning to maintain your rank.
+          You have VIP chat access with {domName}. Keep spending to maintain your rank.
         </p>
       </div>
     )
   }
 
-  const scoreAfterTask = fanScore + taskPoints
-  const progress = Math.min(scoreAfterTask / cutoffScore, 1)
-  const remaining = Math.max(0, cutoffScore - scoreAfterTask)
+  // Calculate progress toward min spend
+  const spendAfterTask = fanSpend30d + taskPriceUsdc
+  const spendProgress = minSpendUsdc > 0 ? Math.min(spendAfterTask / minSpendUsdc, 1) : 1
+  const spendRemaining = Math.max(0, minSpendUsdc - spendAfterTask)
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-white">Chat Access Progress</p>
-        {taskPoints > 0 && (
+        {taskPriceUsdc > 0 && (
           <span className="text-xs font-medium text-gold bg-gold/10 px-2 py-0.5 rounded-full">
-            +{taskPoints} pts
+            +${taskPriceUsdc} USDC
           </span>
         )}
       </div>
 
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${Math.max(progress * 100, 2)}%`,
-              background: 'linear-gradient(90deg, #ec4899, #8b5cf6)',
-            }}
-          />
+      {/* Progress bar — toward min spend */}
+      {minSpendUsdc > 0 && (
+        <div className="space-y-2">
+          <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.max(spendProgress * 100, 2)}%`,
+                background: meetsMinSpend
+                  ? 'linear-gradient(90deg, #10b981, #34d399)'
+                  : 'linear-gradient(90deg, #ec4899, #8b5cf6)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-white/30">
+            <span>${isAuthenticated ? spendAfterTask.toFixed(2) : '0.00'} spent</span>
+            <span>${minSpendUsdc} min</span>
+          </div>
         </div>
-        <div className="flex justify-between text-xs text-white/30">
-          <span>{isAuthenticated ? scoreAfterTask : 0} pts</span>
-          <span>{cutoffScore} pts</span>
-        </div>
-      </div>
+      )}
 
-      {/* Motivational text */}
+      {/* Status text */}
       <p className="text-sm text-white/50 leading-relaxed">
-        {remaining > 0
-          ? `${remaining} more points to chat 1-on-1 with ${domName} for 30 days`
-          : `You're close! Complete this task to reach chat access with ${domName}`
+        {!meetsMinSpend && spendRemaining > 0
+          ? `Spend $${spendRemaining.toFixed(2)} more with ${domName} to qualify for chat access`
+          : meetsMinSpend && fanRank !== null && fanRank <= cutoffCount
+            ? `You qualify! Complete this task to secure chat access with ${domName}`
+            : meetsMinSpend
+              ? `You meet the minimum spend. Spend more to climb the rankings and earn access`
+              : `Complete tasks with ${domName} to earn chat access`
         }
       </p>
+
+      {/* Ranking info */}
+      {meetsMinSpend && fanRank !== null && (
+        <p className="text-xs text-white/30 flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400" />
+          Your rank: #{fanRank} — top {cutoffCount} get access
+        </p>
+      )}
 
       {/* Social proof */}
       {fansWithAccess > 0 && (
