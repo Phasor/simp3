@@ -77,23 +77,17 @@ export async function GET(
     };
 
     if (accessRecord && accessRecord.state === 'granted') {
-      const accessUntil = new Date(accessRecord.access_until);
-      const now = new Date();
-      const isExpired = accessUntil < now;
-
-      if (!isExpired) {
-        const timeDiff = accessUntil.getTime() - now.getTime();
-        status = {
-          hasAccess: true,
-          accessUntil,
-          isExpired: false,
-          timeRemaining: timeDiff,
-          daysRemaining: Math.floor(timeDiff / (1000 * 60 * 60 * 24)),
-          hoursRemaining: Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutesRemaining: Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60)),
-          lastQualifyingPurchaseId: accessRecord.last_qualifying_purchase_id,
-        };
-      }
+      // Access is purely controlled by recalculate_vip_access — state='granted' means active
+      status = {
+        hasAccess: true,
+        accessUntil: null,
+        isExpired: false,
+        timeRemaining: null,
+        daysRemaining: null,
+        hoursRemaining: null,
+        minutesRemaining: null,
+        lastQualifyingPurchaseId: accessRecord.last_qualifying_purchase_id,
+      };
     }
 
     return NextResponse.json({ status, error: null }, {

@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
         .eq('fan_id', fanId)
         .eq('creator_id', creatorId)
         .eq('state', 'granted')
-        .gt('access_until', new Date().toISOString())
         .maybeSingle();
 
       if (!access) return NextResponse.json({ error: 'Fan does not have VIP access' }, { status: 403 });
@@ -62,7 +61,6 @@ export async function POST(req: NextRequest) {
         .eq('fan_id', fanId)
         .eq('creator_id', creatorId)
         .eq('state', 'granted')
-        .gt('access_until', new Date().toISOString())
         .maybeSingle();
 
       if (!access) return NextResponse.json({ error: 'No VIP access to this dom' }, { status: 403 });

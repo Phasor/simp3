@@ -59,8 +59,7 @@ export async function GET(_req: Request, { params }: Props) {
       .from('chat_access')
       .select('id', { count: 'exact', head: true })
       .eq('creator_id', domId)
-      .eq('state', 'granted')
-      .gt('access_until', new Date().toISOString()),
+      .eq('state', 'granted'),
 
     // 5. Check if fan already has access (must be granted AND not expired)
     fanProfileId
@@ -83,7 +82,7 @@ export async function GET(_req: Request, { params }: Props) {
   const minSpendUsdc = Number(tier.min_spend_usdc ?? 0)
   const fansWithAccess = accessCountResult.count ?? 0
   const accessRow = hasAccessResult.data as { id: string; access_until: string } | null
-  const hasChatAccess = !!accessRow && new Date(accessRow.access_until) > new Date()
+  const hasChatAccess = !!accessRow
 
   // Calculate fan's 30-day spend using direct query (RPC functions may not exist yet)
   // Fallback: query task_completions directly

@@ -161,31 +161,18 @@ export function calculateAccessStatus(accessRecord: ChatAccess | null): ChatAcce
     return createEmptyAccessStatus();
   }
 
-  const now = new Date();
-  const accessUntil = new Date(accessRecord.access_until);
-  const isExpired = now > accessUntil || accessRecord.state === 'expired';
-  const hasAccess = !isExpired && accessRecord.state === 'granted';
-
-  let timeRemaining: number | null = null;
-  let daysRemaining: number | null = null;
-  let hoursRemaining: number | null = null;
-  let minutesRemaining: number | null = null;
-
-  if (!isExpired) {
-    timeRemaining = Math.max(0, accessUntil.getTime() - now.getTime());
-    daysRemaining = Math.floor(timeRemaining / (1000 * 60 * 60 * 24));
-    hoursRemaining = Math.floor((timeRemaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    minutesRemaining = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-  }
+  // Access is purely controlled by recalculate_vip_access — state='granted' means active
+  const isExpired = accessRecord.state !== 'granted';
+  const hasAccess = accessRecord.state === 'granted';
 
   return {
     hasAccess,
-    accessUntil,
+    accessUntil: null,
     isExpired,
-    timeRemaining,
-    daysRemaining,
-    hoursRemaining,
-    minutesRemaining,
+    timeRemaining: null,
+    daysRemaining: null,
+    hoursRemaining: null,
+    minutesRemaining: null,
     lastQualifyingPurchaseId: accessRecord.last_qualifying_purchase_id
   };
 }

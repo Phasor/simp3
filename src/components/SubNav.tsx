@@ -128,6 +128,13 @@ export default function SubNav() {
                 <p className="text-xs text-gray-500 truncate">{profile.email}</p>
               </div>
               <Link
+                href="/purchases"
+                onClick={() => setDropdownOpen(false)}
+                className="block px-4 py-3 text-sm text-gray-300 hover:bg-gray-900 hover:text-white transition-colors"
+              >
+                My purchases
+              </Link>
+              <Link
                 href="/profile"
                 onClick={() => setDropdownOpen(false)}
                 className="block px-4 py-3 text-sm text-gray-300 hover:bg-gray-900 hover:text-white transition-colors"

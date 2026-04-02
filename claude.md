@@ -61,6 +61,7 @@ Dom creates a task → shares direct link to /task/[taskId] on X
 - **Email:** Resend
 - **Charts:** Recharts
 - **Styling:** Tailwind CSS, dark theme (`bg-black`, `bg-gray-950`, `border-gray-800`)
+- **Shell:** User runs PowerShell — give manual terminal instructions in PowerShell syntax (Bash tool uses Unix shell internally, that's fine)
 - **MCP:** Supabase MCP installed — use `mcp__supabase__execute_sql`, `mcp__supabase__list_tables`, `mcp__supabase__apply_migration` etc. for DB work instead of manual SQL files where possible
 
 ---

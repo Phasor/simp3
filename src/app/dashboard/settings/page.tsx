@@ -18,17 +18,18 @@ export default function DashboardSettingsPage() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [recalculating, setRecalculating] = useState(false)
 
   // VIP (GROUP) tier
   const [groupEnabled, setGroupEnabled] = useState(false)
   const [groupThresholdType, setGroupThresholdType] = useState<'TOP_PERCENT' | 'TOP_N'>('TOP_PERCENT')
   const [groupValue, setGroupValue] = useState('')
   const [groupMinSpend, setGroupMinSpend] = useState('')
+  const [groupQualifying, setGroupQualifying] = useState<number | null>(null)
 
   // VVIP (PRIVATE) tier
   const [privateEnabled, setPrivateEnabled] = useState(false)
   const [privateValue, setPrivateValue] = useState('')
+  const [privateQualifying, setPrivateQualifying] = useState<number | null>(null)
   const [privateMinSpend, setPrivateMinSpend] = useState('')
 
   // Profile fields
@@ -42,8 +43,6 @@ export default function DashboardSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
-  // Preview: live sub counts
-  const [subCount, setSubCount] = useState<number | null>(null)
 
   // Fetch all settings data from API (single source of truth)
   const fetchData = useCallback(async () => {
@@ -63,19 +62,20 @@ export default function DashboardSettingsPage() {
         setAvatarUrl(data.profile.profile_picture_url ?? null)
       }
 
-      setSubCount(data.subCount ?? 0)
-
+      const qc = data.qualifyingCounts ?? {}
       for (const t of data.tiers ?? []) {
         if (t.tier_type === 'GROUP') {
           setGroupEnabled(true)
           setGroupThresholdType(t.threshold_type)
           setGroupValue(String(t.threshold_value))
           setGroupMinSpend(t.min_spend_usdc ? String(t.min_spend_usdc) : '')
+          setGroupQualifying(qc.GROUP ?? 0)
         }
         if (t.tier_type === 'PRIVATE') {
           setPrivateEnabled(true)
           setPrivateValue(String(t.threshold_value))
           setPrivateMinSpend(t.min_spend_usdc ? String(t.min_spend_usdc) : '')
+          setPrivateQualifying(qc.PRIVATE ?? 0)
         }
       }
     } catch (err) {
@@ -177,7 +177,16 @@ export default function DashboardSettingsPage() {
       ])
 
       if (results.every(Boolean)) {
-        refreshProfile().catch(() => {}) // update AuthContext in background, non-blocking
+        refreshProfile().catch(() => {})
+        // Recalculate VIP access with new tier settings, then refresh counts
+        if (groupEnabled || privateEnabled) {
+          await fetch('/api/vip/recalculate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}',
+          }).catch(() => {})
+        }
+        fetchData()
         toast.success('Settings saved')
       } else {
         toast.error('Some settings failed to save')
@@ -190,32 +199,7 @@ export default function DashboardSettingsPage() {
     }
   }
 
-  async function handleRecalculate() {
-    setRecalculating(true)
-    try {
-      const res = await fetch('/api/vip/recalculate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
-      const data = await res.json()
-      if (res.ok) toast.success('VIP access recalculated')
-      else toast.error(data.error ?? 'Recalculation failed')
-    } finally {
-      setRecalculating(false)
-    }
-  }
 
-  // Preview calculation
-  function groupPreview() {
-    if (!groupEnabled || !groupValue || subCount === null) return null
-    const v = parseFloat(groupValue)
-    if (isNaN(v)) return null
-    if (groupThresholdType === 'TOP_PERCENT') return Math.max(1, Math.floor(subCount * v / 100))
-    return Math.min(Math.floor(v), subCount)
-  }
-  function privatePreview() {
-    if (!privateEnabled || !privateValue || subCount === null) return null
-    const v = parseInt(privateValue)
-    if (isNaN(v)) return null
-    return Math.min(v, subCount)
-  }
 
   if (loading) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
@@ -317,7 +301,7 @@ export default function DashboardSettingsPage() {
         {/* ── VIP Chat Tiers ── */}
         <Section title="VIP access tiers">
           <p className="text-xs text-gray-500 -mt-1 mb-2">
-            {subCount !== null ? `${subCount} subs in your Tribute Score table this month.` : ''}
+            Subs must meet both the minimum spend and ranking filter (rolling 30 days).
           </p>
 
           {/* GROUP tier */}
@@ -377,9 +361,9 @@ export default function DashboardSettingsPage() {
                     {groupThresholdType === 'TOP_PERCENT' ? '% of subs' : 'subs'}
                   </span>
                 </div>
-                {groupPreview() !== null && (
+                {groupQualifying !== null && (
                   <p className="text-xs text-gray-500">
-                    Currently qualifies: ~{groupPreview()} sub{groupPreview() !== 1 ? 's' : ''}
+                    {groupQualifying} sub{groupQualifying !== 1 ? 's' : ''} currently qualify — recalculates on save
                   </p>
                 )}
               </div>
@@ -425,24 +409,16 @@ export default function DashboardSettingsPage() {
                   />
                   <span className="text-sm text-gray-400">subs (top N only)</span>
                 </div>
-                {privatePreview() !== null && (
+                {privateQualifying !== null && (
                   <p className="text-xs text-gray-500">
-                    Currently qualifies: ~{privatePreview()} sub{privatePreview() !== 1 ? 's' : ''}
+                    {privateQualifying} sub{privateQualifying !== 1 ? 's' : ''} currently qualify — recalculates on save
                   </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Recalculate button */}
-          <button
-            onClick={handleRecalculate}
-            disabled={recalculating}
-            className="mt-4 w-full py-2.5 rounded-xl border border-gray-800 text-gray-400 text-sm hover:border-gray-600 hover:text-white disabled:opacity-50 transition-colors"
-          >
-            {recalculating ? 'Recalculating…' : 'Recalculate VIP access now'}
-          </button>
-          <p className="text-xs text-gray-600">Access recalculates daily based on rolling 30-day activity.</p>
+          <p className="text-xs text-gray-600 mt-2">VIP access recalculates on save and daily based on rolling 30-day activity.</p>
         </Section>
 
       </div>

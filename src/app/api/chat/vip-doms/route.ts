@@ -28,8 +28,7 @@ export async function GET() {
       .from('chat_access')
       .select('creator_id')
       .eq('fan_id', profile.id)
-      .eq('state', 'granted')
-      .gt('access_until', new Date().toISOString());
+      .eq('state', 'granted');
 
     if (!accessRows?.length) return NextResponse.json({ doms: [] });
 

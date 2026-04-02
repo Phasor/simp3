@@ -1,5 +1,5 @@
-import { formatTimeRemaining, type ChatAccessStatus } from '@/lib/utils/chatAccess';
-import { Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { type ChatAccessStatus } from '@/lib/utils/chatAccess';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 interface ChatAccessStatusProps {
   status: ChatAccessStatus;
@@ -14,44 +14,17 @@ export function ChatAccessStatusBadge({
 }: ChatAccessStatusProps) {
   const getStatusColor = () => {
     if (!status.hasAccess) return 'bg-red-100 text-black border-red-200';
-    
-    // For minute/hour-based access, use more granular checks
-    if (status.daysRemaining !== null && status.daysRemaining > 7) {
-      return 'bg-green-100 text-black border-green-200';
-    }
-    
-    if (status.daysRemaining !== null && status.daysRemaining > 1) {
-      return 'bg-yellow-100 text-black border-yellow-200';
-    }
-    
-    // Less than 1 day remaining
-    if (status.hoursRemaining !== null && status.hoursRemaining > 12) {
-      return 'bg-yellow-100 text-black border-yellow-200';
-    }
-    
-    return 'bg-orange-100 text-black border-orange-200';
+    return 'bg-green-100 text-black border-green-200';
   };
 
   const getStatusIcon = () => {
     if (!status.hasAccess) return <XCircle className="w-4 h-4" />;
-    
-    // More than 7 days
-    if (status.daysRemaining && status.daysRemaining > 7) {
-      return <CheckCircle className="w-4 h-4" />;
-    }
-    
-    // More than 1 day
-    if (status.daysRemaining && status.daysRemaining > 1) {
-      return <AlertTriangle className="w-4 h-4" />;
-    }
-    
-    // Less than 1 day - show clock for urgency
-    return <Clock className="w-4 h-4" />;
+    return <CheckCircle className="w-4 h-4" />;
   };
 
   const getStatusText = () => {
     if (!status.hasAccess) return 'No Access';
-    return formatTimeRemaining(status);
+    return 'Active';
   };
 
   return (
@@ -80,12 +53,6 @@ export function ChatAccessCard({
   fanName,
   className = ''
 }: ChatAccessCardProps) {
-  // Check if expiring soon - use hours and minutes for more granular warning
-  const isExpiringSoon = status.hasAccess && (
-    (status.daysRemaining !== null && status.daysRemaining === 0 && status.hoursRemaining !== null && status.hoursRemaining <= 24) ||
-    (status.daysRemaining !== null && status.daysRemaining <= 1)
-  );
-  
   return (
     <div className={`bg-card border border-border rounded-lg p-4 ${className}`}>
       <div className="flex items-start justify-between mb-3">
@@ -101,31 +68,10 @@ export function ChatAccessCard({
         <div className="space-y-2">
           <div className="text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              <span>
-                Access expires on {status.accessUntil && new Date(status.accessUntil).toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
+              <CheckCircle className="w-4 h-4" />
+              <span>Keep completing tasks to maintain access</span>
             </div>
           </div>
-
-          {isExpiringSoon && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium text-yellow-800">Access expiring soon!</p>
-                  <p className="text-yellow-700">
-                    Your VIP access will expire in {formatTimeRemaining(status).toLowerCase()}.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="space-y-3">
